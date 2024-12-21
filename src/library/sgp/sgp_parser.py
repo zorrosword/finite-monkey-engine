@@ -332,7 +332,7 @@ def find_rust_functions(text, filename,hash):
                     'offset_start': 0,
                     'offset_end': 0,
                     'content': function_body,
-                    'contract_name': filename.replace('.rs','_rust'+str(hash)),
+                    'contract_name': filename.replace('.rs',''),
                     'contract_code': contract_code,
                     'modifiers': [],
                     'stateMutability': None,

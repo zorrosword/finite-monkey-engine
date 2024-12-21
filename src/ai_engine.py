@@ -66,7 +66,10 @@ class AiEngine(object):
                 print("\t skipped (filtered)")
             else:
                 print("\t to scan")
-                prompt=PromptAssembler.assemble_prompt(code_to_be_tested)
+                if os.getenv("SCAN_MODE","VUL")=="OPTIMIZE":  
+                    prompt=PromptAssembler.assemble_optimize_prompt(code_to_be_tested)
+                else:
+                    prompt=PromptAssembler.assemble_prompt(code_to_be_tested)
                 response_vul=common_ask(prompt)
                 print(response_vul)
                 response_vul = response_vul if response_vul is not None else "no"                

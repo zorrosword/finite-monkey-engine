@@ -141,16 +141,17 @@ if __name__ == '__main__':
         dataset_base = "./src/dataset/agent-v1-c4"
         projects = load_dataset(dataset_base)
 
-        project_id = 'javaaaa'
+        project_id = 'CUDIS22'
         project_path = ''
         project = Project(project_id, projects[project_id])
         
         cmd = 'detect_vul'
         if cmd == 'detect_vul':
             lancedb,lance_table_name,project_audit=scan_project(project, engine) # scan
-            check_function_vul(engine,lancedb,lance_table_name,project_audit) # confirm
-        # elif cmd == 'check_vul_if_positive':
-        #     check_function_vul(engine) # confirm
+            if os.getenv("SCAN_MODE","VUL")=="VUL":
+                check_function_vul(engine,lancedb,lance_table_name,project_audit) # confirm
+
+
 
         end_time=time.time()
         print("Total time:",end_time-start_time)

@@ -4,13 +4,18 @@ from prompt_factory.vul_check_prompt import VulCheckPrompt
 class PromptAssembler:
     def assemble_prompt(code):
         ret_prompt=code+"\n"\
-                    +PeripheryPrompt.role_set_move_common()+"\n"\
+                    +PeripheryPrompt.role_set_rust_common()+"\n"\
                     +PeripheryPrompt.task_set_blockchain_common()+"\n"\
                     +CorePrompt.core_prompt()+"\n"\
                     +PeripheryPrompt.guidelines()
                     # +PeripheryPrompt.impact_list()
         return ret_prompt
-    
+    def assemble_optimize_prompt(code):
+        ret_prompt=code+"\n"\
+                    +PeripheryPrompt.role_set_rust_common()+"\n"\
+                    +PeripheryPrompt.task_set_blockchain_common()+"\n"\
+                    +CorePrompt.optimize_prompt()+"\n"
+        return ret_prompt
     def assemble_vul_check_prompt(code,vul):
         ret_prompt=code+"\n"\
                 +str(vul)+"\n"\
