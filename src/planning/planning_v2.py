@@ -212,46 +212,35 @@ class PlanningV2(object):
             all_business_flow[contract_name] = {}
             all_business_flow_line[contract_name]={}
             all_business_flow_context[contract_name] = {}
-            # 提取所有的public和external函数的name，且这些函数不能是view或pure函数
-            if "_rust" in str(contract_name) or contract_name is None:
-                all_public_external_function_names = [
-                    function['name'].split(".")[1] for function in functions
-                    # if function['visibility']=='public' #有些private函数也可能是业务流的起点，还是扫一下
-                ]
-            elif "_python" in str(contract_name) or contract_name is None:
-                all_public_external_function_names = [
-                    function['name'].split(".")[1] for function in functions
-                ]
-            elif any(function['relative_file_path'].endswith('.move') for function in functions):
-                all_public_external_function_names = [
-                    function['name'].split(".")[1] for function in functions if function['visibility']=='public'
-                ]
-            elif any(function['relative_file_path'].endswith('.fr') for function in functions):
-                all_public_external_function_names = [
-                    function['name'].split(".")[1] for function in functions if function['visibility']=='public'
-                ]
-            elif any(function['relative_file_path'].endswith('.java') for function in functions):
-                all_public_external_function_names = [
-                    function['name'].split(".")[1] for function in functions if function['visibility'] in ['public','protected']
-                ]
-            elif "_cairo" in str(contract_name) or contract_name is None:
-                all_public_external_function_names = [
-                    function['name'].split(".")[1] for function in functions if function['visibility']=='public'
-                ]
-            elif "_tact" in str(contract_name) or contract_name is None:
-                all_public_external_function_names = [
-                    function['name'].split(".")[1] for function in functions if function['visibility']=='public'
-                ]
-            elif "_func" in str(contract_name) or contract_name is None:
-                all_public_external_function_names = [
-                    function['name'].split(".")[1] for function in functions if function['visibility']=='public'
-                ]
-            else:
-                all_public_external_function_names = [
-                    function['name'].split(".")[1] for function in functions
-                    # if check_function_if_public_or_external(function['content'])
-                    # and not check_function_if_view_or_pure(function['content'])
-                ]
+
+            # New logic for determining function visibility
+            language_patterns = {
+                '.rust': lambda f: True,  # No visibility filter for Rust
+                '.python': lambda f: True,  # No visibility filter for Python
+                '.move': lambda f: f['visibility'] == 'public',
+                '.fr': lambda f: f['visibility'] == 'public',
+                '.java': lambda f: f['visibility'] in ['public', 'protected'],
+                '.cairo': lambda f: f['visibility'] == 'public',
+                '.tact': lambda f: f['visibility'] == 'public',
+                '.func': lambda f: f['visibility'] == 'public'
+            }
+
+            def get_file_extension(funcs):
+                for func in funcs:
+                    file_path = func['relative_file_path']
+                    for ext in language_patterns:
+                        if file_path.endswith(ext):
+                            return ext
+                return None
+
+            file_ext = get_file_extension(functions)
+            visibility_filter = language_patterns.get(file_ext, lambda f: True)
+
+            all_public_external_function_names = [
+                function['name'].split(".")[1] for function in functions 
+                if visibility_filter(function)
+            ]
+
             print("all_public_external_function_names count:",len(all_public_external_function_names))
             # if len(self.scan_list_for_larget_context)>0 and contract_name not in self.scan_list_for_larget_context:
             #     continue
