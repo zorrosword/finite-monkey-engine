@@ -156,7 +156,7 @@ SWITCH_BUSINESS_CODE=True
 
 ## 📝 License
 
-GNU General Public License v3.0 (GPL-3.0)
+Apache License 2.0
 
 ## 🤝 Contributing
 
