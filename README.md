@@ -1,7 +1,7 @@
 # FiniteMonkey
 
 <p align="center">
-  <img src="@image.jpeg" width="500">
+  <img src="image.jpeg" width="500">
 </p>
 
 <p align="center">
