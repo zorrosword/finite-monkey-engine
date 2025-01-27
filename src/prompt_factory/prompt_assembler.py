@@ -21,6 +21,17 @@ class PromptAssembler:
                 +str(vul)+"\n"\
                 +VulCheckPrompt.vul_check_prompt_claude_no_overflow()+"\n"
         return ret_prompt
-
+    def assemble_vul_check_prompt_final(code,vul):
+        ret_prompt=code+"\n"\
+                +str(vul)+"\n"\
+                +VulCheckPrompt.vul_check_prompt_claude_no_overflow_final()+"\n"
+        return ret_prompt
     def brief_of_response():
-        return "based on the analysis response, please translate the response to json format, the json format is as follows: {'brief of response':'xxx','result':'yes'} or {'brief of response':'xxx','result':'no'} or {'brief of response':'xxx','result':'not sure'}"
+        return """Based on the analysis response, please translate the response to JSON format. 
+        The JSON format should be one of the following:
+        {'brief of response':'xxx','result':'yes'} 
+        {'brief of response':'xxx','result':'no'} 
+        {'brief of response':'xxx','result':'not sure'}
+        
+        The 'brief of response' should contain a concise summary of the analysis,
+        and the 'result' should reflect the final conclusion about the vulnerability's existence."""

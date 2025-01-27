@@ -93,112 +93,140 @@ class AiEngine(object):
                     pbar.update(1)  # 更新进度条
 
         return tasks
-    def process_task_check_vul(self,task:Project_Task):
-        response_final=""
-        starttime=time.time()
+    def process_task_check_vul(self, task:Project_Task):
+        print("\n" + "="*80)
+        print(f"Processing Task ID: {task.id}")
+        print("="*80)
+        
+        starttime = time.time()
         result = task.get_result(False)
-        result_CN=task.get_result_CN()
-        category_mark=task.get_category()
-        if result_CN is not None and len(result_CN) > 0 and result_CN !="None" and category_mark is not None and len(category_mark)>0:
-            print("\t skipped (scanned)")
+        result_CN = task.get_result_CN()
+        category_mark = task.get_category()
+        
+        if result_CN is not None and len(result_CN) > 0 and result_CN != "None" and category_mark is not None and len(category_mark)>0:
+            print("\n🔄 Task already processed, skipping...")
             return
             
-        print("\t to confirm")
-        function_code=task.content
+        print("\n🔍 Starting vulnerability confirmation process...")
+        function_code = task.content
         if_business_flow_scan = task.if_business_flow_scan
         business_flow_code = task.business_flow_code
-        business_flow_context=task.business_flow_context
+        business_flow_context = task.business_flow_context
         
-        code_to_be_tested=business_flow_code+"\n"+business_flow_context if if_business_flow_scan=="1" else function_code
+        code_to_be_tested = business_flow_code+"\n"+business_flow_context if if_business_flow_scan=="1" else function_code
         
-        # First attempt to get a valid response
+        # 第一轮分析
+        print("\n=== First Round Analysis ===")
+        print("📝 Analyzing potential vulnerability...")
         prompt = PromptAssembler.assemble_vul_check_prompt(code_to_be_tested, result)
-        response_from_claude=ask_claude(prompt)
-        if not response_from_claude or response_from_claude=="":
-            print(f"\t Skipping task {task.id} due to empty response")
+        initial_response = ask_claude(prompt)
+        if not initial_response or initial_response == "":
+            print(f"❌ Error: Empty response received for task {task.id}")
             return
-        print(response_from_claude)
         
-        prompt_translate_claude_response_to_json=PromptAssembler.brief_of_response()
-        response = str(common_ask_for_json(response_from_claude+"\n"+prompt_translate_claude_response_to_json))
+        print("\n📊 Initial Analysis Result:")
+        print("-" * 80)
+        print(initial_response)
+        print("-" * 80)
         
-        # Check if first response is empty
+        # 提取需要的额外信息
+        required_info = self.extract_required_info(initial_response)
+        
+        # 如果需要额外信息,进行第二轮分析
+        if required_info:
+            print("\n=== Additional Information Required ===")
+            print("🔎 Required context/information:")
+            for i, info in enumerate(required_info, 1):
+                print(f"{i}. {info}")
+            
+            print("\n📥 Retrieving additional context...")
+            additional_context = self.get_additional_context(required_info)
+            
+            if additional_context:
+                print("\n=== Second Round Analysis ===")
+                print(f"📦 Retrieved additional context (length: {len(additional_context)} chars)")
+                if len(additional_context) < 500:
+                    print("\nAdditional context details:")
+                    print("-" * 80)
+                    print(additional_context)
+                    print("-" * 80)
+                else:
+                    print("💡 Note: Context too long to display, but will be used in analysis")
+                
+                # 组合所有信息进行第二轮分析
+                print("\n🔄 Performing second round analysis with combined information...")
+                combined_code = f"""Original Code:
+{code_to_be_tested}
 
+First Round Analysis:
+{initial_response}
+
+Additional Context:
+{additional_context}"""
+                
+                prompt = PromptAssembler.assemble_vul_check_prompt(combined_code, result)
+                final_response = ask_claude(prompt)
+                
+                print("\n📊 Final Analysis Result:")
+                print("-" * 80)
+                print(final_response)
+                print("-" * 80)
+                
+                prompt_translate_to_json = PromptAssembler.brief_of_response()
+                response = str(common_ask_for_json(final_response+"\n"+prompt_translate_to_json))
+            else:
+                print("\n⚠️ No relevant additional context found")
+                print("➡️ Proceeding with initial analysis only")
+                prompt_translate_to_json = PromptAssembler.brief_of_response()
+                response = str(common_ask_for_json(initial_response+"\n"+prompt_translate_to_json))
+        else:
+            print("\n✅ No additional information required")
+            print("➡️ Proceeding with initial analysis")
+            prompt_translate_to_json = PromptAssembler.brief_of_response()
+            response = str(common_ask_for_json(initial_response+"\n"+prompt_translate_to_json))
         
-        yes_count = 0
-        not_sure_count = 0
-        all_responses = []
-        all_responses.append(response_from_claude+response)
-        print(response)
-        
-        def parse_result(json_string):
-            try:
-                data = json.loads(json_string)
-                return data.get("result", None)
-            except json.JSONDecodeError:
-                print("Invalid JSON string")
-                return None
-        
-        result_status = parse_result(response)
-        if result_status is not None:
-            result_status = result_status.lower()
-            if "not sure" in result_status:
-                not_sure_count += 1
-                print(f"\t got not sure on attempt 1")
-            elif "no" in result_status:
-                print(f"\t confirmed no vulnerability on attempt 1")
+        try:
+            response_data = json.loads(response)
+            result_status = response_data.get("result", "").lower()
+            
+            print("\n=== Final Conclusion ===")
+            if "not sure" in result_status or result_status == "":
+                response_final = "not sure"
+                print("❓ Result: Not Sure")
+                print("Reason: Insufficient information or unclear analysis")
+            elif "no" in result_status and "vulnerability" in result_status.lower():
                 response_final = "no"
-            elif "yes" in result_status:
-                yes_count += 1
-                print(f"\t got yes on attempt 1")
+                print("✅ Result: No Vulnerability")
+                print("Reason: Analysis confirms absence of vulnerability")
+            elif "yes" in result_status or "confirmed" in result_status.lower():
+                response_final = "yes"
+                print("⚠️ Result: Vulnerability Confirmed")
+                print("Reason: Analysis confirms presence of vulnerability")
+            else:
+                response_final = "not sure"
+                print("❓ Result: Not Sure (default)")
+                print("Reason: Unable to make definitive determination")
+                
+        except json.JSONDecodeError:
+            print("\n❌ Error: Invalid JSON response")
+            print("Defaulting to 'not sure' status")
+            response_final = "not sure"
         
-        # Only continue with additional attempts if first one wasn't "no"
-        if response_final != "no":
-            for attempt in range(2):
-                prompt = PromptAssembler.assemble_vul_check_prompt(code_to_be_tested, result)
-                response_from_claude=ask_claude(prompt)
-                print(response_from_claude)
-                
-                response = str(common_ask_for_json(response_from_claude+"\n"+prompt_translate_claude_response_to_json))
-                
-                # If any subsequent response is empty, stop the task
-                if not response or response.isspace():
-                    print(f"\t Skipping task {task.id} due to empty response")
-                    return
-                    
-                all_responses.append(response_from_claude+response)
-                print(response)
-                
-                result_status = parse_result(response)
-                if result_status is not None:
-                    result_status = result_status.lower()
-                    if "not sure" in result_status:
-                        not_sure_count += 1
-                        print(f"\t got not sure on attempt {attempt + 2}")
-                    elif "no" in result_status:
-                        print(f"\t confirmed no vulnerability on attempt {attempt + 2}")
-                        response_final = "no"
-                        break
-                    elif "yes" in result_status:
-                        yes_count += 1
-                        print(f"\t got yes on attempt {attempt + 2}")
-                
-                # Final determination after all attempts
-                if attempt == 1:
-                    if yes_count >= 2:
-                        response_final = "yes"
-                        print("\t confirmed potential vulnerability with majority yes")
-                    elif yes_count == 1 and not_sure_count == 2:
-                        response_final = "not sure"
-                        print("\t result inconclusive with more not sure responses")
-                    else:
-                        response_final = "not sure"
-                        print("\t result inconclusive")
-
-        response_if_assumation = "\n".join([f"Attempt {i+1}: {resp}" for i, resp in enumerate(all_responses)])
+        all_responses = [initial_response]
+        if required_info:
+            all_responses.append(final_response)
+        
+        response_if_assumation = "\n".join([f"Analysis {i+1}: {resp}" for i, resp in enumerate(all_responses)])
         self.project_taskmgr.update_result(task.id, result, response_final, response_if_assumation)
-        endtime=time.time()
-        print("time cost of one task:",endtime-starttime)
+        
+        endtime = time.time()
+        time_cost = endtime - starttime
+        
+        print("\n=== Task Summary ===")
+        print(f"⏱️ Time cost: {time_cost:.2f} seconds")
+        print(f"📝 Analyses performed: {len(all_responses)}")
+        print(f"🏁 Final status: {response_final}")
+        print("=" * 80 + "\n")
     def get_related_functions(self,query,k=3):
         query_embedding = common_get_embedding(query)
         table = self.lancedb.open_table(self.lance_table_name)
@@ -362,6 +390,44 @@ class AiEngine(object):
 
         return tasks
 
+    def extract_required_info(self, claude_response):
+        """Extract information that needs further investigation from Claude's response"""
+        prompt = """
+        Please extract all information points that need further understanding or confirmation from the following analysis response.
+        If the analysis explicitly states "no additional information needed" or similar, return empty.
+        If the analysis mentions needing more information, extract these information points.
+        
+        Analysis response:
+        {response}
+        """
+        
+        extraction_result = ask_claude(prompt.format(response=claude_response))
+        if not extraction_result or extraction_result.isspace():
+            return []
+        
+        # If response contains negative phrases, return empty list
+        if any(phrase in extraction_result.lower() for phrase in ["no need", "not needed", "no additional", "no more"]):
+            return []
+        
+        return [extraction_result]
+
+    def get_additional_context(self, query_contents):
+        """获取额外的上下文信息"""
+        if not query_contents:
+            return ""
+        
+        # 使用所有查询内容获取相关信息
+        related_functions = []
+        for query in query_contents:
+            results = self.get_related_functions(query, k=3)  # 获取最相关的3个匹配
+            if results:
+                related_functions.extend(results)
+        
+        # 提取这些函数的上下文
+        if related_functions:
+            function_names = [func['name'].split('.')[-1] for func in related_functions]
+            return self.extract_related_functions_by_level(function_names, 2)
+        return ""
 
 if __name__ == "__main__":
     pass
