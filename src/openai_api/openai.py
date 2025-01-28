@@ -2,7 +2,7 @@ import json
 import os
 import numpy as np
 import requests
-
+from openai import OpenAI
 
 def azure_openai(prompt):
     # Azure OpenAI配置
@@ -172,12 +172,34 @@ def ask_claude(prompt):
         print(f"Claude API调用失败。错误: {str(e)}")
         return ""
 
+def ask_deepseek(prompt):
+    model = 'deepseek-reasoner'
+    api_key = os.environ.get('DEEPSEEK_API_KEY')
+    api_base = os.environ.get('DEEPSEEK_API_BASE', 'https://api.deepseek.com')
+    
+    try:
+        client = OpenAI(api_key=api_key, base_url=api_base)
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ],
+            stream=False
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"DeepSeek API调用失败。错误: {str(e)}")
+        return ""
+
 def common_ask(prompt):
     model_type = os.environ.get('AZURE_OR_OPENAI', 'CLAUDE')
     if model_type == 'AZURE':
         return azure_openai(prompt)
     elif model_type == 'CLAUDE':
         return ask_claude(prompt)
+    elif model_type == 'DEEPSEEK':
+        return ask_deepseek(prompt)
     else:
         return ask_openai_common(prompt)
 

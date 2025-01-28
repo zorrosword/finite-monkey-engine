@@ -31,7 +31,7 @@ class PromptAssembler:
         The JSON format should be one of the following:
         {'brief of response':'xxx','result':'yes'} 
         {'brief of response':'xxx','result':'no'} 
-        {'brief of response':'xxx','result':'not sure'}
+        # {'brief of response':'xxx','result':'not sure'}
         
         The 'brief of response' should contain a concise summary of the analysis,
         and the 'result' should reflect the final conclusion about the vulnerability's existence."""

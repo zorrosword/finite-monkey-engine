@@ -119,7 +119,7 @@ class AiEngine(object):
         print("\n=== First Round Analysis ===")
         print("📝 Analyzing potential vulnerability...")
         prompt = PromptAssembler.assemble_vul_check_prompt(code_to_be_tested, result)
-        initial_response = ask_claude(prompt)
+        initial_response = ask_deepseek(prompt)
         if not initial_response or initial_response == "":
             print(f"❌ Error: Empty response received for task {task.id}")
             return
@@ -132,7 +132,7 @@ class AiEngine(object):
         # 提取需要的额外信息
         required_info = self.extract_required_info(initial_response)
         
-        # 如果需要额外信息,进行第二轮分析
+        combined_code = code_to_be_tested
         if required_info:
             print("\n=== Additional Information Required ===")
             print("🔎 Required context/information:")
@@ -143,88 +143,92 @@ class AiEngine(object):
             additional_context = self.get_additional_context(required_info)
             
             if additional_context:
-                print("\n=== Second Round Analysis ===")
-                print(f"📦 Retrieved additional context (length: {len(additional_context)} chars)")
+                print("\n📦 Retrieved additional context (length: {len(additional_context)} chars)")
                 if len(additional_context) < 500:
                     print("\nAdditional context details:")
                     print("-" * 80)
                     print(additional_context)
                     print("-" * 80)
-                else:
-                    print("💡 Note: Context too long to display, but will be used in analysis")
                 
-                # 组合所有信息进行第二轮分析
-                print("\n🔄 Performing second round analysis with combined information...")
                 combined_code = f"""Original Code:
-{code_to_be_tested}
+                    {code_to_be_tested}
 
-First Round Analysis:
-{initial_response}
+                    First Round Analysis:
+                    {initial_response}
 
-Additional Context:
-{additional_context}"""
-                
-                prompt = PromptAssembler.assemble_vul_check_prompt(combined_code, result)
-                final_response = ask_claude(prompt)
-                
-                print("\n📊 Final Analysis Result:")
-                print("-" * 80)
-                print(final_response)
-                print("-" * 80)
-                
-                prompt_translate_to_json = PromptAssembler.brief_of_response()
-                response = str(common_ask_for_json(final_response+"\n"+prompt_translate_to_json))
-            else:
-                print("\n⚠️ No relevant additional context found")
-                print("➡️ Proceeding with initial analysis only")
-                prompt_translate_to_json = PromptAssembler.brief_of_response()
-                response = str(common_ask_for_json(initial_response+"\n"+prompt_translate_to_json))
-        else:
-            print("\n✅ No additional information required")
-            print("➡️ Proceeding with initial analysis")
-            prompt_translate_to_json = PromptAssembler.brief_of_response()
-            response = str(common_ask_for_json(initial_response+"\n"+prompt_translate_to_json))
+                    Additional Context:
+                    {additional_context}"""
         
-        try:
-            response_data = json.loads(response)
-            result_status = response_data.get("result", "").lower()
+        # 进行三轮确认
+        confirmation_results = []
+        response_final = None  # 初始化 response_final
+        final_response = None  # 初始化 final_response
+        
+        for i in range(3):
+            if response_final == "no":  # 如果已经确认为 no，直接跳过后续循环
+                break
+                
+            print(f"\n📊 Round {i+1}/3 Analysis:")
+            prompt = PromptAssembler.assemble_vul_check_prompt_final(combined_code, result)
+            round_response = ask_deepseek(prompt)
             
-            print("\n=== Final Conclusion ===")
-            if "not sure" in result_status or result_status == "":
-                response_final = "not sure"
-                print("❓ Result: Not Sure")
-                print("Reason: Insufficient information or unclear analysis")
-            elif "no" in result_status and "vulnerability" in result_status.lower():
-                response_final = "no"
-                print("✅ Result: No Vulnerability")
-                print("Reason: Analysis confirms absence of vulnerability")
-            elif "yes" in result_status or "confirmed" in result_status.lower():
+            print("-" * 80)
+            print(round_response)
+            print("-" * 80)
+            
+            prompt_translate_to_json = PromptAssembler.brief_of_response()
+            print("\n🔍 Brief Response Prompt:")
+            print(prompt_translate_to_json)
+            
+            round_json_response = str(common_ask_for_json(round_response+"\n"+prompt_translate_to_json))
+            print("\n📋 JSON Response:")
+            print(round_json_response)
+            
+            try:
+                response_data = json.loads(round_json_response)
+                result_status = response_data.get("result", "").lower()
+                print("\n🎯 Extracted Result Status:")
+                print(result_status)
+                
+                confirmation_results.append(result_status)
+                
+                # 如果发现一个明确的 "no"，立即确认为不存在漏洞
+                if "no" in result_status:
+                    print("\n🛑 Clear 'no vulnerability' detected - stopping further analysis")
+                    response_final = "no"
+                    final_response = f"Analysis stopped after round {i+1} due to clear 'no vulnerability' result"
+                    continue  # 使用 continue 让循环能够在下一轮开始时通过上面的 break 检查退出
+                
+            except json.JSONDecodeError:
+                print("\n⚠️ JSON Decode Error - marking as 'not sure'")
+                confirmation_results.append("not sure")
+        
+        # 只有在没有提前退出（找到明确的 no）的情况下才进行多数投票
+        if response_final != "no":  # 修改判断条件
+            # 统计结果
+            yes_count = sum(1 for r in confirmation_results if "yes" in r or "confirmed" in r)
+            no_count = sum(1 for r in confirmation_results if "no" in r and "vulnerability" in r)
+            
+            if yes_count >= 2:
                 response_final = "yes"
-                print("⚠️ Result: Vulnerability Confirmed")
-                print("Reason: Analysis confirms presence of vulnerability")
+                print("\n⚠️ Final Result: Vulnerability Confirmed (2+ positive confirmations)")
+            elif no_count >= 2:
+                response_final = "no"
+                print("\n✅ Final Result: No Vulnerability (2+ negative confirmations)")
             else:
                 response_final = "not sure"
-                print("❓ Result: Not Sure (default)")
-                print("Reason: Unable to make definitive determination")
-                
-        except json.JSONDecodeError:
-            print("\n❌ Error: Invalid JSON response")
-            print("Defaulting to 'not sure' status")
-            response_final = "not sure"
+                print("\n❓ Final Result: Not Sure (inconclusive results)")
+            
+            final_response = "\n".join([f"Round {i+1} Analysis:\n{resp}" for i, resp in enumerate(confirmation_results)])
         
-        all_responses = [initial_response]
-        if required_info:
-            all_responses.append(final_response)
-        
-        response_if_assumation = "\n".join([f"Analysis {i+1}: {resp}" for i, resp in enumerate(all_responses)])
-        self.project_taskmgr.update_result(task.id, result, response_final, response_if_assumation)
+        self.project_taskmgr.update_result(task.id, result, response_final, final_response)
         
         endtime = time.time()
         time_cost = endtime - starttime
         
         print("\n=== Task Summary ===")
         print(f"⏱️ Time cost: {time_cost:.2f} seconds")
-        print(f"📝 Analyses performed: {len(all_responses)}")
+        print(f"📝 Analyses performed: {len(confirmation_results)}")
         print(f"🏁 Final status: {response_final}")
         print("=" * 80 + "\n")
     def get_related_functions(self,query,k=3):
@@ -378,7 +382,7 @@ Additional Context:
             return
 
         # 定义线程池中的线程数量
-        max_threads = 5
+        max_threads = 1
 
         with ThreadPoolExecutor(max_workers=max_threads) as executor:
             futures = [executor.submit(self.process_task_check_vul, task) for task in tasks]
@@ -401,7 +405,7 @@ Additional Context:
         {response}
         """
         
-        extraction_result = ask_claude(prompt.format(response=claude_response))
+        extraction_result = ask_deepseek(prompt.format(response=claude_response))
         if not extraction_result or extraction_result.isspace():
             return []
         
@@ -419,7 +423,7 @@ Additional Context:
         # 使用所有查询内容获取相关信息
         related_functions = []
         for query in query_contents:
-            results = self.get_related_functions(query, k=3)  # 获取最相关的3个匹配
+            results = self.get_related_functions(query, k=10)  # 获取最相关的3个匹配
             if results:
                 related_functions.extend(results)
         
