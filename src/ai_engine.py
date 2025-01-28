@@ -119,7 +119,7 @@ class AiEngine(object):
         print("\n=== First Round Analysis ===")
         print("📝 Analyzing potential vulnerability...")
         prompt = PromptAssembler.assemble_vul_check_prompt(code_to_be_tested, result)
-        initial_response = ask_deepseek(prompt)
+        initial_response = ask_claude(prompt)
         if not initial_response or initial_response == "":
             print(f"❌ Error: Empty response received for task {task.id}")
             return
@@ -170,7 +170,7 @@ class AiEngine(object):
                 
             print(f"\n📊 Round {i+1}/3 Analysis:")
             prompt = PromptAssembler.assemble_vul_check_prompt_final(combined_code, result)
-            round_response = ask_deepseek(prompt)
+            round_response = ask_claude(prompt)
             
             print("-" * 80)
             print(round_response)
@@ -405,7 +405,7 @@ class AiEngine(object):
         {response}
         """
         
-        extraction_result = ask_deepseek(prompt.format(response=claude_response))
+        extraction_result = ask_claude(prompt.format(response=claude_response))
         if not extraction_result or extraction_result.isspace():
             return []
         
