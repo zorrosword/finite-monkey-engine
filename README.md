@@ -5,51 +5,47 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg">
+  <img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg">
   <img src="https://img.shields.io/badge/version-1.0-green.svg">
   <img src="https://img.shields.io/badge/bounties-$60,000+-yellow.svg">
-  <img src="https://img.shields.io/github/forks/BradMoonUESTC/finite-monkey-engine?style=flat-square">
-  <img src="https://img.shields.io/github/stars/BradMoonUESTC/finite-monkey-engine?style=flat-square">
 </p>
 
-FiniteMonkey is an advanced vulnerability mining engine powered purely by GPT, requiring no prior knowledge base or fine-tuning. Its effectiveness significantly surpasses most current related research approaches.
+FiniteMonkey is an intelligent vulnerability mining engine based on large language models, requiring no pre-trained knowledge base or fine-tuning. Its core feature is using task-driven and prompt engineering approaches to guide models in vulnerability analysis through carefully designed prompts.
 
-## 🌟 Core Philosophy
+## 🌟 Core Concepts
 
-- **Task-driven, not question-driven**
-- **Prompt-driven, not code-driven** 
-- **Focus on prompt design, not model design**
-- **Leveraging "deception" and hallucination as key mechanics**
+- **Task-driven rather than problem-driven**
+- **Prompt-driven rather than code-driven**
+- **Focus on prompt design rather than model design**
+- **Leverage "deception" and hallucination as key mechanisms**
 
-## 🏆 Results
+## 🏆 Achievements
 
-As of May 2024, this tool has helped identify vulnerabilities worth over $60,000 in bounties.
+As of May 2024, this tool has helped discover over $60,000 worth of bug bounties.
 
-<img width="1258" alt="Bounty Results" src="https://github.com/BradMoonUESTC/trickPrompt-engine/assets/63706549/b3812927-2aa9-47bf-a848-753c2fe05d98">
+## 🚀 Latest Updates
 
-## 🚀 Recent Updates
-
-**2024.11.19**: Version 1.0 released - Demonstrating feasibility of LLM-based auditing and productization
+**2024.11.19**: Released version 1.0 - Validated LLM-based auditing and productization feasibility
 
 **Earlier Updates:**
 - 2024.08.02: Project renamed to finite-monkey-engine
-- 2024.08.01: Added support for func, tact
-- 2024.07.23: Added support for cairo, move
+- 2024.08.01: Added Func, Tact language support
+- 2024.07.23: Added Cairo, Move language support
 - 2024.07.01: Updated license
 - 2024.06.01: Added Python language support
-- 2024.05.18: Improved false positive reduction (~20%)
+- 2024.05.18: Improved false positive rate (~20%)
 - 2024.05.16: Added cross-contract vulnerability confirmation
 - 2024.04.29: Added basic Rust language support
 
-## 📋 Prerequisites
+## 📋 Requirements
 
 - PostgreSQL database
 - OpenAI API access
 - Python environment
 
-## 🛠️ Setup & Configuration
+## 🛠️ Installation & Configuration
 
-1. Place project under `src/dataset/agent-v1-c4`
+1. Place project in `src/dataset/agent-v1-c4` directory
 
 2. Configure project in `datasets.json`:
 ```json
@@ -66,38 +62,32 @@ As of May 2024, this tool has helped identify vulnerabilities worth over $60,000
 
 4. Configure `.env`:
 ```env
-# Database Connection
+# Database connection
 DATABASE_URL=postgresql://user:password@localhost:5432/dbname
 
-# API Settings
+# API settings
 OPENAI_API_BASE="api.example.com"
 OPENAI_API_KEY=sk-your-api-key-here
 
-# Model Settings
+# Model settings
 VUL_MODEL_ID=gpt-4-turbo
 CLAUDE_MODEL=claude-3-5-sonnet-20240620
 
-# Azure Configuration
+# Azure configuration
 AZURE_API_KEY="your-azure-api-key"
 AZURE_API_BASE="https://your-resource.openai.azure.com/"
 AZURE_API_VERSION="2024-02-15-preview"
 AZURE_DEPLOYMENT_NAME="your-deployment"
 
-# API Choice
+# API selection
 AZURE_OR_OPENAI="OPENAI"  # Options: OPENAI, AZURE, CLAUDE
 
-# Scan Parameters
+# Scan parameters
 BUSINESS_FLOW_COUNT=4
 SWITCH_FUNCTION_CODE=False
 SWITCH_BUSINESS_CODE=True
-
-# Scan Focus Configuration
-# SCAN_FOCUS=[
-#     "Contract1",
-#     "Contract2",
-#     "Contract3"
-# ]
 ```
+
 ## 🌈 Supported Languages
 
 - Solidity (.sol)
@@ -108,54 +98,46 @@ SWITCH_BUSINESS_CODE=True
 - Tact (.tact)
 - Func (.fc)
 - Java (.java)
-- Fake Solidity (.fr) - For scanning Solidity pseudocode
+- Pseudo-Solidity (.fr) - For scanning Solidity pseudocode
 
+## 📊 Scan Results Guide
 
-## 📊 Scanning Results Guide
-
-1. Scans can be resumed if interrupted due to network/API issues by rerunning main.py with same project_id
-2. Strongly recommend using GPT-4-turbo - GPT-3.5 and GPT-4.0 have inferior reasoning capabilities
-3. Results are marked with detailed annotations and Chinese explanations:
-   - Prioritize entries with `"result":"yes"` in result column
-   - Filter for `"dont need In-project other contract"` in category column
-   - Check business_flow_code column for specific code
-   - Reference name column for code locations
+1. If interrupted due to network/API issues, resume scanning using the same project_id in main.py
+3. Results include detailed annotations:
+   - Focus on entries marked "yes" in result column
+   - Filter "dont need In-project other contract" in category column
+   - Check specific code in business_flow_code column
+   - Find code location in name column
 
 ## 🎯 Important Notes
 
 - Best suited for logic vulnerability mining in real projects
 - Not recommended for academic vulnerability testing
-- GPT-4-turbo recommended for optimal results
-- Average scan time: 2-3 hours for medium projects
-- Cost estimate: $20-30 for medium projects with 10 iterations
-- Current false positive rate: 30-65% depending on project size
+- GPT-4-turbo recommended for best results
+- Average scan time for medium-sized projects: 2-3 hours
+- Estimated cost for 10 iterations on medium projects: $20-30
+- Current false positive rate: 30-65% (depends on project size)
 
 ## 🔍 Technical Notes
 
-1. GPT-4 provides better results, GPT-3 not thoroughly tested
-2. The tricky prompt theory can be adapted for any language with minor modifications
-3. ANTLR AST parsing support recommended for better code slicing results
-4. Currently supports Solidity with plans for expansion
+1. claude 3.5 sonnet in scanning provides better results with acceptable time cost, GPT-3 not fully tested
+2. Deceptive prompt theory adaptable to any language with minor modifications
+3. ANTLR AST parsing recommended for better code slicing results
+4. Currently supports Solidity, plans to expand language support
+5. DeepSeek-R1 is recommended for better confirmation results
+## 🛡️ Scanning Features
 
-## 🗺️ Roadmap
-
-1. Code structure optimization
-2. Additional language support
-3. Documentation and code analysis
-4. Command line interface implementation
-
-## 🛡️ Scanning Characteristics
-
-- Excellent at code comprehension and logic vulnerability detection
-- Less effective for control flow vulnerability detection
-- Designed for real-world projects rather than academic test cases
+- Excels at code understanding and logic vulnerability detection
+- Weaker at control flow vulnerability detection
+- Designed for real projects, not academic test cases
 
 ## 💡 Implementation Tips
 
-- Each scan preserves progress automatically
-- GPT-4-turbo provides optimal performance compared to other models
-- Medium projects with 10 iterations take approximately 2.5 hours
-- Results include detailed categorization and Chinese explanations
+- Progress automatically saved per scan
+- claude-3.5-sonnet offers best performance in scanning compared to other models
+- deepseek-R1 offers best performance in confirmation compared to other models
+- 10 iterations for medium projects take about 4 hours
+- Results include detailed categorization
 
 ## 📝 License
 
@@ -163,8 +145,10 @@ Apache License 2.0
 
 ## 🤝 Contributing
 
-Contributions welcome! Please feel free to submit pull requests.
+Pull Requests welcome!
 
 ---
 
-*Note: The name is inspired by [Large Language Monkeys paper](https://arxiv.org/abs/2407.21787v1)*
+*Note: Project name inspired by [Large Language Monkeys paper](https://arxiv.org/abs/2407.21787v1)*
+
+Would you like me to explain or break down the code?
