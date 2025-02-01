@@ -70,7 +70,7 @@ class AiEngine(object):
                     prompt=PromptAssembler.assemble_optimize_prompt(code_to_be_tested)
                 else:
                     prompt=PromptAssembler.assemble_prompt(code_to_be_tested)
-                response_vul=common_ask(prompt)
+                response_vul=ask_claude(prompt)
                 print(response_vul)
                 response_vul = response_vul if response_vul is not None else "no"                
                 self.project_taskmgr.update_result(task.id, response_vul, "","")
@@ -119,6 +119,10 @@ class AiEngine(object):
         print("\n=== First Round Analysis ===")
         print("📝 Analyzing potential vulnerability...")
         prompt = PromptAssembler.assemble_vul_check_prompt(code_to_be_tested, result)
+        # 把prompot保存到临时文件
+        with open("prompt.txt", "w") as file:
+            file.write(prompt)
+
         initial_response = ask_claude(prompt)
         if not initial_response or initial_response == "":
             print(f"❌ Error: Empty response received for task {task.id}")
@@ -381,8 +385,8 @@ class AiEngine(object):
         if len(tasks) == 0:
             return
 
-        # 定义线程池中的线程数量
-        max_threads = 1
+        # 定义线程池中的线程数量, 从env获取
+        max_threads = os.getenv("MAX_THREADS_OF_CONFIRMATION", "5")
 
         with ThreadPoolExecutor(max_workers=max_threads) as executor:
             futures = [executor.submit(self.process_task_check_vul, task) for task in tasks]

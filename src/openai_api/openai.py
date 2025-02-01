@@ -174,7 +174,7 @@ def ask_claude(prompt):
 
 def ask_deepseek(prompt):
     model = 'deepseek-reasoner'
-    api_key = os.environ.get('DEEPSEEK_API_KEY')
+    api_key = os.environ.get('DEEPSEEK_API_KEY','sk-8da37e712a5c45168156c2c24cb8c46f')
     api_base = os.environ.get('DEEPSEEK_API_BASE', 'https://api.deepseek.com')
     
     try:
