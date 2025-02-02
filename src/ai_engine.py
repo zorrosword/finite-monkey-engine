@@ -386,7 +386,7 @@ class AiEngine(object):
             return
 
         # 定义线程池中的线程数量, 从env获取
-        max_threads = os.getenv("MAX_THREADS_OF_CONFIRMATION", "5")
+        max_threads = int(os.getenv("MAX_THREADS_OF_CONFIRMATION", 5))
 
         with ThreadPoolExecutor(max_workers=max_threads) as executor:
             futures = [executor.submit(self.process_task_check_vul, task) for task in tasks]

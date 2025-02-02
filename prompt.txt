@@ -1,0 +1,488 @@
+function _useNonce(address owner) internal virtual returns (uint256 current) {
+        current = _nonces[owner];
+        _nonces[owner] = current + 1;
+    }
+function __ERC20MetaTx_init(string memory name) internal onlyInitializing {
+        __Context_init_unchained();
+        __EIP712_init_unchained(name, "1");
+        __ERC20MetaTx_init_unchained();
+    }
+function __ERC20MetaTx_init_unchained() internal onlyInitializing {
+        _PERMIT_TYPEHASH = keccak256(
+            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+        );
+        _TWA_TYPEHASH = keccak256(
+            "TransferWithAuthorization(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+        );
+        _trustedForwarder = address(0);
+    }
+function nonce(address owner) public view returns (uint256) {
+        return _nonces[owner];
+    }
+function permit(
+        address owner,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public virtual {
+        if (block.timestamp > deadline) revert DeadLineExpired(deadline);
+
+        bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, owner, spender, value, _useNonce(owner), deadline));
+
+        bytes32 hash = _hashTypedDataV4(structHash);
+
+        address signer = ECDSA.recover(hash, v, r, s);
+        if (signer != owner) revert InvalidSignature();
+
+        _approve(owner, spender, value);
+    }
+// Contract State Variables:
+mapping(address => uint256) private _nonces;
+bytes32 private _PERMIT_TYPEHASH;
+bytes32 private _TWA_TYPEHASH;
+address private _trustedForwarder;
+
+// Function Implementation:
+function _useNonce(address owner) internal virtual returns (uint256 current) {
+        current = _nonces[owner];
+        _nonces[owner] = current + 1;
+    }
+
+// Contract State Variables:
+uint8 constant DECIMALS = 6;
+bytes32 public constant OWNER = DEFAULT_ADMIN_ROLE;
+
+// Function Implementation:
+function transferWithAuthorization(
+        address holder,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public virtual returns (bool) {
+        if (block.timestamp > deadline) revert DeadLineExpired(deadline);
+
+        bytes32 structHash = keccak256(abi.encode(_TWA_TYPEHASH, holder, spender, value, _useNonce(holder), deadline));
+
+        bytes32 hash = _hashTypedDataV4(structHash);
+
+        address signer = ECDSA.recover(hash, v, r, s);
+        if (signer != holder) revert InvalidSignature();
+
+        _update(holder, spender, value);
+
+        return true;
+    }
+
+// Contract State Variables:
+mapping(address => uint256) private _nonces;
+bytes32 private _PERMIT_TYPEHASH;
+bytes32 private _TWA_TYPEHASH;
+address private _trustedForwarder;
+
+// Function Implementation:
+function __ERC20MetaTx_init_unchained() internal onlyInitializing {
+        _PERMIT_TYPEHASH = keccak256(
+            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+        );
+        _TWA_TYPEHASH = keccak256(
+            "TransferWithAuthorization(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+        );
+        _trustedForwarder = address(0);
+    }
+
+// Contract State Variables:
+mapping(address => uint256) private _nonces;
+bytes32 private _PERMIT_TYPEHASH;
+bytes32 private _TWA_TYPEHASH;
+address private _trustedForwarder;
+
+// Function Implementation:
+function __ERC20MetaTx_init(string memory name) internal onlyInitializing {
+        __Context_init_unchained();
+        __EIP712_init_unchained(name, "1");
+        __ERC20MetaTx_init_unchained();
+    }
+
+// Contract State Variables:
+mapping(address => uint256) private _nonces;
+bytes32 private _PERMIT_TYPEHASH;
+bytes32 private _TWA_TYPEHASH;
+address private _trustedForwarder;
+
+// Function Implementation:
+function permit(
+        address owner,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public virtual {
+        if (block.timestamp > deadline) revert DeadLineExpired(deadline);
+
+        bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, owner, spender, value, _useNonce(owner), deadline));
+
+        bytes32 hash = _hashTypedDataV4(structHash);
+
+        address signer = ECDSA.recover(hash, v, r, s);
+        if (signer != owner) revert InvalidSignature();
+
+        _approve(owner, spender, value);
+    }
+
+// Contract State Variables:
+uint8 constant DECIMALS = 6;
+bytes32 public constant OWNER = DEFAULT_ADMIN_ROLE;
+
+// Function Implementation:
+function owner() public view returns (address) {
+        return getRoleMember(OWNER, 0);
+    }
+
+// Contract State Variables:
+uint8 constant DECIMALS = 6;
+bytes32 public constant OWNER = DEFAULT_ADMIN_ROLE;
+
+// Function Implementation:
+function transferSanity(address sender, address recipient, uint256 amount) internal {
+        adminSanity(sender, recipient);
+        if (_txfeeRate > 0) _payTxFee(sender, amount);
+    }
+
+// Contract State Variables:
+uint8 constant DECIMALS = 6;
+bytes32 public constant OWNER = DEFAULT_ADMIN_ROLE;
+
+// Function Implementation:
+function _payTxFee(address from, uint256 txAmount) internal virtual;
+
+// Contract State Variables:
+address public _feesFaucet;
+uint256 public _txfeeRate;
+uint256 public _gaslessBasefee;
+uint256 constant FEE_RATIO = 10000;
+
+// Function Implementation:
+function calculateTxFee(uint256 txAmount) public view returns (uint256) {
+        return (txAmount * _txfeeRate) / FEE_RATIO;
+    }
+
+// Contract State Variables:
+bytes32 public constant ADMIN = keccak256("ADMIN");
+mapping(address => bool) private _blacklist;
+
+// Function Implementation:
+function adminSanity(address from, address to) internal view {
+        if (!hasRole(ADMIN, _msgSender())) {
+            if (paused()) revert PausedError();
+            if (isBlacklisted(from)) revert SenderBlacklistedError(from);
+        }
+        if (isBlacklisted(to)) revert RecipientBlacklistedError(to);
+        if (to == address(this)) revert TransferToContractError();
+    }
+
+// Contract State Variables:
+uint8 constant DECIMALS = 6;
+bytes32 public constant OWNER = DEFAULT_ADMIN_ROLE;
+
+// Function Implementation:
+function _msgSender() internal view virtual override returns (address sender) {
+        if (isTrustedForwarder(msg.sender)) {
+            assembly {
+                sender := shr(96, calldataload(sub(calldatasize(), 20)))
+            }
+        } else {
+            return super._msgSender();
+        }
+    }
+
+// Contract State Variables:
+mapping(address => uint256) private _nonces;
+bytes32 private _PERMIT_TYPEHASH;
+bytes32 private _TWA_TYPEHASH;
+address private _trustedForwarder;
+
+// Function Implementation:
+function isTrustedForwarder(address forwarder) public view returns (bool) {
+        return forwarder == _trustedForwarder;
+    }
+
+// Contract State Variables:
+bytes32 public constant ADMIN = keccak256("ADMIN");
+mapping(address => bool) private _blacklist;
+
+// Function Implementation:
+function isBlacklisted(address account) public view returns (bool) {
+        return _blacklist[account];
+    }
+
+// Contract State Variables:
+mapping(address => uint256) private _nonces;
+bytes32 private _PERMIT_TYPEHASH;
+bytes32 private _TWA_TYPEHASH;
+address private _trustedForwarder;
+
+// Function Implementation:
+function nonce(address from) public view returns (uint256) {
+        return nonces[from];
+    }
+
+// Contract State Variables:
+address from;
+address to;
+uint256 value;
+uint256 gas;
+uint256 nonce;
+bytes data;
+using ECDSA for bytes32;
+mapping(bytes32 => bool) public typeHashes;
+mapping(address => uint256) private nonces;
+EURFToken private _eurf;
+address private _eurfAddress;
+
+// Function Implementation:
+function _verifyNonce(ForwardRequest memory req) internal view {
+        require(nonces[req.from] == req.nonce, "NGEUR Forwarder: nonce mismatch");
+    }
+
+// Contract State Variables:
+address from;
+address to;
+uint256 value;
+uint256 gas;
+uint256 nonce;
+bytes data;
+using ECDSA for bytes32;
+mapping(bytes32 => bool) public typeHashes;
+mapping(address => uint256) private nonces;
+EURFToken private _eurf;
+address private _eurfAddress;
+
+// Function Implementation:
+function execute(
+        ForwardRequest calldata req,
+        bytes32 domainSeparator,
+        bytes32 requestTypeHash,
+        bytes calldata suffixData,
+        bytes calldata sig
+    ) external payable returns (bool success, bytes memory ret) {
+        _verifyNonce(req);
+        _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
+        _updateNonce(req);
+
+        require(req.to == _eurfAddress, "NGEUR Forwarder: can only forward NGEUR transactions");
+
+        bytes4 transferSelector = bytes4(keccak256("transfer(address,uint256)"));
+        bytes4 reqTransferSelector = bytes4(req.data[:4]);
+
+        require(reqTransferSelector == transferSelector, "NGEUR Forwarder: can only forward transfer transactions");
+
+        // solhint-disable-next-line avoid-low-level-calls
+        (success, ret) = req.to.call{gas: req.gas, value: req.value}(abi.encodePacked(req.data, req.from));
+        require(success, "NGEUR Forwarder: failed tx execution");
+
+        _eurf.payGaslessBasefee(req.from, _msgSender());
+
+        return (success, ret);
+    }
+
+// Contract State Variables:
+address from;
+address to;
+uint256 value;
+uint256 gas;
+uint256 nonce;
+bytes data;
+using ECDSA for bytes32;
+mapping(bytes32 => bool) public typeHashes;
+mapping(address => uint256) private nonces;
+EURFToken private _eurf;
+address private _eurfAddress;
+
+// Function Implementation:
+function verify(
+        ForwardRequest calldata req,
+        bytes32 domainSeparator,
+        bytes32 requestTypeHash,
+        bytes calldata suffixData,
+        bytes calldata sig
+    ) external view {
+        _verifyNonce(req);
+        _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
+
+        bytes4 transferSelector = bytes4(keccak256("transfer(address,uint256)"));
+        bytes4 reqTransferSelector = bytes4(req.data[:4]);
+
+        require(reqTransferSelector == transferSelector, "NGEUR Forwarder: can only forward transfer transactions");
+    }
+
+// Contract State Variables:
+address from;
+address to;
+uint256 value;
+uint256 gas;
+uint256 nonce;
+bytes data;
+using ECDSA for bytes32;
+mapping(bytes32 => bool) public typeHashes;
+mapping(address => uint256) private nonces;
+EURFToken private _eurf;
+address private _eurfAddress;
+
+// Function Implementation:
+function _getEncoded(
+        ForwardRequest memory req,
+        bytes32 requestTypeHash,
+        bytes memory suffixData
+    ) public pure returns (bytes memory) {
+        return
+            abi.encodePacked(
+                requestTypeHash,
+                abi.encode(req.from, req.to, req.value, req.gas, req.nonce, keccak256(req.data)),
+                suffixData
+            );
+    }
+
+// Contract State Variables:
+address from;
+address to;
+uint256 value;
+uint256 gas;
+uint256 nonce;
+bytes data;
+using ECDSA for bytes32;
+mapping(bytes32 => bool) public typeHashes;
+mapping(address => uint256) private nonces;
+EURFToken private _eurf;
+address private _eurfAddress;
+
+// Function Implementation:
+function _verifySig(
+        ForwardRequest memory req,
+        bytes32 domainSeparator,
+        bytes32 requestTypeHash,
+        bytes memory suffixData,
+        bytes memory sig
+    ) internal view {
+        require(typeHashes[requestTypeHash], "NGEUR Forwarder: invalid request typehash");
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", domainSeparator, keccak256(_getEncoded(req, requestTypeHash, suffixData)))
+        );
+        require(digest.recover(sig) == req.from, "NGEUR Forwarder: signature mismatch");
+    }
+
+// Contract State Variables:
+mapping(address => uint256) private _nonces;
+bytes32 private _PERMIT_TYPEHASH;
+bytes32 private _TWA_TYPEHASH;
+address private _trustedForwarder;
+
+// Function Implementation:
+function nonce(address owner) public view returns (uint256) {
+        return _nonces[owner];
+    }
+I'll analyze the code and identify the exploitable vulnerability.
+
+# Vulnerability Analysis
+
+## Vulnerability: Nonce Replay Attack in Permit Function
+
+There is a critical vulnerability in the `permit` function due to incorrect nonce handling. The nonce is retrieved and incremented using `_useNonce(owner)` inside the `structHash` calculation, but this allows for signature replay attacks.
+
+### Technical Details
+
+The vulnerability exists because the nonce is incremented before the signature verification. If the signature verification fails, the nonce is still incremented, which can lead to valid signatures being invalidated and potential replay attacks.
+
+```solidity
+// Current vulnerable implementation
+bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, owner, spender, value, _useNonce(owner), deadline));
+
+address signer = ECDSA.recover(hash, v, r, s);
+if (signer != owner) revert InvalidSignature();
+```
+
+### Exploit Steps
+
+1. Alice (legitimate owner) creates a valid permit signature with:
+   - nonce = 0
+   - value = 1000
+   - deadline = future timestamp
+   
+2. Mallory (attacker) submits the permit transaction but provides an invalid v,r,s signature
+
+3. The following occurs:
+   - `_useNonce(owner)` is called, incrementing Alice's nonce from 0 to 1
+   - Signature verification fails
+   - Transaction reverts, but nonce remains incremented
+
+4. When Alice tries to use her legitimate signature, it fails because:
+   - The signature was signed with nonce = 0
+   - But the contract's stored nonce is now 1
+   - The signature verification will fail due to nonce mismatch
+
+### Fix
+
+Here's how to fix the vulnerability:
+
+```solidity:Contract.sol
+function permit(
+    address owner,
+    address spender,
+    uint256 value,
+    uint256 deadline,
+    uint8 v,
+    bytes32 r,
+    bytes32 s
+) public virtual {
+    if (block.timestamp > deadline) revert DeadLineExpired(deadline);
+
+    // Get current nonce without incrementing
+    uint256 currentNonce = _nonces[owner];
+    
+    bytes32 structHash = keccak256(abi.encode(
+        _PERMIT_TYPEHASH,
+        owner,
+        spender,
+        value,
+        currentNonce,
+        deadline
+    ));
+
+    bytes32 hash = _hashTypedDataV4(structHash);
+
+    address signer = ECDSA.recover(hash, v, r, s);
+    if (signer != owner) revert InvalidSignature();
+
+    // Increment nonce only after successful verification
+    _nonces[owner] = currentNonce + 1;
+    
+    _approve(owner, spender, value);
+}
+```
+
+The fix ensures that:
+1. The nonce is read but not incremented before signature verification
+2. The nonce is only incremented after successful signature verification
+3. The signature cannot be maliciously invalidated by failed verification attempts
+
+This vulnerability is practical and exploitable without requiring any special permissions or extreme conditions. It directly impacts the permit functionality which is a core feature for meta-transactions and gasless approvals.
+
+        First analyze this vulnerability step by step, and then determine if it really exists based on the analysis result or need deeper function code.
+        Please note the following points:
+        1. If the vulnerability is an integer overflow vulnerability, directly conclude that the vulnerability does not exist
+        2. If the vulnerability is a reentrancy vulnerability, directly conclude that the vulnerability does not exist
+        3. When assessing vulnerabilities in functions with permission controls, consider not only the functionality itself but also how easily these permission roles can be obtained, as functions with "permission protection" may still be vulnerable if the permissions are easily accessible
+        4. If more information is needed to confirm the vulnerability, please clearly state what content needs to be understood (e.g., specific function implementations, variable usage patterns, permission check logic, etc.)
+        
+        Please format your output as follows:
+        1. Detailed analysis process
+        2. Whether more information is needed (if yes, please specify what content needs to be understood and why)
+        3. Preliminary conclusion based on current information
+        

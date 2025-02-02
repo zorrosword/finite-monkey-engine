@@ -29,7 +29,7 @@ class VulCheckPrompt:
         """
     def vul_check_prompt_claude_no_overflow_final():
         return """
-        First analyze this vulnerability step by step, then determine if it really exists based on the analysis results.
+        First analyze this vulnerability step by step, code by code, then determine if it really exists based on the analysis results.
         Please note the following points:
         1. If the vulnerability is an integer overflow vulnerability, directly conclude that the vulnerability does not exist
         2. If the vulnerability is a reentrancy vulnerability, directly conclude that the vulnerability does not exist
