@@ -66,10 +66,39 @@ class AiEngine(object):
                 print("\t skipped (filtered)")
             else:
                 print("\t to scan")
-                if os.getenv("SCAN_MODE","VUL")=="OPTIMIZE":  
+                if os.getenv("SCAN_MODE","COMMON_VUL")=="OPTIMIZE":  
                     prompt=PromptAssembler.assemble_optimize_prompt(code_to_be_tested)
-                else:
-                    prompt=PromptAssembler.assemble_prompt(code_to_be_tested)
+                elif os.getenv("SCAN_MODE","COMMON_VUL")=="COMMON_PROJECT":
+                    prompt=PromptAssembler.assemble_prompt_common(code_to_be_tested)
+                elif os.getenv("SCAN_MODE","COMMON_VUL")=="SPECIFIC_PROJECT":
+                    # 构建提示来判断业务类型
+                    type_check_prompt = """分析以下智能合约代码，判断它属于哪些业务类型。可能的类型包括：
+                    chainlink, dao, inline assembly, lending, liquidation, liquidity manager, signature, slippage, univ3, other
+                    
+                    请以JSON格式返回结果，格式为：{"business_types": ["type1", "type2"]}
+                    
+                    代码：
+                    {code}
+                    """
+                    
+                    type_response = ask_claude(type_check_prompt.format(code=code_to_be_tested))
+                    
+                    try:
+                        type_data = json.loads(type_response)
+                        business_type = type_data.get('business_types', ['other'])
+                        
+                        # 防御性逻辑：处理 other 的情况
+                        if 'other' in business_type:
+                            # 如果数组中只有 other，保持原样
+                            # 如果数组中除了 other 还有其他类型，则删除 other
+                            if len(business_type) > 1:
+                                business_type.remove('other')
+                                
+                    except json.JSONDecodeError:
+                        # JSON解析失败时使用默认值
+                        business_type = ['other']
+                    
+                    prompt = PromptAssembler.assemble_prompt_for_specific_project(code_to_be_tested, business_type)
                 response_vul=ask_claude(prompt)
                 print(response_vul)
                 response_vul = response_vul if response_vul is not None else "no"                
@@ -82,7 +111,7 @@ class AiEngine(object):
             return
 
         # 定义线程池中的线程数量
-        max_threads = 5
+        max_threads = int(os.getenv("MAX_THREADS_OF_SCAN", 5))
 
         with ThreadPoolExecutor(max_workers=max_threads) as executor:
             futures = [executor.submit(self.process_task_do_scan, task, filter_func, is_gpt4) for task in tasks]
@@ -385,7 +414,7 @@ class AiEngine(object):
         if len(tasks) == 0:
             return
 
-        # 定义线程池中的线程数量, 从env获取
+        # 定义线程池中的线程数量, 从env获取
         max_threads = int(os.getenv("MAX_THREADS_OF_CONFIRMATION", 5))
 
         with ThreadPoolExecutor(max_workers=max_threads) as executor:
