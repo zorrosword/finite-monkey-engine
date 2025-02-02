@@ -123,7 +123,7 @@ class AiEngine(object):
         with open("prompt.txt", "w") as file:
             file.write(prompt)
 
-        initial_response = ask_claude(prompt)
+        initial_response = common_ask_confirmation(prompt)
         if not initial_response or initial_response == "":
             print(f"❌ Error: Empty response received for task {task.id}")
             return
@@ -174,7 +174,7 @@ class AiEngine(object):
                 
             print(f"\n📊 Round {i+1}/3 Analysis:")
             prompt = PromptAssembler.assemble_vul_check_prompt_final(combined_code, result)
-            round_response = ask_claude(prompt)
+            round_response = common_ask_confirmation(prompt)
             
             print("-" * 80)
             print(round_response)

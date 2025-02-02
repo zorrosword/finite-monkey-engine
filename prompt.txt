@@ -1,82 +1,13 @@
-function _useNonce(address owner) internal virtual returns (uint256 current) {
-        current = _nonces[owner];
-        _nonces[owner] = current + 1;
+function decimals() public pure override returns (uint8) {
+        return DECIMALS;
     }
-function __ERC20MetaTx_init(string memory name) internal onlyInitializing {
-        __Context_init_unchained();
-        __EIP712_init_unchained(name, "1");
-        __ERC20MetaTx_init_unchained();
-    }
-function __ERC20MetaTx_init_unchained() internal onlyInitializing {
-        _PERMIT_TYPEHASH = keccak256(
-            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
-        );
-        _TWA_TYPEHASH = keccak256(
-            "TransferWithAuthorization(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
-        );
-        _trustedForwarder = address(0);
-    }
-function nonce(address owner) public view returns (uint256) {
-        return _nonces[owner];
-    }
-function permit(
-        address owner,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) public virtual {
-        if (block.timestamp > deadline) revert DeadLineExpired(deadline);
-
-        bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, owner, spender, value, _useNonce(owner), deadline));
-
-        bytes32 hash = _hashTypedDataV4(structHash);
-
-        address signer = ECDSA.recover(hash, v, r, s);
-        if (signer != owner) revert InvalidSignature();
-
-        _approve(owner, spender, value);
-    }
-// Contract State Variables:
-mapping(address => uint256) private _nonces;
-bytes32 private _PERMIT_TYPEHASH;
-bytes32 private _TWA_TYPEHASH;
-address private _trustedForwarder;
-
-// Function Implementation:
-function _useNonce(address owner) internal virtual returns (uint256 current) {
-        current = _nonces[owner];
-        _nonces[owner] = current + 1;
-    }
-
 // Contract State Variables:
 uint8 constant DECIMALS = 6;
 bytes32 public constant OWNER = DEFAULT_ADMIN_ROLE;
 
 // Function Implementation:
-function transferWithAuthorization(
-        address holder,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) public virtual returns (bool) {
-        if (block.timestamp > deadline) revert DeadLineExpired(deadline);
-
-        bytes32 structHash = keccak256(abi.encode(_TWA_TYPEHASH, holder, spender, value, _useNonce(holder), deadline));
-
-        bytes32 hash = _hashTypedDataV4(structHash);
-
-        address signer = ECDSA.recover(hash, v, r, s);
-        if (signer != holder) revert InvalidSignature();
-
-        _update(holder, spender, value);
-
-        return true;
+function decimals() public pure override returns (uint8) {
+        return DECIMALS;
     }
 
 // Contract State Variables:
@@ -86,82 +17,9 @@ bytes32 private _TWA_TYPEHASH;
 address private _trustedForwarder;
 
 // Function Implementation:
-function __ERC20MetaTx_init_unchained() internal onlyInitializing {
-        _PERMIT_TYPEHASH = keccak256(
-            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
-        );
-        _TWA_TYPEHASH = keccak256(
-            "TransferWithAuthorization(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
-        );
-        _trustedForwarder = address(0);
+function DOMAIN_SEPARATOR() external view returns (bytes32) {
+        return _domainSeparatorV4();
     }
-
-// Contract State Variables:
-mapping(address => uint256) private _nonces;
-bytes32 private _PERMIT_TYPEHASH;
-bytes32 private _TWA_TYPEHASH;
-address private _trustedForwarder;
-
-// Function Implementation:
-function __ERC20MetaTx_init(string memory name) internal onlyInitializing {
-        __Context_init_unchained();
-        __EIP712_init_unchained(name, "1");
-        __ERC20MetaTx_init_unchained();
-    }
-
-// Contract State Variables:
-mapping(address => uint256) private _nonces;
-bytes32 private _PERMIT_TYPEHASH;
-bytes32 private _TWA_TYPEHASH;
-address private _trustedForwarder;
-
-// Function Implementation:
-function permit(
-        address owner,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) public virtual {
-        if (block.timestamp > deadline) revert DeadLineExpired(deadline);
-
-        bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, owner, spender, value, _useNonce(owner), deadline));
-
-        bytes32 hash = _hashTypedDataV4(structHash);
-
-        address signer = ECDSA.recover(hash, v, r, s);
-        if (signer != owner) revert InvalidSignature();
-
-        _approve(owner, spender, value);
-    }
-
-// Contract State Variables:
-uint8 constant DECIMALS = 6;
-bytes32 public constant OWNER = DEFAULT_ADMIN_ROLE;
-
-// Function Implementation:
-function owner() public view returns (address) {
-        return getRoleMember(OWNER, 0);
-    }
-
-// Contract State Variables:
-uint8 constant DECIMALS = 6;
-bytes32 public constant OWNER = DEFAULT_ADMIN_ROLE;
-
-// Function Implementation:
-function transferSanity(address sender, address recipient, uint256 amount) internal {
-        adminSanity(sender, recipient);
-        if (_txfeeRate > 0) _payTxFee(sender, amount);
-    }
-
-// Contract State Variables:
-uint8 constant DECIMALS = 6;
-bytes32 public constant OWNER = DEFAULT_ADMIN_ROLE;
-
-// Function Implementation:
-function _payTxFee(address from, uint256 txAmount) internal virtual;
 
 // Contract State Variables:
 address public _feesFaucet;
@@ -170,57 +28,8 @@ uint256 public _gaslessBasefee;
 uint256 constant FEE_RATIO = 10000;
 
 // Function Implementation:
-function calculateTxFee(uint256 txAmount) public view returns (uint256) {
-        return (txAmount * _txfeeRate) / FEE_RATIO;
-    }
-
-// Contract State Variables:
-bytes32 public constant ADMIN = keccak256("ADMIN");
-mapping(address => bool) private _blacklist;
-
-// Function Implementation:
-function adminSanity(address from, address to) internal view {
-        if (!hasRole(ADMIN, _msgSender())) {
-            if (paused()) revert PausedError();
-            if (isBlacklisted(from)) revert SenderBlacklistedError(from);
-        }
-        if (isBlacklisted(to)) revert RecipientBlacklistedError(to);
-        if (to == address(this)) revert TransferToContractError();
-    }
-
-// Contract State Variables:
-uint8 constant DECIMALS = 6;
-bytes32 public constant OWNER = DEFAULT_ADMIN_ROLE;
-
-// Function Implementation:
-function _msgSender() internal view virtual override returns (address sender) {
-        if (isTrustedForwarder(msg.sender)) {
-            assembly {
-                sender := shr(96, calldataload(sub(calldatasize(), 20)))
-            }
-        } else {
-            return super._msgSender();
-        }
-    }
-
-// Contract State Variables:
-mapping(address => uint256) private _nonces;
-bytes32 private _PERMIT_TYPEHASH;
-bytes32 private _TWA_TYPEHASH;
-address private _trustedForwarder;
-
-// Function Implementation:
-function isTrustedForwarder(address forwarder) public view returns (bool) {
-        return forwarder == _trustedForwarder;
-    }
-
-// Contract State Variables:
-bytes32 public constant ADMIN = keccak256("ADMIN");
-mapping(address => bool) private _blacklist;
-
-// Function Implementation:
-function isBlacklisted(address account) public view returns (bool) {
-        return _blacklist[account];
+function getTxFeeRate() public view returns (uint256) {
+        return _txfeeRate;
     }
 
 // Contract State Variables:
@@ -385,102 +194,127 @@ bytes32 private _TWA_TYPEHASH;
 address private _trustedForwarder;
 
 // Function Implementation:
+function __ERC20MetaTx_init_unchained() internal onlyInitializing {
+        _PERMIT_TYPEHASH = keccak256(
+            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+        );
+        _TWA_TYPEHASH = keccak256(
+            "TransferWithAuthorization(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+        );
+        _trustedForwarder = address(0);
+    }
+
+// Contract State Variables:
+mapping(address => uint256) private _nonces;
+bytes32 private _PERMIT_TYPEHASH;
+bytes32 private _TWA_TYPEHASH;
+address private _trustedForwarder;
+
+// Function Implementation:
+function __ERC20MetaTx_init(string memory name) internal onlyInitializing {
+        __Context_init_unchained();
+        __EIP712_init_unchained(name, "1");
+        __ERC20MetaTx_init_unchained();
+    }
+
+// Contract State Variables:
+uint8 constant DECIMALS = 6;
+bytes32 public constant OWNER = DEFAULT_ADMIN_ROLE;
+
+// Function Implementation:
+function owner() public view returns (address) {
+        return getRoleMember(OWNER, 0);
+    }
+
+// Contract State Variables:
+mapping(address => uint256) private _nonces;
+bytes32 private _PERMIT_TYPEHASH;
+bytes32 private _TWA_TYPEHASH;
+address private _trustedForwarder;
+
+// Function Implementation:
 function nonce(address owner) public view returns (uint256) {
         return _nonces[owner];
     }
-I'll analyze the code and identify the exploitable vulnerability.
 
-# Vulnerability Analysis
+// Contract State Variables:
+bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+bytes32 public constant MASTER_MINTER = keccak256("MASTER_MINTER");
+mapping(address => uint256) public minterAllowed;
+bytes32 public constant CONTROLLER = keccak256("CONTROLLER");
+bool public _operating;
+address internal _operatingController;
 
-## Vulnerability: Nonce Replay Attack in Permit Function
+// Function Implementation:
+function getMinterAllowance(address minter) public view returns (uint256) {
+        return minterAllowed[minter];
+    }
+# Smart Contract Vulnerability Analysis
 
-There is a critical vulnerability in the `permit` function due to incorrect nonce handling. The nonce is retrieved and incremented using `_useNonce(owner)` inside the `structHash` calculation, but this allows for signature replay attacks.
+After analyzing the `decimals()` function, I can identify a critical vulnerability related to **Parameter Validation and Input Verification Deficiencies**, specifically around the constant `DECIMALS`.
 
-### Technical Details
+## Vulnerability Description
 
-The vulnerability exists because the nonce is incremented before the signature verification. If the signature verification fails, the nonce is still incremented, which can lead to valid signatures being invalidated and potential replay attacks.
+The function relies on a constant `DECIMALS` but doesn't validate or enforce any constraints on this value. This creates a potential vulnerability where the decimal precision could be incorrectly set or manipulated during contract deployment.
 
 ```solidity
-// Current vulnerable implementation
-bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, owner, spender, value, _useNonce(owner), deadline));
-
-address signer = ECDSA.recover(hash, v, r, s);
-if (signer != owner) revert InvalidSignature();
-```
-
-### Exploit Steps
-
-1. Alice (legitimate owner) creates a valid permit signature with:
-   - nonce = 0
-   - value = 1000
-   - deadline = future timestamp
-   
-2. Mallory (attacker) submits the permit transaction but provides an invalid v,r,s signature
-
-3. The following occurs:
-   - `_useNonce(owner)` is called, incrementing Alice's nonce from 0 to 1
-   - Signature verification fails
-   - Transaction reverts, but nonce remains incremented
-
-4. When Alice tries to use her legitimate signature, it fails because:
-   - The signature was signed with nonce = 0
-   - But the contract's stored nonce is now 1
-   - The signature verification will fail due to nonce mismatch
-
-### Fix
-
-Here's how to fix the vulnerability:
-
-```solidity:Contract.sol
-function permit(
-    address owner,
-    address spender,
-    uint256 value,
-    uint256 deadline,
-    uint8 v,
-    bytes32 r,
-    bytes32 s
-) public virtual {
-    if (block.timestamp > deadline) revert DeadLineExpired(deadline);
-
-    // Get current nonce without incrementing
-    uint256 currentNonce = _nonces[owner];
-    
-    bytes32 structHash = keccak256(abi.encode(
-        _PERMIT_TYPEHASH,
-        owner,
-        spender,
-        value,
-        currentNonce,
-        deadline
-    ));
-
-    bytes32 hash = _hashTypedDataV4(structHash);
-
-    address signer = ECDSA.recover(hash, v, r, s);
-    if (signer != owner) revert InvalidSignature();
-
-    // Increment nonce only after successful verification
-    _nonces[owner] = currentNonce + 1;
-    
-    _approve(owner, spender, value);
+function decimals() public pure override returns (uint8) {
+    return DECIMALS;
 }
 ```
 
-The fix ensures that:
-1. The nonce is read but not incremented before signature verification
-2. The nonce is only incremented after successful signature verification
-3. The signature cannot be maliciously invalidated by failed verification attempts
+The key issues are:
+1. The `DECIMALS` constant could be set to an arbitrarily large value during contract deployment
+2. No upper bound validation exists
+3. This could lead to precision overflow in calculations that rely on this decimal value
 
-This vulnerability is practical and exploitable without requiring any special permissions or extreme conditions. It directly impacts the permit functionality which is a core feature for meta-transactions and gasless approvals.
+## Exploitation Steps
+
+1. During contract deployment, an attacker could set `DECIMALS` to a very large value (e.g., 255)
+2. When other functions use this decimal value for calculations (like price conversions or token amounts), they would shift decimal places much further than intended
+3. This could cause severe calculation errors in:
+   - Token amount calculations
+   - Price conversions 
+   - Fee calculations
+   - Share distributions
+
+## Fix Recommendation
+
+Add validation for the `DECIMALS` constant during contract initialization:
+
+```solidity:Contract.sol
+// ... existing code ...
+
+// Add constant for maximum allowed decimals
+uint8 private constant MAX_DECIMALS = 18;
+
+constructor(uint8 _decimals) {
+    require(_decimals <= MAX_DECIMALS, "Decimals exceeds maximum allowed");
+    DECIMALS = _decimals;
+}
+
+function decimals() public pure override returns (uint8) {
+    return DECIMALS;
+}
+
+// ... existing code ...
+```
+
+This fix ensures:
+1. The `DECIMALS` value cannot exceed a reasonable maximum
+2. All calculations using this decimal value will remain within safe bounds
+3. Prevents potential overflow attacks in related mathematical operations
+
+The vulnerability is practical and exploitable because it affects core financial calculations throughout the contract's operation, not just edge cases or theoretical scenarios.
 
         First analyze this vulnerability step by step, and then determine if it really exists based on the analysis result or need deeper function code.
         Please note the following points:
         1. If the vulnerability is an integer overflow vulnerability, directly conclude that the vulnerability does not exist
         2. If the vulnerability is a reentrancy vulnerability, directly conclude that the vulnerability does not exist
-        3. When assessing vulnerabilities in functions with permission controls, consider not only the functionality itself but also how easily these permission roles can be obtained, as functions with "permission protection" may still be vulnerable if the permissions are easily accessible
-        4. If more information is needed to confirm the vulnerability, please clearly state what content needs to be understood (e.g., specific function implementations, variable usage patterns, permission check logic, etc.)
-        
+        3. If the vulnerability requires inserting new address transaction operations from external sources during function execution, directly determine it does not exist, because transactions are atomic
+        4. When assessing vulnerabilities in functions with permission controls, consider not only the functionality itself but also how easily these permission roles can be obtained, as functions with "permission protection" may still be vulnerable if the permissions are easily accessible
+        5. If more information is needed to confirm the vulnerability, please clearly state what content needs to be understood (e.g., specific function implementations, variable usage patterns, permission check logic, etc.)
+        6. Any vulnerability or risk that could cause potential losses is valid(event small losses), it doesn't necessarily need to cause major security issues
         Please format your output as follows:
         1. Detailed analysis process
         2. Whether more information is needed (if yes, please specify what content needs to be understood and why)

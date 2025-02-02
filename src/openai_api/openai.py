@@ -174,6 +174,7 @@ def ask_claude(prompt):
 
 def ask_deepseek(prompt):
     model = 'deepseek-reasoner'
+    print("prompt:",prompt)
     api_key = os.environ.get('DEEPSEEK_API_KEY','sk-8da37e712a5c45168156c2c24cb8c46f')
     api_base = os.environ.get('DEEPSEEK_API_BASE', 'https://api.deepseek.com')
     
@@ -235,3 +236,12 @@ def common_get_embedding(text: str):
     except requests.exceptions.RequestException as e:
         print(f"Error: {e}")
         return list(np.zeros(3072))  # 返回长度为3072的全0数组
+
+def common_ask_confirmation(prompt):
+    model_type = os.environ.get('CONFIRMATION_MODEL', 'DEEPSEEK')
+    if model_type == 'CLAUDE':
+        return ask_claude(prompt)
+    elif model_type == 'DEEPSEEK':
+        return ask_deepseek(prompt)
+    else:
+        return ask_openai_common(prompt)

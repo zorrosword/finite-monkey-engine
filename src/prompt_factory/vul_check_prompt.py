@@ -19,9 +19,10 @@ class VulCheckPrompt:
         Please note the following points:
         1. If the vulnerability is an integer overflow vulnerability, directly conclude that the vulnerability does not exist
         2. If the vulnerability is a reentrancy vulnerability, directly conclude that the vulnerability does not exist
-        3. When assessing vulnerabilities in functions with permission controls, consider not only the functionality itself but also how easily these permission roles can be obtained, as functions with "permission protection" may still be vulnerable if the permissions are easily accessible
-        4. If more information is needed to confirm the vulnerability, please clearly state what content needs to be understood (e.g., specific function implementations, variable usage patterns, permission check logic, etc.)
-        
+        3. If the vulnerability requires inserting new address transaction operations from external sources during function execution, directly determine it does not exist, because transactions are atomic
+        4. When assessing vulnerabilities in functions with permission controls, consider not only the functionality itself but also how easily these permission roles can be obtained, as functions with "permission protection" may still be vulnerable if the permissions are easily accessible
+        5. If more information is needed to confirm the vulnerability, please clearly state what content needs to be understood (e.g., specific function implementations, variable usage patterns, permission check logic, etc.)
+        6. Any vulnerability or risk that could cause potential losses is valid(event small losses), it doesn't necessarily need to cause major security issues
         Please format your output as follows:
         1. Detailed analysis process
         2. Whether more information is needed (if yes, please specify what content needs to be understood and why)
@@ -33,6 +34,8 @@ class VulCheckPrompt:
         Please note the following points:
         1. If the vulnerability is an integer overflow vulnerability, directly conclude that the vulnerability does not exist
         2. If the vulnerability is a reentrancy vulnerability, directly conclude that the vulnerability does not exist
-        3. When assessing vulnerabilities in functions with permission controls, consider not only the functionality itself but also how easily these permission roles can be obtained, as functions with "permission protection" may still be vulnerable if the permissions are easily accessible
-
+        3. If the vulnerability is a transaction atomicity vulnerability, directly conclude that the vulnerability does not exist
+        4. When assessing vulnerabilities in functions with permission controls, consider not only the functionality itself but also how easily these permission roles can be obtained, as functions with "permission protection" may still be vulnerable if the permissions are easily accessible
+        5. Any vulnerability or risk that could cause potential losses is valid(event small losses), it doesn't necessarily need to cause major security issues
+        Please format your output as follows:
         """
