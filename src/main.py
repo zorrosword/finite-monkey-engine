@@ -141,14 +141,14 @@ if __name__ == '__main__':
         dataset_base = "./src/dataset/agent-v1-c4"
         projects = load_dataset(dataset_base)
 
-        project_id = 'nextgensub1'
+        project_id = 'zaros'
         project_path = ''
         project = Project(project_id, projects[project_id])
         
         cmd = 'detect_vul'
         if cmd == 'detect_vul':
             lancedb,lance_table_name,project_audit=scan_project(project, engine) # scan
-            if os.getenv("SCAN_MODE","VUL")=="VUL":
+            if os.getenv("SCAN_MODE","SPECIFIC_PROJECT")=="SPECIFIC_PROJECT" or os.getenv("SCAN_MODE","SPECIFIC_PROJECT")=="COMMON_PROJECT":
                 check_function_vul(engine,lancedb,lance_table_name,project_audit) # confirm
 
 
