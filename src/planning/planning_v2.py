@@ -366,6 +366,67 @@ class PlanningV2(object):
             # business_task_item_id = 
             if switch_business_code:
                 business_flow_code,line_info_list,other_contract_context=self.search_business_flow(all_business_flow, all_business_flow_line,all_business_flow_context, name.split(".")[1], contract_name)
+                print(f"[DEBUG] 获取到的业务流代码长度: {len(business_flow_code) if business_flow_code else 0}")
+                print(f"[DEBUG] 获取到的其他合约上下文长度: {len(other_contract_context) if other_contract_context else 0}")
+                
+                type_check_prompt = '''分析以下智能合约代码，判断它属于哪些业务类型。可能的类型包括：
+                    chainlink, dao, inline assembly, lending, liquidation, liquidity manager, signature, slippage, univ3, other
+                    
+                    请以JSON格式返回结果，格式为：{{"business_types": ["type1", "type2"]}}
+                    
+                    代码：
+                    {0}
+                    '''
+                    
+                try:
+                    # 使用format方法而不是.format()
+                    formatted_prompt = type_check_prompt.format(business_flow_code+"\n"+other_contract_context+"\n"+content)
+                    type_response = common_ask_for_json(formatted_prompt)
+                    print(f"[DEBUG] Claude返回的响应: {type_response}")
+                    
+                    # 更严格的响应清理
+                    cleaned_response = type_response.strip()
+                    cleaned_response = cleaned_response.replace("```json", "").replace("```", "")
+                    cleaned_response = cleaned_response.replace("\n", "").replace(" ", "")
+                    cleaned_response = cleaned_response.strip()
+                    
+                    # 确保响应是有效的JSON格式
+                    if not cleaned_response.startswith("{"):
+                        cleaned_response = "{" + cleaned_response
+                    if not cleaned_response.endswith("}"):
+                        cleaned_response = cleaned_response + "}"
+                        
+                    print(f"[DEBUG] 清理后的响应: {cleaned_response}")
+                    
+                    type_data = json.loads(cleaned_response)
+                    business_type = type_data.get('business_types', ['other'])
+                    print(f"[DEBUG] 解析出的业务类型: {business_type}")
+                    
+                    # 防御性逻辑：确保business_type是列表类型
+                    if not isinstance(business_type, list):
+                        business_type = [str(business_type)]
+                    
+                    # 处理 other 的情况
+                    if 'other' in business_type and len(business_type) > 1:
+                        business_type.remove('other')
+                        
+                    # 确保列表不为空
+                    if not business_type:
+                        business_type = ['other']
+                        
+                    business_type_str = ','.join(str(bt) for bt in business_type)
+                    print(f"[DEBUG] 最终的业务类型字符串: {business_type_str}")
+                    
+                except json.JSONDecodeError as e:
+                    print(f"[ERROR] JSON解析失败: {str(e)}")
+                    print(f"[ERROR] 原始响应: {type_response}")
+                    business_type = ['other']
+                    business_type_str = 'other'
+                except Exception as e:
+                    print(f"[ERROR] 处理业务类型时发生错误: {str(e)}")
+                    business_type = ['other']
+                    business_type_str = 'other'
+
                 if business_flow_code != "not found":
                     for i in range(int(os.environ.get('BUSINESS_FLOW_COUNT', 1))):
                         task = Project_Task(
@@ -389,7 +450,7 @@ class PlanningV2(object):
                             end_line=function['end_line'],
                             relative_file_path=function['relative_file_path'],
                             absolute_file_path=function['absolute_file_path'],
-                            recommendation='',
+                            recommendation=business_type_str,  # 保存转换后的字符串
                             title='',
                             business_flow_code=str(business_flow_code)+"\n"+str(content),
                             business_flow_lines=line_info_list,

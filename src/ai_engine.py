@@ -72,35 +72,15 @@ class AiEngine(object):
                     prompt=PromptAssembler.assemble_prompt_common(code_to_be_tested)
                 elif os.getenv("SCAN_MODE","COMMON_VUL")=="SPECIFIC_PROJECT":
                     # 构建提示来判断业务类型
-                    type_check_prompt = """分析以下智能合约代码，判断它属于哪些业务类型。可能的类型包括：
-                    chainlink, dao, inline assembly, lending, liquidation, liquidity manager, signature, slippage, univ3, other
-                    
-                    请以JSON格式返回结果，格式为：{"business_types": ["type1", "type2"]}
-                    
-                    代码：
-                    {code}
-                    """
-                    
-                    type_response = ask_claude(type_check_prompt.format(code=code_to_be_tested))
-                    
-                    try:
-                        type_data = json.loads(type_response)
-                        business_type = type_data.get('business_types', ['other'])
-                        
-                        # 防御性逻辑：处理 other 的情况
-                        if 'other' in business_type:
-                            # 如果数组中只有 other，保持原样
-                            # 如果数组中除了 other 还有其他类型，则删除 other
-                            if len(business_type) > 1:
-                                business_type.remove('other')
-                                
-                    except json.JSONDecodeError:
-                        # JSON解析失败时使用默认值
-                        business_type = ['other']
-                    
-                    prompt = PromptAssembler.assemble_prompt_for_specific_project(code_to_be_tested, business_type)
+                    business_type=task.recommendation
+                    print(f"[DEBUG] business_type: {business_type}")
+                    # 数据库中保存的形式是xxxx,xxxxx,xxxx... 转成assemble_prompt_for_specific_project可以接收的数组形式
+                    business_type_list=business_type.split(',')
+                    print(f"[DEBUG] business_type_list: {business_type_list}")
+                    prompt = PromptAssembler.assemble_prompt_for_specific_project(code_to_be_tested, business_type_list)
+                    print(f"[DEBUG] Generated prompt: {prompt}")
                 response_vul=ask_claude(prompt)
-                print(response_vul)
+                print(f"[DEBUG] Claude response: {response_vul}")
                 response_vul = response_vul if response_vul is not None else "no"                
                 self.project_taskmgr.update_result(task.id, response_vul, "","")
     def do_scan(self, is_gpt4=False, filter_func=None):
