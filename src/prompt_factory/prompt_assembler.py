@@ -9,7 +9,9 @@ class PromptAssembler:
                     +PeripheryPrompt.task_set_blockchain_common()+"\n"\
                     +CorePrompt.core_prompt_assembled()+"\n"\
                     +VulPrompt.vul_prompt_common()+"\n"\
-                    +PeripheryPrompt.guidelines()
+                    +PeripheryPrompt.guidelines()+"\n"\
+                    +PeripheryPrompt.jailbreak_prompt()
+
                     
         return ret_prompt
     def assemble_prompt_for_specific_project(code, business_type):
@@ -39,11 +41,12 @@ class PromptAssembler:
         combined_vul_prompt = "\n\n".join(vul_prompts)
         
         ret_prompt = code+"\n"\
-                    +PeripheryPrompt.role_set_rust_common()+"\n"\
+                    +PeripheryPrompt.role_set_solidity_common()+"\n"\
                     +PeripheryPrompt.task_set_blockchain_common()+"\n"\
                     +CorePrompt.core_prompt_assembled()+"\n"\
                     +combined_vul_prompt+"\n"\
-                    +PeripheryPrompt.guidelines()
+                    +PeripheryPrompt.guidelines()+"\n"\
+                    +PeripheryPrompt.jailbreak_prompt()
                     
         return ret_prompt
     def assemble_optimize_prompt(code):
@@ -62,6 +65,7 @@ class PromptAssembler:
                 +str(vul)+"\n"\
                 +VulCheckPrompt.vul_check_prompt_claude_no_overflow_final()+"\n"
         return ret_prompt
+
     def brief_of_response():
         return """Based on the analysis response, please translate the response to JSON format. 
         The JSON format should be one of the following:
