@@ -88,7 +88,7 @@ def ask_openai_common(prompt):
             "Authorization": f"Bearer {api_key}"
         }
         data = {
-            "model": os.environ.get('VUL_MODEL_ID'),  # Replace with your actual OpenAI model
+            "model": os.environ.get('OPENAI_MODEL'),  # Replace with your actual OpenAI model
             "messages": [
                 {
                     "role": "user",
@@ -112,7 +112,7 @@ def ask_openai_for_json(prompt):
         "Authorization": f"Bearer {api_key}"
     }
     data = {
-        "model": os.environ.get('VUL_MODEL_ID'),
+        "model": os.environ.get('OPENAI_MODEL'),
         "response_format": { "type": "json_object" },
         "messages": [
             {
@@ -175,24 +175,73 @@ def ask_claude(prompt):
 def ask_deepseek(prompt):
     model = 'deepseek-reasoner'
     print("prompt:",prompt)
-    api_key = os.environ.get('DEEPSEEK_API_KEY','sk-8da37e712a5c45168156c2c24cb8c46f')
-    api_base = os.environ.get('DEEPSEEK_API_BASE', 'https://api.deepseek.com')
-    
-    try:
-        client = OpenAI(api_key=api_key, base_url=api_base)
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt}
-            ],
-            stream=False
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        print(f"DeepSeek API调用失败。错误: {str(e)}")
-        return ""
+    api_key = os.environ.get('OPENAI_API_KEY')
+    api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
+    print("api_base:",api_base)
+    print("api_key:",api_key)
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
 
+    data = {
+        'model': model,
+        'messages': [
+            {
+                'role': 'user',
+                'content': prompt
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(f'https://{api_base}/v1/chat/completions', 
+                               headers=headers, 
+                               json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            return response_data['choices'][0]['message']['content']
+        else:
+            return ""
+    except requests.exceptions.RequestException as e:
+        print(f"wokaai deepseek API调用失败。错误: {str(e)}")
+        return ""
+def ask_o3_mini(prompt):
+    model = 'o3-mini'
+    print("prompt:",prompt)
+    api_key = os.environ.get('OPENAI_API_KEY')
+    api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
+    print("api_base:",api_base)
+    print("api_key:",api_key)
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
+
+    data = {
+        'model': model,
+        'messages': [
+            {
+                'role': 'user',
+                'content': prompt
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(f'https://{api_base}/v1/chat/completions', 
+                               headers=headers, 
+                               json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            return response_data['choices'][0]['message']['content']
+        else:
+            return ""
+    except requests.exceptions.RequestException as e:
+        print(f"wokaai deepseek API调用失败。错误: {str(e)}")
+        return ""
 def common_ask(prompt):
     model_type = os.environ.get('AZURE_OR_OPENAI', 'CLAUDE')
     if model_type == 'AZURE':
