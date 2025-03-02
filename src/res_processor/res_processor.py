@@ -1,7 +1,7 @@
 import pandas as pd
 from tqdm import tqdm
 import json
-from openai_api.openai import ask_claude, ask_deepseek, ask_o3_mini_json, common_ask_for_json
+from openai_api.openai import ask_claude, ask_deepseek, ask_o3_mini_json, common_ask_for_json,ask_claude_37
 import concurrent.futures
 from threading import Lock
 
@@ -318,7 +318,7 @@ class ResProcessor:
                     return json_result
                 else:
                     # 合并描述时直接返回文本结果
-                    return ask_deepseek(prompt)
+                    return ask_claude_37(prompt)
             except Exception as e:
                 print(f"Debug - Attempt {attempt + 1} failed: {str(e)}")
                 if attempt == max_retries - 1:  # 最后一次尝试
@@ -526,7 +526,7 @@ class ResProcessor:
         
         try:
             # 直接使用模型返回的文本结果
-            merged_description = ask_deepseek(merge_desc_prompt)
+            merged_description = ask_claude_37(merge_desc_prompt)
             # 清理特殊字符
             return self._clean_text_for_excel(merged_description)
             
