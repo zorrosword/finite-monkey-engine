@@ -1,2230 +1,2221 @@
-function getPoolBalance(Pool.Props memory pool, uint8 tokenIndex) internal view returns (uint256){
-        Pool.Asset memory asset = pool.assets[tokenIndex];
-        uint256 balance = IPoolBank(pool.bank).tokenBalanceOf(asset.token);
-        if (balance == 0) {return 0;}
-        uint256 totalCollateral = asset.totalCollateral;
-        return (balance < totalCollateral + asset.unclaimedFee)?0:balance - totalCollateral - asset.unclaimedFee;
-    }
-function calcMemeMaxDeposit(
-        address dataStore,
-        Pool.Props memory pool,
-        uint256 amount,
-        bool alreadyTransferIn
-    ) internal view returns (uint256) {
-
-        uint256 poolBalance = PoolUtils.getPoolBalance(pool, Pool.MEME);
-        if (alreadyTransferIn) {poolBalance -= amount;}
-        uint256 maxDepositRate = PoolStoreUtils.getMaxDepositRate(dataStore);
-        uint256 poolBalanceAdjust = poolBalance.rayMul(maxDepositRate);
-        uint256 memeMaxDepositAmount = poolBalanceAdjust < pool.assets[Pool.MEME].totalCollateral
-            ?0:poolBalanceAdjust - pool.assets[Pool.MEME].totalCollateral;
-
-        Printer.log("poolBalance", poolBalance);
-        Printer.log("maxDepositRate", maxDepositRate);
-        Printer.log("poolBalanceAdjust", poolBalanceAdjust);
-
-        return memeMaxDepositAmount;
-    }
-// Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function calcMemeMaxDeposit(
-        address dataStore,
-        Pool.Props memory pool,
-        uint256 amount,
-        bool alreadyTransferIn
-    ) internal view returns (uint256) {
-
-        uint256 poolBalance = PoolUtils.getPoolBalance(pool, Pool.MEME);
-        if (alreadyTransferIn) {poolBalance -= amount;}
-        uint256 maxDepositRate = PoolStoreUtils.getMaxDepositRate(dataStore);
-        uint256 poolBalanceAdjust = poolBalance.rayMul(maxDepositRate);
-        uint256 memeMaxDepositAmount = poolBalanceAdjust < pool.assets[Pool.MEME].totalCollateral
-            ?0:poolBalanceAdjust - pool.assets[Pool.MEME].totalCollateral;
-
-        Printer.log("poolBalance", poolBalance);
-        Printer.log("maxDepositRate", maxDepositRate);
-        Printer.log("poolBalanceAdjust", poolBalanceAdjust);
-
-        return memeMaxDepositAmount;
-    }
-
-// Contract State Variables:
-using Pool for Pool.Props;
-using Position for Position.Props;
-using WadRayMath for uint256;
-uint256 positionId;
-address token0;
-address token1;
-uint8 tokenIndex;
-address dataStore;
-address eventEmitter;
-uint256 positionId;
-address token0;
-address token1;
-uint8 tokenIndex;
-bytes32 poolKey;
-uint256 positionId;
-bytes32 positionKey;
-IPoolBank bank;
-address token;
-uint256 depositAmount;
-uint256 price;
-
-// Function Implementation:
-function validateDeposit(
-        address dataStore,
-        address account,
-        Pool.Props memory pool,
-        Position.Props memory position,        
-        uint256 amount,
-        uint8 tokenIndex
-    ) internal view {
-        //PoolUtils.validateConfigurationPool(pool, false);  
-        PositionUtils.validateEnabledPosition(account, position);
-
-        if (amount == 0) { 
-            revert Errors.EmptyDepositAmounts(); 
-        }
-
-        PoolStoreUtils.validateTokenIndex(tokenIndex);
-
-        //prevent use close to bypass swap tradable limitation
-        if (tokenIndex == Pool.MEME){
-            uint256 maxDepositAmount = PoolUtils.calcMemeMaxDeposit(dataStore, pool, amount, true);
-            Printer.log("amount", amount);
-            Printer.log("maxDepositAmount", maxDepositAmount);
-            if (amount > maxDepositAmount){
-                revert Errors.MaxDepositExceeds(maxDepositAmount, amount);
-            }
-        }
-    }
-
-// Contract State Variables:
-EventEmitter public immutable eventEmitter;
-
-// Function Implementation:
-function executeDeposit(
-        DepositUtils.DepositParams calldata params
-    ) external override payable nonReentrant {
-        address account = msg.sender;
-
-        return depositHandler.executeDeposit(
-            account,
-            params
-        );
-    }
-
-// Contract State Variables:
-using SafeCast for int256;
-bool internal constant disablePrinter = false;
-
-// Function Implementation:
-function log(string memory label, int256 value) internal pure {
-        if (disablePrinter) { return; }
-        if (value < 0) {
-            console.log(
-                "%s -%s",
-                label,
-                (-value).toUint256()
-            );
-        } else {
-            console.log(
-                "%s +%s",
-                label,
-                value.toUint256()
-            );
-        }
-    }
-
-// Contract State Variables:
-using SafeCast for int256;
-bool internal constant disablePrinter = false;
-
-// Function Implementation:
-function toString(bytes32 value) public pure returns(string memory) {
-        return toString(abi.encodePacked(value));
-    }
-
-// Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function getPoolBalance(Pool.Props memory pool, uint8 tokenIndex) internal view returns (uint256){
-        Pool.Asset memory asset = pool.assets[tokenIndex];
-        uint256 balance = IPoolBank(pool.bank).tokenBalanceOf(asset.token);
-        if (balance == 0) {return 0;}
-        uint256 totalCollateral = asset.totalCollateral;
-        return (balance < totalCollateral + asset.unclaimedFee)?0:balance - totalCollateral - asset.unclaimedFee;
-    }
-
-function tokenBalanceOf(
-        address token
-	) public view returns (uint256) {
-		return IERC20(token).balanceOf(address(this));
-	}
-
-// Contract State Variables:
-using Pool for Pool.Props;
-bytes32 public constant POOL_TOKEN_0      = keccak256(abi.encode("POOL_TOKEN_0"));
-bytes32 public constant POOL_BORROW_INDEX_0   = keccak256(abi.encode("POOL_BORROW_INDEX_0"));
-bytes32 public constant POOL_BORROW_RATE_0   = keccak256(abi.encode("POOL_BORROW_RATE_0"));
-bytes32 public constant POOL_TOTAL_COLLATERAL_0 = keccak256(abi.encode("POOL_TOTAL_COLLATERAL_0"));
-bytes32 public constant POOL_TOTAL_COLLATERAL_WITH_DEBT_0 = keccak256(abi.encode("POOL_TOTAL_COLLATERAL_WITH_DEBT_0"));
-bytes32 public constant POOL_TOTAL_SCALED_DEBT_0      = keccak256(abi.encode("POOL_TOTAL_SCALED_DEBT_0"));
-bytes32 public constant POOL_UNCLAIMED_FEE_0        = keccak256(abi.encode("POOL_UNCLAIMED_FEE_0"));
-bytes32 public constant POOL_TOKEN_1      = keccak256(abi.encode("POOL_TOKEN_1"));
-bytes32 public constant POOL_BORROW_INDEX_1   = keccak256(abi.encode("POOL_BORROW_INDEX_1"));
-bytes32 public constant POOL_BORROW_RATE_1   = keccak256(abi.encode("POOL_BORROW_RATE_1"));
-bytes32 public constant POOL_TOTAL_COLLATERAL_1 = keccak256(abi.encode("POOL_TOTAL_COLLATERAL_1"));
-bytes32 public constant POOL_TOTAL_COLLATERAL_WITH_DEBT_1 = keccak256(abi.encode("POOL_TOTAL_COLLATERAL_WITH_DEBT_1"));
-bytes32 public constant POOL_TOTAL_SCALED_DEBT_1      = keccak256(abi.encode("POOL_TOTAL_SCALED_DEBT_1"));
-bytes32 public constant POOL_UNCLAIMED_FEE_1        = keccak256(abi.encode("POOL_UNCLAIMED_FEE_1"));
-bytes32 public constant POOL_BANK          = keccak256(abi.encode("POOL_BANK"));
-bytes32 public constant POOL_INTEREST_RATE_STRATEGY = keccak256(abi.encode("POOL_INTEREST_RATE_STRATEGY"));
-bytes32 public constant POOL_CONFIGURATION     = keccak256(abi.encode("POOL_CONFIGURATION"));
-bytes32 public constant POOL_LAST_UPDATE_TIME_STAMP = keccak256(abi.encode("POOL_LAST_UPDATE_TIME_STAMP"));
-bytes32 public constant POOL_CREATED_TIME_STAMP = keccak256(abi.encode("POOL_CREATED_TIME_STAMP"));
-bytes32 public constant POOL_SOURCE = keccak256(abi.encode("POOL_SOURCE"));
-
-// Function Implementation:
-function getMaxDepositRate(address dataStore) internal view returns (uint256) {
-        return IDataStore(dataStore).getUint(Keys.MAX_DEPOSIT_RATE);
-    }
-
-// Contract State Variables:
-using SafeCast for int256;
-using EnumerableSet for EnumerableSet.Bytes32Set;
-using EnumerableSet for EnumerableSet.AddressSet;
-using EnumerableSet for EnumerableSet.UintSet;
-using EnumerableValues for EnumerableSet.Bytes32Set;
-using EnumerableValues for EnumerableSet.AddressSet;
-using EnumerableValues for EnumerableSet.UintSet;
-mapping(bytes32 => uint256) public uintValues;
-mapping(bytes32 => int256) public intValues;
-mapping(bytes32 => address) public addressValues;
-mapping(bytes32 => bool) public boolValues;
-mapping(bytes32 => string) public stringValues;
-mapping(bytes32 => bytes32) public bytes32Values;
-mapping(bytes32 => uint256[]) public uintArrayValues;
-mapping(bytes32 => int256[]) public intArrayValues;
-mapping(bytes32 => address[]) public addressArrayValues;
-mapping(bytes32 => bool[]) public boolArrayValues;
-mapping(bytes32 => string[]) public stringArrayValues;
-mapping(bytes32 => bytes32[]) public bytes32ArrayValues;
-mapping(bytes32 => EnumerableSet.Bytes32Set) internal bytes32Sets;
-mapping(bytes32 => EnumerableSet.AddressSet) internal addressSets;
-mapping(bytes32 => EnumerableSet.UintSet) internal uintSets;
-
-// Function Implementation:
-function getUint(bytes32 key) external view returns (uint256) {
-        return uintValues[key];
-    }
-
-// Contract State Variables:
-uint256 internal constant WAD = 1e18;
-uint256 internal constant HALF_WAD = 0.5e18;
-uint256 internal constant RAY = 1e27;
-uint256 internal constant HALF_RAY = 0.5e27;
-uint256 internal constant WAD_RAY_RATIO = 1e9;
-
-// Function Implementation:
-function rayMul(uint256 a, uint256 b) internal pure returns (uint256 c) {
-    // to avoid overflow, a <= (type(uint256).max - HALF_RAY) / b
+function swap(address to, bytes memory callData) external {
+    _validateCallData(to, callData);
+    address approvalAddress = IAugustusSwapper(to).getTokenTransferProxy();
+    address fromToken;
+    uint256 fromAmount;
     assembly {
-      if iszero(or(iszero(b), iszero(gt(a, div(sub(not(0), HALF_RAY), b))))) {
-        revert(0, 0)
-      }
+      fromToken := mload(add(callData, 68))
+      fromAmount := mload(add(callData, 100))
+    }
+    IERC20(fromToken).safeApprove(approvalAddress, fromAmount);
+    (bool success, ) = to.call(callData);
+    require(success, "paraswap call reverted");
+  }
+function _validateCallData(address to, bytes memory callData) internal view {
+    require(to == address(0xDEF171Fe48CF0115B1d80b88dc8eAB59176FEe57), "invalid paraswap callee");
+    address receiver;
+    assembly {
+      receiver := mload(add(callData, 196))
+    }
+    require(receiver == address(this), "invalid paraswap calldata");
+  }
+// Contract State Variables:
+using SafeERC20 for IERC20;
 
-      c := div(add(mul(a, b), HALF_RAY), RAY)
+// Function Implementation:
+function swap(address to, bytes memory callData) external {
+    _validateCallData(to, callData);
+    address approvalAddress = IAugustusSwapper(to).getTokenTransferProxy();
+    address fromToken;
+    uint256 fromAmount;
+    assembly {
+      fromToken := mload(add(callData, 68))
+      fromAmount := mload(add(callData, 100))
+    }
+    IERC20(fromToken).safeApprove(approvalAddress, fromAmount);
+    (bool success, ) = to.call(callData);
+    require(success, "paraswap call reverted");
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+using SafeCast for uint256;
+using Position for Position.Props;
+bytes32 requestKey;
+bool isSettle;
+bytes32 public constant COLLATERAL_TOKEN = keccak256(abi.encode("COLLATERAL_TOKEN"));
+bytes32 public constant SIZE_IN_USD = keccak256(abi.encode("SIZE_IN_USD"));
+bytes32 public constant SIZE_IN_TOKENS = keccak256(abi.encode("SIZE_IN_TOKENS"));
+bytes32 public constant COLLATERAL_AMOUNT = keccak256(abi.encode("COLLATERAL_AMOUNT"));
+bytes32 public constant ESTIMATED_GAS_FEE_BASE_AMOUNT_V2_1 = keccak256(abi.encode("ESTIMATED_GAS_FEE_BASE_AMOUNT_V2_1"));
+bytes32 public constant ESTIMATED_GAS_FEE_PER_ORACLE_PRICE = keccak256(abi.encode("ESTIMATED_GAS_FEE_PER_ORACLE_PRICE"));
+bytes32 public constant ESTIMATED_GAS_FEE_MULTIPLIER_FACTOR = keccak256(abi.encode("ESTIMATED_GAS_FEE_MULTIPLIER_FACTOR"));
+bytes32 public constant INCREASE_ORDER_GAS_LIMIT = keccak256(abi.encode("INCREASE_ORDER_GAS_LIMIT"));
+bytes32 public constant DECREASE_ORDER_GAS_LIMIT = keccak256(abi.encode("DECREASE_ORDER_GAS_LIMIT"));
+bytes32 public constant SWAP_ORDER_GAS_LIMIT = keccak256(abi.encode("SWAP_ORDER_GAS_LIMIT"));
+bytes32 public constant SINGLE_SWAP_GAS_LIMIT = keccak256(abi.encode("SINGLE_SWAP_GAS_LIMIT"));
+bytes32 public constant POSITION_FEE_FACTOR = keccak256(abi.encode("POSITION_FEE_FACTOR"));
+bytes32 public constant EXECUTE_ORDER_FEATURE_DISABLED = keccak256(abi.encode("EXECUTE_ORDER_FEATURE_DISABLED"));
+bytes32 public constant IS_LONG = keccak256(abi.encode("IS_LONG"));
+bytes32 public constant referralCode = bytes32(0);
+uint256 public constant PRECISION = 1e30;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+address public orderHandler;
+address public liquidationHandler;
+address public adlHandler;
+IExchangeRouter public gExchangeRouter;
+address public gmxRouter;
+IDataStore public dataStore;
+address public orderVault;
+IGmxReader public gmxReader;
+address public referralStorage;
+address public perpVault;
+OrderQueue public queue;
+uint256 public minEth;
+
+// Function Implementation:
+function afterOrderCancellation(
+    bytes32 requestKey,
+    Order.OrderType orderType,
+    IGmxProxy.OrderResultData memory orderResultData
+  ) external {
+    if (msg.sender != address(gmxProxy)) {
+      revert Error.InvalidCall();
+    }
+    _gmxLock = false;
+
+    if (orderResultData.isSettle) {
+      // Retry settle action.
+      nextAction.selector = NextActionSelector.SETTLE_ACTION;
+    } else if (orderType == Order.OrderType.MarketSwap) {
+      // If GMX swap fails, retry in the next action.
+      nextAction.selector = NextActionSelector.SWAP_ACTION;
+      // abi.encode(swapAmount, swapDirection): if swap direction is true, swap collateralToken to indexToken
+      nextAction.data = abi.encode(swapProgressData.remaining, swapProgressData.isCollateralToIndex);
+    } else {
+      if (flow == FLOW.DEPOSIT) {
+        nextAction.selector = NextActionSelector.INCREASE_ACTION;
+        nextAction.data = abi.encode(beenLong);
+      } else if (flow == FLOW.WITHDRAW) {
+        nextAction.selector = NextActionSelector.WITHDRAW_ACTION;
+      } else {
+        // If signal change fails, the offchain script starts again from the current status.
+        delete flowData;
+        delete flow;
+      }
+    }
+    emit GmxPositionCallbackCalled(requestKey, false);
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+using SafeCast for uint256;
+using Position for Position.Props;
+bytes32 requestKey;
+bool isSettle;
+bytes32 public constant COLLATERAL_TOKEN = keccak256(abi.encode("COLLATERAL_TOKEN"));
+bytes32 public constant SIZE_IN_USD = keccak256(abi.encode("SIZE_IN_USD"));
+bytes32 public constant SIZE_IN_TOKENS = keccak256(abi.encode("SIZE_IN_TOKENS"));
+bytes32 public constant COLLATERAL_AMOUNT = keccak256(abi.encode("COLLATERAL_AMOUNT"));
+bytes32 public constant ESTIMATED_GAS_FEE_BASE_AMOUNT_V2_1 = keccak256(abi.encode("ESTIMATED_GAS_FEE_BASE_AMOUNT_V2_1"));
+bytes32 public constant ESTIMATED_GAS_FEE_PER_ORACLE_PRICE = keccak256(abi.encode("ESTIMATED_GAS_FEE_PER_ORACLE_PRICE"));
+bytes32 public constant ESTIMATED_GAS_FEE_MULTIPLIER_FACTOR = keccak256(abi.encode("ESTIMATED_GAS_FEE_MULTIPLIER_FACTOR"));
+bytes32 public constant INCREASE_ORDER_GAS_LIMIT = keccak256(abi.encode("INCREASE_ORDER_GAS_LIMIT"));
+bytes32 public constant DECREASE_ORDER_GAS_LIMIT = keccak256(abi.encode("DECREASE_ORDER_GAS_LIMIT"));
+bytes32 public constant SWAP_ORDER_GAS_LIMIT = keccak256(abi.encode("SWAP_ORDER_GAS_LIMIT"));
+bytes32 public constant SINGLE_SWAP_GAS_LIMIT = keccak256(abi.encode("SINGLE_SWAP_GAS_LIMIT"));
+bytes32 public constant POSITION_FEE_FACTOR = keccak256(abi.encode("POSITION_FEE_FACTOR"));
+bytes32 public constant EXECUTE_ORDER_FEATURE_DISABLED = keccak256(abi.encode("EXECUTE_ORDER_FEATURE_DISABLED"));
+bytes32 public constant IS_LONG = keccak256(abi.encode("IS_LONG"));
+bytes32 public constant referralCode = bytes32(0);
+uint256 public constant PRECISION = 1e30;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+address public orderHandler;
+address public liquidationHandler;
+address public adlHandler;
+IExchangeRouter public gExchangeRouter;
+address public gmxRouter;
+IDataStore public dataStore;
+address public orderVault;
+IGmxReader public gmxReader;
+address public referralStorage;
+address public perpVault;
+OrderQueue public queue;
+uint256 public minEth;
+
+// Function Implementation:
+function afterOrderExecution(
+    bytes32 requestKey,
+    bytes32 positionKey,
+    IGmxProxy.OrderResultData memory orderResultData,
+    MarketPrices memory prices
+  ) external nonReentrant {
+    if (msg.sender != address(gmxProxy)) {
+      revert Error.InvalidCall();
+    }
+    // MarketPrices memory marketPrices = gmxProxy.getMarketPrices(market);
+    
+    _gmxLock = false;
+    // If the current action is `settle`
+    if (orderResultData.isSettle) {
+      nextAction.selector = NextActionSelector.WITHDRAW_ACTION;
+      emit GmxPositionCallbackCalled(requestKey, true);
+      return;
+    }
+    if (orderResultData.orderType == Order.OrderType.MarketIncrease) {
+      curPositionKey = positionKey;
+      if (flow == FLOW.DEPOSIT) {
+        uint256 amount = depositInfo[counter].amount;
+        uint256 feeAmount = vaultReader.getPositionFeeUsd(market, orderResultData.sizeDeltaUsd, false) / prices.shortTokenPrice.min;
+        uint256 prevSizeInTokens = flowData;
+        int256 priceImpact = vaultReader.getPriceImpactInCollateral(curPositionKey, orderResultData.sizeDeltaUsd, prevSizeInTokens, prices);
+        uint256 increased;
+        if (priceImpact > 0) {
+          increased = amount - feeAmount - uint256(priceImpact) - 1;
+        } else {
+          increased = amount - feeAmount + uint256(-priceImpact) - 1;
+        }
+        _mint(counter, increased, false, prices);
+        nextAction.selector = NextActionSelector.FINALIZE;
+      } else {
+        _updateState(false, orderResultData.isLong);
+      }
+    } else if (orderResultData.orderType == Order.OrderType.MarketDecrease) {
+      uint256 sizeInUsd = vaultReader.getPositionSizeInUsd(curPositionKey);
+      if (sizeInUsd == 0) {
+        delete curPositionKey;
+      }
+      if (flow == FLOW.WITHDRAW) {
+        nextAction.selector = NextActionSelector.FINALIZE;
+        uint256 prevCollateralBalance = collateralToken.balanceOf(address(this)) - orderResultData.outputAmount;
+        nextAction.data = abi.encode(prevCollateralBalance, sizeInUsd == 0, false);
+      } else {
+        _updateState(true, false);
+      }
+    } else if (orderResultData.orderType == Order.OrderType.MarketSwap) {
+      uint256 outputAmount = orderResultData.outputAmount;
+      if (swapProgressData.isCollateralToIndex) {
+        emit GmxSwap(
+          address(collateralToken),
+          swapProgressData.remaining,
+          indexToken,
+          outputAmount,
+          true
+        );
+      } else {
+        emit GmxSwap(
+          indexToken,
+          swapProgressData.remaining,
+          address(collateralToken),
+          outputAmount,
+          false
+        );
+      }
+      
+      if (flow == FLOW.DEPOSIT) {
+        _mint(counter, outputAmount + swapProgressData.swapped, false, prices);
+        _finalize(hex'');
+      } else if (flow == FLOW.WITHDRAW) {
+        _handleReturn(outputAmount + swapProgressData.swapped, false, false);
+      } else {  // Same as if (flow == FLOW.SIGNAL_CHANGE || FLOW.COMPOUND)
+        if (orderResultData.outputToken == indexToken) {
+          _updateState(false, true);
+        } else {
+          _updateState(true, false);
+        }
+      }
+    }
+    
+    emit GmxPositionCallbackCalled(requestKey, true);
+    if (flow == FLOW.SIGNAL_CHANGE) {
+      emit GmxPositionUpdated(
+        positionKey,
+        market,
+        orderResultData.orderType == Order.OrderType.MarketIncrease,
+        orderResultData.isLong,
+        orderResultData.sizeDeltaUsd,
+        prices.indexTokenPrice.min
+      );
     }
   }
 
-function mul(uint x, uint y) internal pure returns (uint z) {
-        require(y == 0 || (z = x * y) / y == x, 'ds-math-mul-overflow');
-    }
-
-function add(uint x, uint y) internal pure returns (uint z) {
-        require((z = x + y) >= x, 'ds-math-add-overflow');
-    }
-
-function sub(uint x, uint y) internal pure returns (uint z) {
-        require((z = x - y) <= x, 'ds-math-sub-underflow');
-    }
-
 // Contract State Variables:
-EventEmitter public immutable eventEmitter;
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
 
 // Function Implementation:
-function executeClose(
-        CloseUtils.CloseParams calldata params
-    ) external override payable nonReentrant {
-        address account = msg.sender;
-
-        return closeHandler.executeClose(
-            account,
-            params
-        );
+function _doDexSwap(bytes memory data, bool isCollateralToIndex) internal returns (uint256 outputAmount) {
+    (address to, uint256 amount, bytes memory callData) = abi.decode(data, (address, uint256, bytes));
+    IERC20 inputToken;
+    IERC20 outputToken;
+    if (isCollateralToIndex) {
+      inputToken = collateralToken;
+      outputToken = IERC20(indexToken);
+    } else {
+      inputToken = IERC20(indexToken);
+      outputToken = collateralToken;
     }
+    uint256 balBefore = outputToken.balanceOf(address(this));
+    ParaSwapUtils.swap(to, callData);
+    outputAmount = IERC20(outputToken).balanceOf(address(this)) - balBefore;
+    emit DexSwap(address(inputToken), amount, address(outputToken), outputAmount, isCollateralToIndex);
+  }
 
 // Contract State Variables:
-using Pool for Pool.Props;
-using Position for Position.Props;
-using WadRayMath for uint256;
-uint256 positionId;
-address dataStore;
-address eventEmitter;
-uint256 positionId;
-bytes32 poolKey;
-bytes32 positionKey;
-uint256 memeCollateral;
-uint256 basePoolBalance;
-uint256 baseDebtScaled;
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
 
 // Function Implementation:
-function swap(
-        address dataStore,
-        address eventEmitter,
-        address account,
-        Pool.Props memory pool,
-        Position.Props memory position,
-        uint8 from,
-        uint8 to
-    ) internal {
-        //Printer.log("swap from", from);
-        if (position.assets[from].collateral == 0 ){
-            return;
-        }
-        //base to meme
-        if (from == Pool.BASE && position.assets[to].debtScaled == 0 ){
-            return;
-        }
+function _runSwap(bytes[] memory metadata, bool isCollateralToIndex, MarketPrices memory prices) internal returns (bool completed) {
+    if (metadata.length == 0) {
+      revert Error.InvalidData();
+    }
+    if (metadata.length == 2) {
+      (PROTOCOL _protocol, bytes memory data) = abi.decode(metadata[0], (PROTOCOL, bytes));
+      if (_protocol != PROTOCOL.DEX) {
+        revert Error.InvalidData();
+      }
+      swapProgressData.swapped = swapProgressData.swapped + _doDexSwap(data, isCollateralToIndex);
+      
+      (_protocol, data) = abi.decode(metadata[1], (PROTOCOL, bytes));
+      if (_protocol != PROTOCOL.GMX) {
+        revert Error.InvalidData();
+      }
 
-        //sell meme
-        SwapLocalVars memory vars;
-        if (from == Pool.MEME){
-            (   vars.collateral, 
-            ) = PositionUtils.getCollateralAndDebt(
-                pool, 
-                position, 
-                Pool.MEME
-            );
-            vars.amount0In     = 0;
-            vars.amount1In     = vars.collateral;
-           (vars.amount0Out,,,vars.swapFee) = PoolUtils.calcAmount0Out(dataStore, vars.amount1In, pool, false);
-            vars.amount1Out    = 0;
-
-            // if (vars.amount0Out + vars.swapFee > vars.availableReserve0) {
-            //     revert Errors.Reserve0Insufficient(vars.amount0Out + vars.swapFee, vars.availableReserve0);
-            // }
-            vars.poolBalance = PoolUtils.getPoolBalance(pool, Pool.BASE);
-            if (vars.amount0Out + vars.swapFee > vars.poolBalance){
-                vars.amount0Out = vars.poolBalance - vars.swapFee;//a little samller by swapFee
-                (vars.amount1In,,,vars.swapFee) = PoolUtils.calcAmount1In(dataStore, vars.amount0Out, pool);
-                //(vars.amount1In,,,) = PoolUtils.calcAmount1In(dataStore, vars.amount0Out, pool);
-            }
-
-            vars.treasuryFee = FeeUtils.chargeTreasuryFee(
-                pool,
-                vars.swapFee
-            );
-
-            PositionUtils.updateAsset(
-                pool, 
-                position,
-                Pool.BASE, 
-                int256(vars.amount0Out), 
-                0, 
-                false
-            );
-
-            PositionUtils.updateAsset(
-                pool, 
-                position, 
-                Pool.MEME,
-                -int256(vars.amount1In), 
-                0, 
-                false
-            );
-
-            SwapEventUtils.emitSwap(
-                eventEmitter, 
-                account, 
-                position.assets[Pool.MEME].token, 
-                position.assets[Pool.BASE].token,
-                position.id,
-                vars.amount1In,
-                vars.amount0Out,
-                vars.treasuryFee,
-                Event.Liquidation(
-                    position.assets[Pool.BASE].collateral,
-                    position.assets[Pool.BASE].debtScaled,
-                    position.assets[Pool.MEME].collateral,
-                    position.assets[Pool.MEME].debtScaled
-                )
-            );
-
+      _doGmxSwap(data, isCollateralToIndex);
+      return false;
+    } else {
+      if (metadata.length != 1) {
+        revert Error.InvalidData();
+      }
+      (PROTOCOL _protocol, bytes memory data) = abi.decode(metadata[0], (PROTOCOL, bytes));
+      if (_protocol == PROTOCOL.DEX) {
+        uint256 outputAmount = _doDexSwap(data, isCollateralToIndex);
+        
+        // update global state
+        if (flow == FLOW.DEPOSIT) {
+          // last `depositId` equals with `counter` because another deposit is not allowed before previous deposit is completely processed
+          _mint(counter, outputAmount + swapProgressData.swapped, true, prices);
+        } else if (flow == FLOW.WITHDRAW) {
+          _handleReturn(outputAmount + swapProgressData.swapped, false, true);
+        } else {
+          // in the flow of SIGNAL_CHANGE, if `isCollateralToIndex` is true, it is opening position, or closing position
+          _updateState(!isCollateralToIndex, isCollateralToIndex);
         }
         
-        //buy meme
-        if (from == Pool.BASE ){
-            (   ,vars.debt 
-            ) = PositionUtils.getCollateralAndDebt(
-                pool, 
-                position, 
-                Pool.MEME
-            );
-            (vars.amount0In, ,, vars.swapFee)  = PoolUtils.calcAmount0In(dataStore, vars.debt, pool);
-            vars.amount1In  = 0;
-            vars.amount0Out = 0;
-            vars.amount1Out = vars.debt;
-            
-            vars.poolBalance = PoolUtils.getPoolBalance(pool, Pool.MEME);
-            if (vars.amount1Out > vars.poolBalance){
-                revert Errors.Balance1Insufficient(vars.amount1Out, vars.poolBalance);
-            }
-
-            vars.treasuryFee = FeeUtils.chargeTreasuryFee(
-                pool,
-                vars.swapFee
-            );
-
-            PositionUtils.updateAsset(
-                pool, 
-                position,
-                Pool.BASE, 
-                -int256(vars.amount0In), 
-                0,
-                false
-            );
-
-            PositionUtils.updateAsset(
-                pool, 
-                position, 
-                Pool.MEME,
-                int256(vars.amount1Out), 
-                0, 
-                false
-            );
-
-            SwapEventUtils.emitSwap(
-                eventEmitter, 
-                account, 
-                position.assets[Pool.BASE].token, 
-                position.assets[Pool.MEME].token,
-                position.id,
-                vars.amount0In,
-                vars.amount1Out,
-                0,//TODO:should calc fee
-                Event.Liquidation(
-                    position.assets[Pool.BASE].collateral,
-                    position.assets[Pool.BASE].debtScaled,
-                    position.assets[Pool.MEME].collateral,
-                    position.assets[Pool.MEME].debtScaled
-                )
-            );
-        }
- 
+        return true;
+      } else {
+        _doGmxSwap(data, isCollateralToIndex);
+        return false;
+      }
     }
+  }
 
 // Contract State Variables:
-using Pool for Pool.Props;
-using SafeMath for uint256;
-using SignedMath for int256;
-using WadRayMath for uint256;
-address token0;
-address token1;
-uint256 amount0In;
-uint256 amount1In;
-uint256 amount0Out;
-uint256 amount1Out;
-address to;
-address dataStore;
-address eventEmitter;
-address token0;
-address token1;
-uint256 amount0In;
-uint256 amount1In;
-uint256 amount0Out;
-uint256 amount1Out;
-address to;
-bytes32 poolKey;
-IPoolBank poolBank;
-uint256 amount0In;
-uint256 amount1In;
-uint256 amount0Out;
-uint256 amount1Out;
-uint256 availableReserve0;
-uint256 availableReserve1;
-address tokenIn;
-address tokenOut;
-uint256 amountIn;
-uint256 amountOut;
-uint256 swapFee;
-uint256 treasuryFee;
+using SafeCast for int256;
+uint256 constant BPS = 10_000;
+uint256 private constant GRACE_PERIOD_TIME = 3600;
+AggregatorV2V3Interface internal sequencerUptimeFeed;
+mapping (address => address) public dataFeed;
+uint256 threshold;
+mapping (address => uint256) public maxTimeWindow;
+mapping (address => bool) public keepers;
+mapping (address => uint256) public priceDiffThreshold;
 
 // Function Implementation:
-function calcAmountOutAndValidateSwap(
-        address dataStore,
-        Pool.Props memory pool,
-        uint256 amount0In,
-        uint256 amount1In,
-        uint256 amount0Out,
-        uint256 amount1Out,
-        bool alreadyTransferIn
-    ) internal returns(uint256, uint256, uint256, uint256, uint256) {
-        ValidateSwapInPositionLocalVars memory vars;
-        //TODO:for the Not in position swap, there is a little amount transfer from other account
-        // in balance didn't sync will cause swap error
-        //calc amount out
-        if (amount1In > 0 && amount1Out == 0){
-            (   vars.amount0OutMax, 
-                vars.availableReserve0, 
-                vars.availableReserve1,
-                vars.swapFee
-            ) = PoolUtils.calcAmount0Out(dataStore, amount1In, pool, alreadyTransferIn);
+function run(
+    bool isOpen,
+    bool isLong,
+    MarketPrices memory prices,
+    bytes[] memory metadata
+  ) external nonReentrant {
+    _noneFlow();
+    _onlyKeeper();
+    if (gmxProxy.lowerThanMinEth()) {
+      revert Error.LowerThanMinEth();
+    }
+    flow = FLOW.SIGNAL_CHANGE;
 
-            vars.tokenIn = pool.assets[Pool.MEME].token;
-            vars.tokenOut = pool.assets[Pool.BASE].token;
-            vars.amountIn =  amount1In;
-            vars.amountOut = vars.amount0OutMax;
-
-            //validate
-            if (vars.amount0OutMax < amount0Out){
-                revert Errors.RequestedAmountOExceedsPriceLimit(amount0Out, vars.amount0OutMax);
-            }
-
-            if (vars.amount0OutMax + vars.swapFee > vars.availableReserve0) {
-                revert Errors.Reserve0Insufficient(vars.amount0OutMax + vars.swapFee, vars.availableReserve0);
-            }
-
-        } else if (amount0In > 0 && amount0Out == 0) {
-            (   vars.amount1OutMax,
-                vars.availableReserve0, 
-                vars.availableReserve1,
-                vars.swapFee
-            ) = PoolUtils.calcAmount1Out(dataStore, amount0In, pool, alreadyTransferIn);
-            vars.tokenIn = pool.assets[Pool.BASE].token;
-            vars.tokenOut = pool.assets[Pool.MEME].token;
-            vars.amountIn =  amount0In;
-            vars.amountOut = vars.amount1OutMax; 
-
-            if (vars.amount1OutMax < amount1Out){
-                revert Errors.RequestedAmount1ExceedsPriceLimit(amount1Out, vars.amount1OutMax);
-            }
-
-            if (vars.amount1OutMax > vars.availableReserve1) {
-                revert Errors.Reserve1Insufficient(vars.amount1OutMax, vars.availableReserve1);
-            }
-
+    if (isOpen) {
+      if (positionIsClosed) {
+        if (_isFundIdle() == false) {
+          revert Error.InsufficientAmount();
+        }
+        if (_isLongOneLeverage(isLong)) {
+          _runSwap(metadata, true, prices);
         } else {
-            revert Errors.SingleTokenInOutSwapOnly();
+          (uint256 acceptablePrice) = abi.decode(metadata[0], (uint256));
+          _createIncreasePosition(isLong, acceptablePrice, prices);
         }
-
-        return (
-            vars.amount0OutMax, 
-            vars.amount1OutMax,
-            vars.availableReserve0, 
-            vars.availableReserve1,
-            vars.swapFee
-        );
-
-    }
-
-// Contract State Variables:
-EventEmitter public immutable eventEmitter;
-
-// Function Implementation:
-function executeSwap(
-        SwapUtils.SwapParams calldata params
-    ) external override payable nonReentrant {
-        address account = msg.sender;
-
-        return swapHandler.executeSwap(
-            account,
-            params
-        );
-    }
-
-// Contract State Variables:
-EventEmitter public immutable eventEmitter;
-
-// Function Implementation:
-function executeSwapInPosition(
-        SwapUtils.SwapInPositionParams calldata params
-    ) external override payable nonReentrant {
-        address account = msg.sender;
-
-        return swapHandler.executeSwapInPosition(
-            account,
-            params
-        );
-    }
-
-// Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function calcAmount1In(
-        address dataStore,
-        uint256 amount0Out,
-        Pool.Props memory pool
-    ) internal view returns (uint256, uint256, uint256, uint256) {
-        CalcLocalVars memory vars;
-        vars.tradableDebtMultipierFactor = PoolStoreUtils.getTradableDebtMultipierFactor(dataStore);
-
-        // Get the reserves for token0 (USD) and token1 (MEME) in the pool
-        (vars.priceReserve0, ,vars.availableReserve0,) = PoolUtils.getReserves(pool, Pool.BASE, PoolUtils.IGNORE_CALC_LOAN, vars.tradableDebtMultipierFactor);  // Reserve of token0 (USD)
-        (vars.priceReserve1, ,vars.availableReserve1,) = PoolUtils.getReserves(pool, Pool.MEME, PoolUtils.IGNORE_CALC_LOAN, vars.tradableDebtMultipierFactor);  // Reserve of token1 (MEME)
-
-        // Fetch the swap fee factor (e.g., in basis points)
-        vars.swapFeeFactor = PoolConfigurationUtils.getSwapFeeFactor(pool.configuration);
-  
-        //Adjust Amount0Out for swap fee
-        vars.adjustedAmount0Out =  Math.mulDiv(
-            amount0Out, 
-            PercentageMath.PERCENTAGE_FACTOR.sub(vars.swapFeeFactor),
-            PercentageMath.PERCENTAGE_FACTOR
-        );
-
-        // Calculate the new adjusted reserve product after removing amount0Out to reserve0
-        // adjustedReserveProduct = (reserve0 * reserve1) / (reserve0 - amount0Out)
-        vars.adjustedReserveProduct = Math.mulDiv(
-            vars.priceReserve0, 
-            vars.priceReserve1, 
-            vars.priceReserve0.sub(vars.adjustedAmount0Out)
-        );
-
-        // Calculate the minimal amount of token1 that should added while maintaining the adjusted reserve product
-        // minAddAmount1 = adjustedReserveProduct - reserve1;
-        vars.minAddAmount1 = vars.adjustedReserveProduct.sub(vars.priceReserve1);
-
-        return (
-            vars.minAddAmount1, 
-            vars.availableReserve0, 
-            vars.availableReserve1,
-            amount0Out.percentMul(vars.swapFeeFactor)        
-        );
-    }
-
-// Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function calcAmount0In(
-        address dataStore,
-        uint256 amount1Out,
-        Pool.Props memory pool
-    ) internal view returns (uint256, uint256, uint256, uint256) {
-        CalcLocalVars memory vars;
-        vars.tradableDebtMultipierFactor = PoolStoreUtils.getTradableDebtMultipierFactor(dataStore);
-
-        // Get the reserves for token0 (USD) and token1 (MEME) in the pool
-        (vars.priceReserve0,,vars.availableReserve0, ) = PoolUtils.getReserves(pool, Pool.BASE, PoolUtils.IGNORE_CALC_LOAN, vars.tradableDebtMultipierFactor);  // Reserve of token0 (USD)
-        (vars.priceReserve1,,vars.availableReserve1, ) = PoolUtils.getReserves(pool, Pool.MEME, PoolUtils.IGNORE_CALC_LOAN, vars.tradableDebtMultipierFactor);  // Reserve of token1 (MEME)
-
-        // Calculate target reserve product after amount1Out withdrawal
-        // targetReserveProduct = (reserve0 * reserve1) / (reserve1 - amount1Out)
-        vars.targetReserveProduct = Math.mulDiv(
-            vars.priceReserve0, 
-            vars.priceReserve1, 
-            vars.priceReserve1.sub(amount1Out)
-        );
-
-        // Calculate the adjusted amount of token0 needed to maintain the target reserve product
-        // requiredAmount0 = targetReserveProduct - reserve0
-        vars.requiredAmount0 = vars.targetReserveProduct.sub(vars.priceReserve0);
-
-        // Fetch swap fee factor (e.g., in basis points)
-        vars.swapFeeFactor = PoolConfigurationUtils.getSwapFeeFactor(pool.configuration);
-
-        // Adjust for swap fee to get the actual input amount of token0 required
-        // finalAmount0In = requiredAmount0 / (1 - swapFeeFactor)
-        vars.finalAmount0In = Math.mulDiv(
-            vars.requiredAmount0, 
-            PercentageMath.PERCENTAGE_FACTOR, 
-            PercentageMath.PERCENTAGE_FACTOR.sub(vars.swapFeeFactor)
-        );
-
-        return (
-            vars.finalAmount0In,
-            vars.availableReserve0,
-            vars.availableReserve1,
-            vars.requiredAmount0.percentMul(vars.swapFeeFactor)  
-        );
-    }
-
-// Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function calcAmount0Out(
-        address dataStore,
-        uint256 amount1In,
-        Pool.Props memory pool,
-        bool alreadyTransferIn
-    ) internal view returns (uint256, uint256, uint256, uint256) {
-        CalcLocalVars memory vars;
-
-        vars.tradableDebtMultipierFactor = PoolStoreUtils.getTradableDebtMultipierFactor(dataStore);
-
-        // Get the reserves for token0 (USD) and token1 (MEME) in the pool
-        (vars.priceReserve0, ,vars.availableReserve0, ) = PoolUtils.getReserves(pool, Pool.BASE, PoolUtils.IGNORE_CALC_LOAN, vars.tradableDebtMultipierFactor);  // Reserve of token0 (USD)
-        (vars.priceReserve1, ,vars.availableReserve1, ) = PoolUtils.getReserves(pool, Pool.MEME, PoolUtils.IGNORE_CALC_LOAN, vars.tradableDebtMultipierFactor);  // Reserve of token1 (MEME)
-        
-        //subtraction the amountIn already transfer into balance
-        if (alreadyTransferIn){ vars.priceReserve1 -= amount1In; }
-
-        // Calculate the new adjusted reserve product after adding amount1In to reserve1
-        // adjustedReserveProduct = (reserve0 * reserve1) / (reserve1 + amount1In)
-        vars.adjustedReserveProduct = Math.mulDiv(
-            vars.priceReserve0, 
-            vars.priceReserve1, 
-            vars.priceReserve1.add(amount1In)
-        );
-
-        // Calculate the maximum amount of token0 that can be withdrawn while maintaining the adjusted reserve product
-        // maxWithdrawAmount0 = reserve0 - adjustedReserveProduct
-        vars.maxWithdrawAmount0 = vars.priceReserve0.sub(vars.adjustedReserveProduct);
-
-        // Fetch the swap fee factor (e.g., in basis points)
-        vars.swapFeeFactor = PoolConfigurationUtils.getSwapFeeFactor(pool.configuration);
-
-        // Adjust for swap fee to get the actual output amount of token0
-        // finalAmount0Out = maxWithdrawAmount0 * (1 - swapFeeFactor)
-        return (
-            Math.mulDiv(
-                vars.maxWithdrawAmount0, 
-                PercentageMath.PERCENTAGE_FACTOR.sub(vars.swapFeeFactor),
-                PercentageMath.PERCENTAGE_FACTOR
-            ),
-            vars.availableReserve0,
-            vars.availableReserve1,
-            vars.maxWithdrawAmount0.percentMul(vars.swapFeeFactor)   
-        );
-    }
-
-// Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function calcAmount1Out(
-        address dataStore,
-        uint256 amount0In,
-        Pool.Props memory pool,
-        bool alreadyTransferIn
-    ) internal view returns (uint256, uint256, uint256, uint256) {
-        CalcLocalVars memory vars;
-        vars.tradableDebtMultipierFactor = PoolStoreUtils.getTradableDebtMultipierFactor(dataStore);
-
-        // Get the reserves for token0 (USD) and token1 (MEME) in the pool
-        (vars.priceReserve0, ,vars.availableReserve0,) = PoolUtils.getReserves(pool, Pool.BASE, PoolUtils.IGNORE_CALC_LOAN, vars.tradableDebtMultipierFactor);  // Reserve of token0 (USD)
-        (vars.priceReserve1, ,vars.availableReserve1,) = PoolUtils.getReserves(pool, Pool.MEME, PoolUtils.IGNORE_CALC_LOAN, vars.tradableDebtMultipierFactor);  // Reserve of token1 (MEME)
-
-        //subtraction the amountIn already transfer into balance
-        if (alreadyTransferIn){ vars.priceReserve0 -= amount0In; }
-
-        // Fetch the swap fee factor (e.g., in basis points)
-        vars.swapFeeFactor = PoolConfigurationUtils.getSwapFeeFactor(pool.configuration);
-  
-        //Adjust Amount0In for swap fee
-        vars.adjustedAmount0In =  Math.mulDiv(
-            amount0In, 
-            PercentageMath.PERCENTAGE_FACTOR.sub(vars.swapFeeFactor),
-            PercentageMath.PERCENTAGE_FACTOR
-        );
-
-        // Calculate the new adjusted reserve product after adding amount0In to reserve0
-        // adjustedReserveProduct = (reserve0 * reserve1) / (reserve1 + amount1In)
-        vars.adjustedReserveProduct = Math.mulDiv(
-            vars.priceReserve0, 
-            vars.priceReserve1, 
-            vars.priceReserve0.add(vars.adjustedAmount0In)
-        );
-
-        // Calculate the maximum amount of token0 that can be withdrawn while maintaining the adjusted reserve product
-        // maxWithdrawAmount1 = reserve1 - adjustedReserveProduct
-        vars.maxWithdrawAmount1 = vars.priceReserve1.sub(vars.adjustedReserveProduct);
-
-        return (
-            vars.maxWithdrawAmount1, 
-            vars.availableReserve0, 
-            vars.availableReserve1,
-            amount0In.percentMul(vars.swapFeeFactor)        
-        );
-    }
-
-// Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function getTotalDebtAndBalance(Pool.Props memory pool, uint8 tokenIndex) internal view returns (uint256, uint256){
-        uint256 totalDebt = getTotalDebt(pool.assets[tokenIndex], pool.lastUpdateTimestamp);
-        uint256 poolBalance = getPoolBalance(pool, tokenIndex);
-        return (poolBalance, totalDebt);
-    }
-
-// Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function getCurrentBorrowRates(Pool.Props memory pool) internal view returns (uint256, uint256){
-        UpdateBorrowRateLocalVars memory vars;
-        //calc base
-        (  vars.totalPoolBalance,
-           vars.totalDebt
-        )= getTotalDebtAndBalance(pool, Pool.BASE);
-
-        vars.baseTokenDecimals = PoolConfigurationUtils.getDecimals(pool.configuration, Pool.BASE);
-        vars.totalPoolBalanceBaseAdjusted = Math.mulDiv(vars.totalPoolBalance, WadRayMath.RAY, 10**vars.baseTokenDecimals);
-   
-        if (vars.totalDebt == 0){
-            vars.baseBorrowRate = 0;
-        }else{
-            vars.baseBorrowRate = IPoolInterestRateStrategy(pool.interestRateStrategy).calculateInterestRates(
-                InterestUtils.CalculateInterestRatesParams(
-                    vars.totalPoolBalance,
-                    vars.totalDebt,
-                    vars.totalPoolBalanceBaseAdjusted
-                )
-            );
-        }
-
-        //calc meme
-        (  vars.totalPoolBalance,
-           vars.totalDebt
-        )= getTotalDebtAndBalance(pool, Pool.MEME);
-   
-        if (vars.totalDebt == 0){
-            vars.memeBorrowRate = 0;
-        }else{
-            vars.memeBorrowRate = IPoolInterestRateStrategy(pool.interestRateStrategy).calculateInterestRates(
-                InterestUtils.CalculateInterestRatesParams(
-                    vars.totalPoolBalance,
-                    vars.totalDebt,
-                    vars.totalPoolBalanceBaseAdjusted
-                )
-            );
-        }
-
-        return (vars.baseBorrowRate, vars.memeBorrowRate);    
-
-    }
-
-// Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function updateBorrowRates(
-        address eventEmitter,
-        Pool.Props memory pool
-    ) internal {
-        (   pool.assets[Pool.BASE].borrowRate,
-            pool.assets[Pool.MEME].borrowRate 
-        ) = PoolUtils.getCurrentBorrowRates(pool);
-
-    }
-
-// Contract State Variables:
-EventEmitter public immutable eventEmitter;
-
-// Function Implementation:
-function executeAdd(
-        LiquidityUtils.AddParams calldata params
-    ) external override payable nonReentrant {
-        address account = msg.sender;
-
-        return liquidityHandler.executeAdd(
-            account,
-            params
-        );
-    }
-
-// Contract State Variables:
-EventEmitter public immutable eventEmitter;
-
-// Function Implementation:
-function executeRemove(
-        LiquidityUtils.RemoveParams calldata params
-    ) external override payable nonReentrant {
-        address account = msg.sender;
-
-        return liquidityHandler.executeRemove(
-            account,
-            params
-        );
-    }
-
-// Contract State Variables:
-EventEmitter public immutable eventEmitter;
-
-// Function Implementation:
-function executeLiquidation(
-        LiquidationUtils.LiquidationParams calldata params
-    ) external override payable nonReentrant onlyLiquidationKeeper {
-        address liquidator = msg.sender;
-
-        return liquidationHandler.executeLiquidation(
-            liquidator,
-            params
-        );
-    }
-
-// Contract State Variables:
-EventEmitter public immutable eventEmitter;
-
-// Function Implementation:
-function executeRepay(
-        RepayUtils.RepayParams calldata params
-    ) external override payable nonReentrant {
-        address account = msg.sender;
-
-        return repayHandler.executeRepay(
-            account,
-            params
-        );
-    }
-
-// Contract State Variables:
-EventEmitter public immutable eventEmitter;
-
-// Function Implementation:
-function executeBorrow(
-        BorrowUtils.BorrowParams calldata params
-    ) external override payable nonReentrant {
-        address account = msg.sender;
-
-        return borrowHandler.executeBorrow(
-            account,
-            params
-        );
-    }
-
-// Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function getReserves(Pool.Props memory pool, uint8 tokenIndex, uint256 maxBorrowRate, uint256 tradableDebtMultipierFactor) internal view returns (uint256, uint256, uint256, uint256){
-        //Printer.log("getReserves");
-        Pool.Asset memory asset = pool.assets[tokenIndex];
-        uint256 poolBalance = getPoolBalance(pool, tokenIndex);
-        if (poolBalance == 0) {return (0, 0, 0, 0);}//TODO
-        uint256 totalDebt = getTotalDebt(asset, pool.lastUpdateTimestamp);
-
-        //Printer.log("totalDebt", totalDebt);
-        uint256 totalDebtAdjusted = totalDebt.rayMul(tradableDebtMultipierFactor);
-        uint256 availableReserve = (tradableDebtMultipierFactor == IGNORE_CALC_AVAILABLE)?0:(poolBalance < totalDebtAdjusted)?0:poolBalance.sub(totalDebtAdjusted);
-        uint256 balanceInRate = poolBalance.rayMul(maxBorrowRate);
-        uint256 availableLoan = (maxBorrowRate == IGNORE_CALC_LOAN)?0:(balanceInRate < totalDebt)?0:balanceInRate.sub(totalDebt);
-        //uint256 availableLoan = (maxBorrowRate == IGNORE_CALC_LOAN)?0:(poolBalance < totalDebt)?0:poolBalance.sub(totalDebt);
-        // Printer.log("poolBalance", poolBalance);
-        // Printer.log("totalDebt", totalDebt);
-        // Printer.log("totalDebtAdjusted", totalDebtAdjusted);
-        // Printer.log("balanceInRate", balanceInRate);
-
-        return (
-            poolBalance + totalDebt, 
-            poolBalance, 
-            availableReserve,
-            availableLoan
-        );//(priceReserve, poolBalance, availableReserve, availableLoan)
-    }
-
-// Contract State Variables:
-using Pool for Pool.Props;
-using Position for Position.Props;
-using WadRayMath for uint256;
-uint256 positionId;
-uint8 tokenIndex;
-uint256 borrowAmount;
-address dataStore;
-address eventEmitter;
-uint256 positionId;
-uint8 tokenIndex;
-uint256 borrowAmount;
-bytes32 poolKey;
-bytes32 positionKey;
-
-// Function Implementation:
-function validateBorrow(
-        address account,
-        address dataStore,
-        Pool.Props memory pool,
-        Position.Props memory position,
-        uint8 tokenIndex,
-        uint256 amountToBorrow
-    ) internal {
-        //validate pool configuration
-        //PoolUtils.validateConfigurationPool(pool, true);   
-
-        if (tokenIndex == Pool.MEME) {
-           PoolUtils.validateShortEnabled(dataStore, pool);
-        }
-
-        if (account != position.account){
-            revert Errors.AccountNotMatch(position.account, account);
-        }
-
-        if (amountToBorrow == 0) { 
-            revert Errors.EmptyBorrowAmounts(); 
-        }
-
-        PoolStoreUtils.validateTokenIndex(tokenIndex);
-        uint256 maxBorrowRate = PoolStoreUtils.getMaxBorrowRate(dataStore);
-        //uint256 tradableDebtMultipierFactor = PoolStoreUtils.getTradableDebtMultipierFactor(dataStore);
-
-        ( ,,,uint256 availableLoan ) = PoolUtils.getReserves(pool, tokenIndex, maxBorrowRate, PoolUtils.IGNORE_CALC_AVAILABLE);//usd
-        if (amountToBorrow > availableLoan){
-            revert Errors.InsufficientReverveForBorrow(amountToBorrow, availableLoan);
-        }
-
-        //validate health
-        PositionUtils.validateMarginLevel(
-            dataStore, 
-            pool,
-            position,
-            tokenIndex, 
-            int(amountToBorrow),
-            int(amountToBorrow)
-        );
-
-    }
-
-// Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function calcTokenPairOut(
-        address dataStore,
-        Pool.Props memory pool,
-        uint256 liquidity
-    ) internal view returns (uint256, uint256, uint256, uint256) {
-
-        CalcLiquiditylVars memory vars;
-        vars.tradableDebtMultipierFactor = PoolStoreUtils.getTradableDebtMultipierFactor(dataStore);
-        vars.totalSupply = IPoolBank(pool.bank).totalSupply();
-        ( vars.priceReserve0, ,vars.availableReserve0, ) = PoolUtils.getReserves(pool, Pool.BASE, PoolUtils.IGNORE_CALC_LOAN, vars.tradableDebtMultipierFactor);//usd
-        ( vars.priceReserve1, ,vars.availableReserve1, ) = PoolUtils.getReserves(pool, Pool.MEME, PoolUtils.IGNORE_CALC_LOAN, vars.tradableDebtMultipierFactor);//meme
-
-        vars.amount0 = Math.mulDiv(liquidity, vars.priceReserve0, vars.totalSupply); 
-        vars.amount1 = Math.mulDiv(liquidity, vars.priceReserve1, vars.totalSupply);        
-
-        Printer.log("vars.totalSupply", vars.totalSupply);
-        Printer.log("vars.priceReserve0", vars.priceReserve0);
-        Printer.log("vars.priceReserve1", vars.priceReserve1);
-        Printer.log("vars.amount0", vars.amount0);
-        Printer.log("vars.amount1", vars.amount1);
-
-        return (vars.amount0, vars.amount1, vars.availableReserve0, vars.availableReserve1);
-    }
-
-// Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function calcLiquidityOut(
-        Pool.Props memory pool,
-        uint256 amount0,
-        uint256 amount1,
-        bool alreadyTransferIn
-    ) internal view returns (uint256) {
-
-        CalcLiquiditylVars memory vars;
-        vars.totalSupply = IPoolBank(pool.bank).totalSupply();
-        ( vars.lastPriceReserve0,,, ) = PoolUtils.getReserves(pool, Pool.BASE, PoolUtils.IGNORE_CALC_LOAN, PoolUtils.IGNORE_CALC_AVAILABLE);//usd
-        ( vars.lastPriceReserve1,,, ) = PoolUtils.getReserves(pool, Pool.MEME, PoolUtils.IGNORE_CALC_LOAN, PoolUtils.IGNORE_CALC_AVAILABLE);//meme
-        if (alreadyTransferIn) {
-            vars.lastPriceReserve0 -= amount0;
-            vars.lastPriceReserve1 -= amount1;
-        }
-        if (vars.totalSupply == 0){
-            vars.liquidity = Math.sqrt(amount0.mul(amount1)).sub(MINIMUM_LIQUIDITY);
+      } else {
+        if (beenLong == isLong) {
+          revert Error.NoAction();
         } else {
-            // vars.liquidity = Math.min(amount0.mul(vars.totalSupply) / vars.lastPriceReserve0, 
-            //                      amount1.mul(vars.totalSupply) / vars.lastPriceReserve1);
-            vars.liquidity = Math.min(
-                Math.mulDiv(amount0, vars.totalSupply, vars.lastPriceReserve0),
-                Math.mulDiv(amount1, vars.totalSupply, vars.lastPriceReserve1)
-            );
-
+          // Close current position first and then open the requested position in the next action
+          nextAction.selector = NextActionSelector.INCREASE_ACTION;
+          nextAction.data = abi.encode(isLong);
+          if (_isLongOneLeverage(beenLong)) {
+            _runSwap(metadata, false, prices);
+          } else {
+            (uint256 acceptablePrice) = abi.decode(metadata[0], (uint256));
+            _createDecreasePosition(0, 0, beenLong, acceptablePrice, prices);
+          }
         }
-
-        return vars.liquidity;
+      }
+    } else {
+      if (positionIsClosed == false) {
+        if (_isLongOneLeverage(beenLong)) {
+          _runSwap(metadata, false, prices);
+        } else {
+          (uint256 acceptablePrice) = abi.decode(metadata[0], (uint256));
+          _createDecreasePosition(0, 0, beenLong, acceptablePrice, prices);
+        }
+      } else {
+        revert Error.NoAction();
+      }
     }
-
-function mint(
-        Pool.Props memory pool,
-        IPoolBank bank,
-        uint256 amount0,
-        uint256 amount1,
-        address to
-    ) internal {
-        uint liquidity = PoolUtils.calcLiquidityOut(pool, amount0, amount1, true);
-        uint totalSupply = bank.totalSupply();
-        if (totalSupply == 0){
-            bank.mint(address(0), PoolUtils.MINIMUM_LIQUIDITY); 
-        } 
-        bank.mint(to, liquidity);
-    }
+  }
 
 // Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
 
 // Function Implementation:
-function getReserveAndShortThreshold(address dataStore, Pool.Props memory pool)internal view returns(uint256,uint256){
-         uint256 baseTokenDecimals = PoolConfigurationUtils.getDecimals(pool.configuration, Pool.BASE);
-         uint256 threshold = PoolStoreUtils.getShortLiquidityThreshold(dataStore);
-         uint256 adjustedThreshold = Math.mulDiv(threshold, 10**baseTokenDecimals, WadRayMath.RAY);
-         (uint256 basePriceReserve,,,) = PoolUtils.getReserves(pool, Pool.BASE, PoolUtils.IGNORE_CALC_LOAN, PoolUtils.IGNORE_CALC_AVAILABLE);  
-         return(adjustedThreshold, basePriceReserve);
+function _cancelFlow() internal {
+    if (flow == FLOW.DEPOSIT) {
+      uint256 depositId = counter;
+      collateralToken.safeTransfer(depositInfo[depositId].owner, depositInfo[depositId].amount);
+      totalDepositAmount = totalDepositAmount - depositInfo[depositId].amount;
+      EnumerableSet.remove(userDeposits[depositInfo[depositId].owner], depositId);
+      try IGmxProxy(gmxProxy).refundExecutionFee(
+        depositInfo[counter].owner,
+        depositInfo[counter].executionFee
+      ) {} catch {}
+      delete depositInfo[depositId];
+    } else if (flow == FLOW.WITHDRAW) {
+      try IGmxProxy(gmxProxy).refundExecutionFee(
+        depositInfo[counter].owner,
+        depositInfo[counter].executionFee
+      ) {} catch {}
     }
+    
+    // Setting flow to liquidation has no meaning.
+    // The aim is to run FINAIZE action. (swap indexToken to collateralToken);
+    flow = FLOW.LIQUIDATION;
+    nextAction.selector = NextActionSelector.FINALIZE;
+  }
 
 // Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
+using SafeCast for int256;
+uint256 constant BPS = 10_000;
+uint256 private constant GRACE_PERIOD_TIME = 3600;
+AggregatorV2V3Interface internal sequencerUptimeFeed;
+mapping (address => address) public dataFeed;
+uint256 threshold;
+mapping (address => uint256) public maxTimeWindow;
+mapping (address => bool) public keepers;
+mapping (address => uint256) public priceDiffThreshold;
 
 // Function Implementation:
-function validateShortEnabled(address dataStore, Pool.Props memory pool) internal view {
-        if (!PoolConfigurationUtils.getShortEnabled(pool.configuration)) {
-            (  uint256 threshold,
-               uint256 basePriceReserve
-            ) = PoolUtils.getReserveAndShortThreshold(dataStore, pool);
-            revert Errors.liquidityDidNotReachShortThreshord(threshold, basePriceReserve);
-        }        
-    }
+function cancelFlow() external nonReentrant gmxLock {
+    _onlyKeeper();
+    _cancelFlow();
+  }
 
 // Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
+using SafeCast for int256;
+uint256 constant BPS = 10_000;
+uint256 private constant GRACE_PERIOD_TIME = 3600;
+AggregatorV2V3Interface internal sequencerUptimeFeed;
+mapping (address => address) public dataFeed;
+uint256 threshold;
+mapping (address => uint256) public maxTimeWindow;
+mapping (address => bool) public keepers;
+mapping (address => uint256) public priceDiffThreshold;
 
 // Function Implementation:
-function validateAndSetShortEnabled(address dataStore, Pool.Props memory pool) internal {
-        if (!PoolConfigurationUtils.getShortEnabled(pool.configuration)) {
-            (  uint256 threshold,
-               uint256 basePriceReserve
-            ) = PoolUtils.getReserveAndShortThreshold(dataStore, pool);
+function runNextAction(MarketPrices memory prices, bytes[] memory metadata) external nonReentrant gmxLock {
+    _onlyKeeper();
+    Action memory _nextAction = nextAction;
+    delete nextAction;
+    if (_nextAction.selector == NextActionSelector.INCREASE_ACTION) {
+      (bool _isLong) = abi.decode(_nextAction.data, (bool));
 
-            if (basePriceReserve >= threshold){
-                pool.configuration = pool.configuration.setShortEnabled(true);
-            }
-
-        }        
+      if (_isLongOneLeverage(_isLong)) {
+        _runSwap(metadata, true, prices);
+      } else {
+        // swap indexToken that could be generated from the last action into collateralToken
+        // use only DexSwap
+        if (
+          IERC20(indexToken).balanceOf(address(this)) * prices.indexTokenPrice.min >= ONE_USD
+        ) {
+          (, bytes memory data) = abi.decode(metadata[1], (PROTOCOL, bytes));
+          _doDexSwap(data, false);
+        }
+        (uint256 acceptablePrice) = abi.decode(metadata[0], (uint256));
+        _createIncreasePosition(_isLong, acceptablePrice, prices);
+      }
+    } else if (_nextAction.selector == NextActionSelector.WITHDRAW_ACTION) {
+      // swap indexToken that could be generated from settle action or liquidation/ADL into collateralToken
+      // use only DexSwap
+      if (
+        IERC20(indexToken).balanceOf(address(this)) * prices.indexTokenPrice.min >= ONE_USD
+      ) {
+        (, bytes memory data) = abi.decode(metadata[1], (PROTOCOL, bytes));
+        _doDexSwap(data, false);
+      }
+      uint256 depositId = flowData;
+      _withdraw(depositId, metadata[0], prices);
+    } else if (_nextAction.selector == NextActionSelector.SWAP_ACTION) {
+      (, bool isCollateralToIndex) = abi.decode(
+        _nextAction.data,
+        (uint256, bool)
+      );
+      _runSwap(metadata, isCollateralToIndex, prices);
+    } else if (_nextAction.selector == NextActionSelector.SETTLE_ACTION) {
+      _settle();
+    } else if (_nextAction.selector == NextActionSelector.FINALIZE) {
+      if (
+        IERC20(indexToken).balanceOf(address(this)) * prices.indexTokenPrice.min >= ONE_USD
+      ) {
+        (, bytes memory data) = abi.decode(metadata[1], (PROTOCOL, bytes));
+        _doDexSwap(data, false);
+      }
+      _finalize(_nextAction.data);
+    } else if (positionIsClosed == false && _isFundIdle()) {
+      flow = FLOW.COMPOUND;
+      if (_isLongOneLeverage(beenLong)) {
+        _runSwap(metadata, true, prices);
+      } else {
+        (uint256 acceptablePrice) = abi.decode(metadata[0], (uint256));
+        _createIncreasePosition(beenLong, acceptablePrice, prices);
+      }
+    } else {
+      revert Error.InvalidCall();
     }
+  }
 
 // Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function calcMemePriceFromReserves(Pool.Props memory pool) internal view returns (uint256){
-        //Printer.log("calcMemePriceFromReserves");
-        (uint256 priceReserveBase,,,) = getReserves(pool, Pool.BASE, PoolUtils.IGNORE_CALC_LOAN, PoolUtils.IGNORE_CALC_AVAILABLE);//should be usdt
-        (uint256 priceReserveMeme,,,) = getReserves(pool, Pool.MEME, PoolUtils.IGNORE_CALC_LOAN, PoolUtils.IGNORE_CALC_AVAILABLE);  
-
-        if (priceReserveMeme == 0) {return 0;}//don't have reserve
-        uint256 baseTokenDecimals = PoolConfigurationUtils.getDecimals(pool.configuration, Pool.BASE);
-        uint256 memeTokenDecimals = PoolConfigurationUtils.getDecimals(pool.configuration, Pool.MEME);
-
-        uint256 adjustedPriceReserveBase = Math.mulDiv(priceReserveBase, WadRayMath.RAY, 10**baseTokenDecimals);
-        uint256 adjustedPriceReserveMeme = Math.mulDiv(priceReserveMeme, WadRayMath.RAY, 10**memeTokenDecimals);
-
-        return adjustedPriceReserveBase.rayDiv(adjustedPriceReserveMeme);
-    }
-
-// Contract State Variables:
+using SafeERC20 for IERC20;
+using SafeCast for uint256;
 using Position for Position.Props;
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SignedMath for int256;
-using PoolConfigurationUtils for uint256;
+bytes32 requestKey;
+bool isSettle;
+bytes32 public constant COLLATERAL_TOKEN = keccak256(abi.encode("COLLATERAL_TOKEN"));
+bytes32 public constant SIZE_IN_USD = keccak256(abi.encode("SIZE_IN_USD"));
+bytes32 public constant SIZE_IN_TOKENS = keccak256(abi.encode("SIZE_IN_TOKENS"));
+bytes32 public constant COLLATERAL_AMOUNT = keccak256(abi.encode("COLLATERAL_AMOUNT"));
+bytes32 public constant ESTIMATED_GAS_FEE_BASE_AMOUNT_V2_1 = keccak256(abi.encode("ESTIMATED_GAS_FEE_BASE_AMOUNT_V2_1"));
+bytes32 public constant ESTIMATED_GAS_FEE_PER_ORACLE_PRICE = keccak256(abi.encode("ESTIMATED_GAS_FEE_PER_ORACLE_PRICE"));
+bytes32 public constant ESTIMATED_GAS_FEE_MULTIPLIER_FACTOR = keccak256(abi.encode("ESTIMATED_GAS_FEE_MULTIPLIER_FACTOR"));
+bytes32 public constant INCREASE_ORDER_GAS_LIMIT = keccak256(abi.encode("INCREASE_ORDER_GAS_LIMIT"));
+bytes32 public constant DECREASE_ORDER_GAS_LIMIT = keccak256(abi.encode("DECREASE_ORDER_GAS_LIMIT"));
+bytes32 public constant SWAP_ORDER_GAS_LIMIT = keccak256(abi.encode("SWAP_ORDER_GAS_LIMIT"));
+bytes32 public constant SINGLE_SWAP_GAS_LIMIT = keccak256(abi.encode("SINGLE_SWAP_GAS_LIMIT"));
+bytes32 public constant POSITION_FEE_FACTOR = keccak256(abi.encode("POSITION_FEE_FACTOR"));
+bytes32 public constant EXECUTE_ORDER_FEATURE_DISABLED = keccak256(abi.encode("EXECUTE_ORDER_FEATURE_DISABLED"));
+bytes32 public constant IS_LONG = keccak256(abi.encode("IS_LONG"));
+bytes32 public constant referralCode = bytes32(0);
+uint256 public constant PRECISION = 1e30;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+address public orderHandler;
+address public liquidationHandler;
+address public adlHandler;
+IExchangeRouter public gExchangeRouter;
+address public gmxRouter;
+IDataStore public dataStore;
+address public orderVault;
+IGmxReader public gmxReader;
+address public referralStorage;
+address public perpVault;
+OrderQueue public queue;
+uint256 public minEth;
 
 // Function Implementation:
-function calcMarginLevel(
-        address dataStore,
-        Pool.Props memory pool,
-        Position.Props memory position
-    ) internal view returns (
-        uint256 marginLevel, 
-        uint256 threshold, 
-        uint256 totalCollateral, 
-        uint256 totalDebt,
-        uint256 memePriceInBaseUnits
+function createOrder(
+    Order.OrderType orderType,
+    IGmxProxy.OrderData memory orderData
+  ) public returns (bytes32) {
+    require(msg.sender == perpVault, "invalid caller");
+    uint256 positionExecutionFee = getExecutionGasLimit(
+      orderType,
+      orderData.callbackGasLimit
+    ) * tx.gasprice;
+    require(
+      address(this).balance >= positionExecutionFee,
+      "insufficient eth balance"
+    );
+    
+    // check if execution feature is enabled
+    bytes32 executeOrderFeatureKey = keccak256(
+      abi.encode(
+        EXECUTE_ORDER_FEATURE_DISABLED,
+        orderHandler,
+        orderType
+      )
+    );
+    require(
+      dataStore.getBool(executeOrderFeatureKey) == false,
+      "gmx execution disabled"
+    );
+
+    gExchangeRouter.sendWnt{value: positionExecutionFee}(
+      orderVault,
+      positionExecutionFee
+    );
+    if (
+      orderType == Order.OrderType.MarketSwap ||
+      orderType == Order.OrderType.MarketIncrease
     ) {
-       
-        // Get the current price of Meme in Base Units
-        //TODO:shoud get the price from oracle to prevent the flashload attacks
-        memePriceInBaseUnits = PoolUtils.calcMemePriceFromReserves(pool);
+      IERC20(orderData.initialCollateralToken).safeApprove(
+        address(gmxRouter),
+        orderData.amountIn
+      );
+      gExchangeRouter.sendTokens(
+        orderData.initialCollateralToken,
+        orderVault,
+        orderData.amountIn
+      );
+    }
+    CreateOrderParamsAddresses memory paramsAddresses = CreateOrderParamsAddresses({
+      receiver: perpVault,
+      cancellationReceiver: address(perpVault),
+      callbackContract: address(this),
+      uiFeeReceiver: address(0),
+      market: orderData.market,
+      initialCollateralToken: orderData.initialCollateralToken,
+      swapPath: orderData.swapPath
+    });
 
-        // Calculate the total collateral and debt in Base Units
-        (totalCollateral, totalDebt) = calcTotalCollateralAndDebt(
-            pool, position, memePriceInBaseUnits, address(0)
-        );
-
-        // Calculate margin level, ensuring no division by zero
-        marginLevel = (totalDebt > 0) ? totalCollateral.rayDiv(totalDebt) : type(uint256).max;
-
-        // Fetch the margin level threshold from the data store
-        threshold = PositionStoreUtils.getMarginLevelThreshold(dataStore);
-
-        // Return margin level, margin level threshold, total collateral, otal debt, and memePriceInBaseUnits
-     }
+    CreateOrderParamsNumbers memory paramsNumber = CreateOrderParamsNumbers({
+      sizeDeltaUsd: orderData.sizeDeltaUsd,
+      initialCollateralDeltaAmount: orderData.initialCollateralDeltaAmount,
+      triggerPrice: 0,
+      acceptablePrice: orderData.acceptablePrice,
+      executionFee: positionExecutionFee,
+      callbackGasLimit: orderData.callbackGasLimit,
+      minOutputAmount: orderData.minOutputAmount,      // this param is used when swapping. is not used in opening position even though swap involved.
+      validFromTime: 0
+    });
+    CreateOrderParams memory params = CreateOrderParams({
+      addresses: paramsAddresses,
+      numbers: paramsNumber,
+      orderType: orderType,
+      decreasePositionSwapType: Order
+        .DecreasePositionSwapType
+        .SwapPnlTokenToCollateralToken,
+      isLong: orderData.isLong,
+      shouldUnwrapNativeToken: false,
+      autoCancel: false,
+      referralCode: referralCode
+    });
+    bytes32 requestKey = gExchangeRouter.createOrder(params);
+    queue.requestKey = requestKey;
+    return requestKey;
+  }
 
 // Contract State Variables:
-using Pool for Pool.Props;
+using SafeERC20 for IERC20;
+using SafeCast for uint256;
 using Position for Position.Props;
-using WadRayMath for uint256;
-uint256 positionId;
-address dataStore;
-address eventEmitter;
-uint256 positionId;
-bytes32 poolKey;
-bytes32 positionKey;
-uint256 memeCollateral;
-uint256 basePoolBalance;
-uint256 baseDebtScaled;
+bytes32 requestKey;
+bool isSettle;
+bytes32 public constant COLLATERAL_TOKEN = keccak256(abi.encode("COLLATERAL_TOKEN"));
+bytes32 public constant SIZE_IN_USD = keccak256(abi.encode("SIZE_IN_USD"));
+bytes32 public constant SIZE_IN_TOKENS = keccak256(abi.encode("SIZE_IN_TOKENS"));
+bytes32 public constant COLLATERAL_AMOUNT = keccak256(abi.encode("COLLATERAL_AMOUNT"));
+bytes32 public constant ESTIMATED_GAS_FEE_BASE_AMOUNT_V2_1 = keccak256(abi.encode("ESTIMATED_GAS_FEE_BASE_AMOUNT_V2_1"));
+bytes32 public constant ESTIMATED_GAS_FEE_PER_ORACLE_PRICE = keccak256(abi.encode("ESTIMATED_GAS_FEE_PER_ORACLE_PRICE"));
+bytes32 public constant ESTIMATED_GAS_FEE_MULTIPLIER_FACTOR = keccak256(abi.encode("ESTIMATED_GAS_FEE_MULTIPLIER_FACTOR"));
+bytes32 public constant INCREASE_ORDER_GAS_LIMIT = keccak256(abi.encode("INCREASE_ORDER_GAS_LIMIT"));
+bytes32 public constant DECREASE_ORDER_GAS_LIMIT = keccak256(abi.encode("DECREASE_ORDER_GAS_LIMIT"));
+bytes32 public constant SWAP_ORDER_GAS_LIMIT = keccak256(abi.encode("SWAP_ORDER_GAS_LIMIT"));
+bytes32 public constant SINGLE_SWAP_GAS_LIMIT = keccak256(abi.encode("SINGLE_SWAP_GAS_LIMIT"));
+bytes32 public constant POSITION_FEE_FACTOR = keccak256(abi.encode("POSITION_FEE_FACTOR"));
+bytes32 public constant EXECUTE_ORDER_FEATURE_DISABLED = keccak256(abi.encode("EXECUTE_ORDER_FEATURE_DISABLED"));
+bytes32 public constant IS_LONG = keccak256(abi.encode("IS_LONG"));
+bytes32 public constant referralCode = bytes32(0);
+uint256 public constant PRECISION = 1e30;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+address public orderHandler;
+address public liquidationHandler;
+address public adlHandler;
+IExchangeRouter public gExchangeRouter;
+address public gmxRouter;
+IDataStore public dataStore;
+address public orderVault;
+IGmxReader public gmxReader;
+address public referralStorage;
+address public perpVault;
+OrderQueue public queue;
+uint256 public minEth;
 
 // Function Implementation:
-function validateClose(
-        address dataStore,
-        Pool.Props memory pool,
-        Position.Props memory position
-    ) internal {
-        ValidateCloseLocalVars memory vars;
-        (   vars.marginLevel,
-            vars.marginLevelThreshold,
-            vars.userTotalCollateral,
-            vars.userTotalDebt,
-        ) = PositionUtils.calcMarginLevel(dataStore, pool, position);
-
-        if (vars.marginLevel < vars.marginLevelThreshold) {
-            revert Errors.MarginBelowThreshold(
-                vars.marginLevel, 
-                vars.marginLevelThreshold
-            );
-        }
-
-    }
+function settle(
+    IGmxProxy.OrderData memory orderData
+  ) external returns (bytes32) {
+    require(msg.sender == perpVault, "invalid caller");
+    uint256 positionExecutionFee = getExecutionGasLimit(
+      Order.OrderType.MarketDecrease,
+      orderData.callbackGasLimit
+    ) * tx.gasprice;
+    require(
+      address(this).balance >= positionExecutionFee,
+      "insufficient eth balance"
+    );
+    gExchangeRouter.sendWnt{value: positionExecutionFee}(
+      orderVault,
+      positionExecutionFee
+    );
+    CreateOrderParamsAddresses memory paramsAddresses = CreateOrderParamsAddresses({
+      receiver: perpVault,
+      cancellationReceiver: address(perpVault),
+      callbackContract: address(this),
+      uiFeeReceiver: address(0),
+      market: orderData.market,
+      initialCollateralToken: orderData.initialCollateralToken,
+      swapPath: new address[](0)
+    });
+    CreateOrderParamsNumbers memory paramsNumber = CreateOrderParamsNumbers({
+      sizeDeltaUsd: 0,
+      initialCollateralDeltaAmount: 1,
+      triggerPrice: 0,
+      acceptablePrice: 0,
+      executionFee: positionExecutionFee,
+      callbackGasLimit: orderData.callbackGasLimit,
+      minOutputAmount: 0,      // this param is used when swapping. is not used in opening position even though swap involved.
+      validFromTime: 0
+    });
+    CreateOrderParams memory params = CreateOrderParams({
+      addresses: paramsAddresses,
+      numbers: paramsNumber,
+      orderType: Order.OrderType.MarketDecrease,
+      decreasePositionSwapType: Order
+        .DecreasePositionSwapType
+        .SwapPnlTokenToCollateralToken,
+      isLong: orderData.isLong,
+      shouldUnwrapNativeToken: false,
+      autoCancel: false,
+      referralCode: referralCode
+    });
+    bytes32 requestKey = gExchangeRouter.createOrder(params);
+    queue.requestKey = requestKey;
+    queue.isSettle = true;
+    return requestKey;
+  }
 
 // Contract State Variables:
-using Pool for Pool.Props;
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
+
+// Function Implementation:
+function _settle() internal {
+    IGmxProxy.OrderData memory orderData = IGmxProxy.OrderData({
+      market: market,
+      indexToken: indexToken,
+      initialCollateralToken: address(collateralToken),
+      swapPath: new address[](0),
+      isLong: beenLong,
+      sizeDeltaUsd: 0,
+      initialCollateralDeltaAmount: 0,
+      amountIn: 0,
+      callbackGasLimit: callbackGasLimit,
+      acceptablePrice: 0,
+      minOutputAmount: 0
+    });
+    _gmxLock = true;
+    gmxProxy.settle(orderData);
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
+
+// Function Implementation:
+function withdraw(address recipient, uint256 depositId) public payable nonReentrant {
+    _noneFlow();
+    flow = FLOW.WITHDRAW;
+    flowData = depositId;
+
+    if (recipient == address(0)) {
+      revert Error.ZeroValue();
+    }
+    if (depositInfo[depositId].timestamp + lockTime >= block.timestamp) {
+      revert Error.Locked();
+    }
+    if (EnumerableSet.contains(userDeposits[msg.sender], depositId) == false) {
+      revert Error.InvalidUser();
+    }
+    if (depositInfo[depositId].shares == 0) {
+      revert Error.ZeroValue();
+    }
+
+    depositInfo[depositId].recipient = recipient;
+    _payExecutionFee(depositId, false);
+    if (curPositionKey != bytes32(0)) {
+      nextAction.selector = NextActionSelector.WITHDRAW_ACTION;
+      _settle();  // Settles any outstanding fees and updates state before processing withdrawal
+    } else {
+      MarketPrices memory prices;
+      _withdraw(depositId, hex'', prices);
+    }
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
+
+// Function Implementation:
+function _finalize(bytes memory data) internal {
+    if (flow == FLOW.WITHDRAW) {
+      (uint256 prevCollateralBalance, bool positionClosed, bool refundFee) = abi.decode(data, (uint256, bool, bool));
+      uint256 withdrawn = collateralToken.balanceOf(address(this)) - prevCollateralBalance;
+      _handleReturn(withdrawn, positionClosed, refundFee);
+    } else {
+      delete swapProgressData;
+      delete flowData;
+      delete flow;
+    }
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
+
+// Function Implementation:
+function deposit(uint256 amount) external nonReentrant payable {
+    _noneFlow();
+    if (depositPaused == true) {
+      revert Error.Paused();
+    }
+    if (amount < minDepositAmount) {
+      revert Error.InsufficientAmount();
+    }
+    if (totalDepositAmount + amount > maxDepositAmount) {
+      revert Error.ExceedMaxDepositCap();
+    }
+    flow = FLOW.DEPOSIT;
+    collateralToken.safeTransferFrom(msg.sender, address(this), amount);
+    counter++;
+    depositInfo[counter] = DepositInfo(amount, 0, msg.sender, 0, block.timestamp, address(0));
+    totalDepositAmount += amount;
+    EnumerableSet.add(userDeposits[msg.sender], counter);
+
+    if (positionIsClosed) {
+      MarketPrices memory prices;
+      _mint(counter, amount, false, prices);
+      _finalize(hex'');
+    } else {
+      _payExecutionFee(counter, true);
+      // mint share token in the NextAction to involve off-chain price data and improve security
+      nextAction.selector = NextActionSelector.INCREASE_ACTION;
+      nextAction.data = abi.encode(beenLong);
+    }
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
+
+// Function Implementation:
+function afterLiquidationExecution() external {
+    if (msg.sender != address(gmxProxy)) {
+      revert Error.InvalidCall();
+    }
+
+    depositPaused = true;
+    uint256 sizeInTokens = vaultReader.getPositionSizeInTokens(curPositionKey);
+    if (sizeInTokens == 0) {
+      delete curPositionKey;
+    }
+
+    if (flow == FLOW.NONE) {
+      flow = FLOW.LIQUIDATION;
+      nextAction.selector = NextActionSelector.FINALIZE;
+    } else if (flow == FLOW.DEPOSIT) {
+      flowData = sizeInTokens;
+    } else if (flow == FLOW.WITHDRAW) {
+      // restart the withdraw flow even though current step is FINALIZE.
+      nextAction.selector = NextActionSelector.WITHDRAW_ACTION;
+    }
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+using SafeCast for uint256;
 using Position for Position.Props;
-address account;
-uint256 positionId;
-address dataStore;
-address eventEmitter;
-address account;
-uint256 positionId;
-bytes32 poolKey;
-bytes32 positionKey;
-uint256 marginLevel;
-uint256 marginLevelLiquidationThreshold;
-uint256 userTotalCollateral;
-uint256 userTotalDebt;
-uint256 memePrice;
-uint256 liquidationFee;
-IPoolBank poolBank;
+bytes32 requestKey;
+bool isSettle;
+bytes32 public constant COLLATERAL_TOKEN = keccak256(abi.encode("COLLATERAL_TOKEN"));
+bytes32 public constant SIZE_IN_USD = keccak256(abi.encode("SIZE_IN_USD"));
+bytes32 public constant SIZE_IN_TOKENS = keccak256(abi.encode("SIZE_IN_TOKENS"));
+bytes32 public constant COLLATERAL_AMOUNT = keccak256(abi.encode("COLLATERAL_AMOUNT"));
+bytes32 public constant ESTIMATED_GAS_FEE_BASE_AMOUNT_V2_1 = keccak256(abi.encode("ESTIMATED_GAS_FEE_BASE_AMOUNT_V2_1"));
+bytes32 public constant ESTIMATED_GAS_FEE_PER_ORACLE_PRICE = keccak256(abi.encode("ESTIMATED_GAS_FEE_PER_ORACLE_PRICE"));
+bytes32 public constant ESTIMATED_GAS_FEE_MULTIPLIER_FACTOR = keccak256(abi.encode("ESTIMATED_GAS_FEE_MULTIPLIER_FACTOR"));
+bytes32 public constant INCREASE_ORDER_GAS_LIMIT = keccak256(abi.encode("INCREASE_ORDER_GAS_LIMIT"));
+bytes32 public constant DECREASE_ORDER_GAS_LIMIT = keccak256(abi.encode("DECREASE_ORDER_GAS_LIMIT"));
+bytes32 public constant SWAP_ORDER_GAS_LIMIT = keccak256(abi.encode("SWAP_ORDER_GAS_LIMIT"));
+bytes32 public constant SINGLE_SWAP_GAS_LIMIT = keccak256(abi.encode("SINGLE_SWAP_GAS_LIMIT"));
+bytes32 public constant POSITION_FEE_FACTOR = keccak256(abi.encode("POSITION_FEE_FACTOR"));
+bytes32 public constant EXECUTE_ORDER_FEATURE_DISABLED = keccak256(abi.encode("EXECUTE_ORDER_FEATURE_DISABLED"));
+bytes32 public constant IS_LONG = keccak256(abi.encode("IS_LONG"));
+bytes32 public constant referralCode = bytes32(0);
+uint256 public constant PRECISION = 1e30;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+address public orderHandler;
+address public liquidationHandler;
+address public adlHandler;
+IExchangeRouter public gExchangeRouter;
+address public gmxRouter;
+IDataStore public dataStore;
+address public orderVault;
+IGmxReader public gmxReader;
+address public referralStorage;
+address public perpVault;
+OrderQueue public queue;
+uint256 public minEth;
 
 // Function Implementation:
-function validateLiquidation(
-        address dataStore,
-        Pool.Props memory pool,
-        Position.Props memory position
-    ) internal returns(uint256, uint256, uint256, uint256, uint256) {
-        ValidateCollateralLocalVars memory vars;
-        (   vars.marginLevel,
-            vars.marginLevelThreshold,
-            vars.userTotalCollateral,
-            vars.userTotalDebt,
-            vars.memePrice
-        ) = PositionUtils.calcMarginLevel(dataStore, pool, position);
-
-        if (vars.marginLevel >= vars.marginLevelThreshold) {
-            revert Errors.MarginAboveThreshold(
-                vars.marginLevel, 
-                vars.marginLevelThreshold
-            );
-        }
-
-        return (vars.marginLevel,
-                vars.marginLevelThreshold,
-                vars.userTotalCollateral,
-                vars.userTotalDebt,
-                vars.memePrice);
-    }
-
-// Contract State Variables:
-using Position for Position.Props;
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SignedMath for int256;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function validateMarginLevel(
-        address dataStore,
-        Pool.Props memory pool,
-        Position.Props memory position,
-        uint8 tokenIndex,
-        int256 collateralDelta,
-        int256 debtDelta
-    ) internal {
-        // Initialize local variables for calculations
-        ValidateMarginLevelLocalVars memory vars;
-        
-        // Fetch the current price of the asset in the pool
-        //TODO:shoud get the price from oracle to prevent the flashload attacks
-        vars.assetPrice = PoolUtils.calcMemePriceFromReserves(pool);
-
-        // Calculate the user's total collateral and total debt
-        (vars.userTotalCollateral, vars.userTotalDebt) = PositionUtils.calcTotalCollateralAndDebt(
-            pool, 
-            position, 
-            vars.assetPrice,
-            address(0)
-        );
-
-        // Ensure the user has collateral
-        if (vars.userTotalCollateral == 0) { revert Errors.EmptyCollateral();}
-
-        // Get the number of decimals for the token
-        vars.tokenDecimals = pool.configuration.getDecimals(tokenIndex);
-
-        // Calculate the absolute value of collateral delta and adjust for decimals
-        vars.collateralDeltaAbs = collateralDelta.abs();
-        vars.adjustedCollateral = Math.mulDiv(vars.collateralDeltaAbs, WadRayMath.RAY, 10**vars.tokenDecimals);
-
-        // Adjust the collateral value based on the token type (MEME or BASE)
-        vars.collateralInBaseUnits = (tokenIndex == Pool.MEME) 
-            ? vars.adjustedCollateral.rayMul(vars.assetPrice)
-            : vars.adjustedCollateral;
-
-        // Calculate the absolute value of debt delta and adjust for decimals
-        vars.debtDeltaAbs = debtDelta.abs();
-        vars.adjustedDebt = Math.mulDiv(vars.debtDeltaAbs, WadRayMath.RAY, 10**vars.tokenDecimals);
-
-        // Adjust the debt value based on the token type (MEME or BASE)
-        vars.debtInBaseUnits = (tokenIndex == Pool.MEME) 
-            ? vars.adjustedDebt.rayMul(vars.assetPrice)
-            : vars.adjustedDebt;
-
-        // Calculate the user's total collateral and debt after applying delta changes
-        vars.updatedUserTotalCollateral = (collateralDelta > 0)
-            ? vars.userTotalCollateral + vars.collateralInBaseUnits
-            : vars.userTotalCollateral - vars.collateralInBaseUnits;
-
-        vars.updatedUserTotalDebt = (debtDelta > 0)
-            ? vars.userTotalDebt + vars.debtInBaseUnits
-            : vars.userTotalDebt - vars.debtInBaseUnits;
-
-        // If there is no debt, no need to check margin level
-        if (vars.updatedUserTotalDebt == 0) { return; }
-
-        // Calculate the margin level after applying collateral and debt changes
-        vars.marginLevel = vars.updatedUserTotalCollateral.rayDiv(vars.updatedUserTotalDebt);
-
-        // Fetch the margin level threshold from the data store
-        vars.threshold = PositionStoreUtils.getMarginLevelThreshold(dataStore);
-
-        // Check if the margin level is below the threshold, and revert if so
-        if (vars.marginLevel < vars.threshold) {
-            revert Errors.MarginBelowThreshold(
-                vars.marginLevel, 
-                vars.threshold
-            );
-        }
-    }
-
-// Contract State Variables:
-using Pool for Pool.Props;
-using Position for Position.Props;
-uint256 positionId;
-uint8 tokenIndex;
-uint256 withdrawAmount;
-address to;
-address dataStore;
-address eventEmitter;
-uint256 positionId;
-uint8 tokenIndex;
-uint256 withdrawAmount;
-address to;
-bytes32 poolKey;
-bytes32 positionKey;
-uint256 withdrawAmount;
-IPoolBank poolBank;
-address token;
-uint256 collateralAmount;
-uint256 maxAmountToWithdraw;
-uint256 remainCollateral;
-uint256 price;
-
-// Function Implementation:
-function validateWithdraw(
-        address account,
-        address dataStore,
-        Pool.Props memory pool,
-        Position.Props memory position,
-        uint8 tokenIndex,
-        uint256 withdrawAmount
-    ) internal returns(uint256) {
-        //PoolUtils.validateConfigurationPool(pool, false);  
-        //PositionUtils.validateEnabledPosition(account, position);
-
-        if (withdrawAmount == 0) {
-            revert Errors.EmptyWithdrawAmounts();
-        }
-
-        PoolStoreUtils.validateTokenIndex(tokenIndex);
-
-        //TODO
-        //vars.withdrawAmount = params.withdrawAmount;
-        // vars.maxAmountToWithdraw = PositionUtils.maxAmountToWithdraw(account, params.dataStore, vars.pool, vars.position, params.tokenIndex);  
-        // if (vars.withdrawAmount > vars.maxAmountToWithdraw) {
-        //     vars.withdrawAmount = vars.maxAmountToWithdraw;
-        // }
-
-        // uint256 tradableDebtMultipierFactor = PoolStoreUtils.getTradableDebtMultipierFactor(dataStore);
-        // ( ,,uint256 availableReserve, ) = PoolUtils.getReserves(pool, tokenIndex, PoolUtils.IGNORE_CALC_LOAN, tradableDebtMultipierFactor );//usd
-        // if (withdrawAmount > availableReserve){
-        //     revert Errors.InsufficientReverveForWithdraw(withdrawAmount, availableReserve);
-        // }
-
-        if (withdrawAmount > position.assets[tokenIndex].collateral){
-            revert Errors.InsufficientCollateralForWidthdraw(withdrawAmount, position.assets[tokenIndex].collateral);
-        }
-
-        //validate health
-        PositionUtils.validateMarginLevel( 
-            dataStore, 
-            pool,
-            position,
-            tokenIndex, 
-            -int256(withdrawAmount),
-            0
-        );
-
-        return withdrawAmount;
-
-    }
-
-// Contract State Variables:
-EventEmitter public immutable eventEmitter;
-
-// Function Implementation:
-function executeWithdraw(
-        WithdrawUtils.WithdrawParams calldata params
-    ) external override payable nonReentrant {
-        address account = msg.sender;
-
-        return withdrawHandler.executeWithdraw(
-            account,
-            params
-        );
-    }
-
-// Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function getTotalDebt(Pool.Asset memory asset, uint256 lastUpdateTimestamp) internal view returns (uint256){
-        if (asset.totalDebtScaled == 0) {return 0;}
-        uint256 tokenIndex = calcNormalizedBorrowIndex(asset, lastUpdateTimestamp);
-        return asset.totalDebtScaled.rayMul(tokenIndex);
-    }
-
-// Contract State Variables:
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SafeMath for uint256;
-using PercentageMath for uint256;
-uint256 public constant MINIMUM_LIQUIDITY = 10**3;
-uint256 public constant IGNORE_CALC_LOAN = 0;
-uint256 public constant IGNORE_CALC_AVAILABLE = 0;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function calcNormalizedBorrowIndex(
-        Pool.Asset memory asset, 
-        uint256 lastUpdateTimestamp
-    ) internal view  returns (uint256) {
-        if (lastUpdateTimestamp == Chain.currentTimestamp()) {
-            return asset.borrowIndex;
+function getExecutionGasLimit(bool isDeposit) public view returns (uint256 minExecutionGasLimit) {
+    if (positionIsClosed == false) {
+      if (_isLongOneLeverage(beenLong)) {
+        minExecutionGasLimit = gmxProxy.getExecutionGasLimit(Order.OrderType.MarketSwap, callbackGasLimit);
+      } else {
+        if (isDeposit) {
+          minExecutionGasLimit = gmxProxy.getExecutionGasLimit(Order.OrderType.MarketIncrease, callbackGasLimit);
         } else {
-            uint256 periodicBorrowInterest = InterestUtils.calculateInterest(
-                asset.borrowRate, 
-                lastUpdateTimestamp
-            );
-            return periodicBorrowInterest.rayMul(asset.borrowIndex);
+          // withdraw action has 2 gmx call parts: settle + decrease position
+          minExecutionGasLimit = gmxProxy.getExecutionGasLimit(Order.OrderType.MarketDecrease, callbackGasLimit) * 2;
         }
-    }
-
-function currentTimestamp() internal view returns (uint256) {
-        return block.timestamp;
-    }
-
-// Contract State Variables:
-using WadRayMath for uint256;
-uint256 internal constant SECONDS_PER_YEAR = 365 days;
-uint256 totalPoolBalance;
-uint256 totalDebt;
-uint256 totalPoolBalanceBase;
-
-// Function Implementation:
-function calculateInterest(
-      uint256 rate,
-      uint256 lastUpdateTimestamp
-  ) internal view returns (uint256) {
-      //solium-disable-next-line
-      uint256 result = rate * (Chain.currentTimestamp() - uint256(lastUpdateTimestamp));
-      unchecked {
-          result = result / SECONDS_PER_YEAR;
       }
-
-      return WadRayMath.RAY + result;
+    }
   }
 
 // Contract State Variables:
-uint256 internal constant WAD = 1e18;
-uint256 internal constant HALF_WAD = 0.5e18;
-uint256 internal constant RAY = 1e27;
-uint256 internal constant HALF_RAY = 0.5e27;
-uint256 internal constant WAD_RAY_RATIO = 1e9;
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
 
 // Function Implementation:
-function rayDiv(uint256 a, uint256 b) internal pure returns (uint256 c) {
-    // to avoid overflow, a <= (type(uint256).max - halfB) / RAY
+function _payExecutionFee(uint256 depositId, bool isDeposit) internal {
+    uint256 minExecutionFee = getExecutionGasLimit(isDeposit) * tx.gasprice;
+
+    if (msg.value < minExecutionFee) {
+      revert Error.InsufficientAmount();
+    }
+    if (msg.value > 0) {
+      payable(address(gmxProxy)).transfer(msg.value);
+      depositInfo[depositId].executionFee = msg.value;
+    }
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
+
+// Function Implementation:
+function _createIncreasePosition(
+    bool _isLong,
+    uint256 acceptablePrice,
+    MarketPrices memory prices
+  ) internal {
+    // Check available amounts to open positions
+    uint256 amountIn;
+    if (flow == FLOW.DEPOSIT) {
+      amountIn = depositInfo[counter].amount;
+      flowData = vaultReader.getPositionSizeInTokens(curPositionKey);
+    } else {
+      amountIn = collateralToken.balanceOf(address(this));
+    }
+
+    Order.OrderType orderType = Order.OrderType.MarketIncrease;
+    collateralToken.safeTransfer(address(gmxProxy), amountIn);
+    uint256 sizeDelta = prices.shortTokenPrice.max * amountIn * leverage / BASIS_POINTS_DIVISOR;
+    IGmxProxy.OrderData memory orderData = IGmxProxy.OrderData({
+      market: market,
+      indexToken: indexToken,
+      initialCollateralToken: address(collateralToken),
+      swapPath: new address[](0),
+      isLong: _isLong,
+      sizeDeltaUsd: sizeDelta,
+      initialCollateralDeltaAmount: 0,
+      amountIn: amountIn,
+      callbackGasLimit: callbackGasLimit,
+      acceptablePrice: acceptablePrice,
+      minOutputAmount: 0
+    });
+    _gmxLock = true;
+    gmxProxy.createOrder(orderType, orderData);
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
+
+// Function Implementation:
+function _createDecreasePosition(
+    uint256 collateralDeltaAmount,
+    uint256 sizeDeltaInUsd,
+    bool _isLong,
+    uint256 acceptablePrice,
+    MarketPrices memory prices
+  ) internal {
+    address[] memory swapPath;
+    Order.OrderType orderType = Order.OrderType.MarketDecrease;
+    uint256 sizeInUsd = vaultReader.getPositionSizeInUsd(curPositionKey);
+    if (
+      sizeDeltaInUsd == 0 ||
+      vaultReader.willPositionCollateralBeInsufficient(
+        prices,
+        curPositionKey,
+        market,
+        _isLong,
+        sizeDeltaInUsd,
+        collateralDeltaAmount
+      )
+    ) {
+      sizeDeltaInUsd = sizeInUsd;
+    }
+    IGmxProxy.OrderData memory orderData = IGmxProxy.OrderData({
+      market: market,
+      indexToken: indexToken,
+      initialCollateralToken: address(collateralToken),
+      swapPath: swapPath,
+      isLong: _isLong,
+      sizeDeltaUsd: sizeDeltaInUsd,
+      initialCollateralDeltaAmount: collateralDeltaAmount,
+      amountIn: 0,
+      callbackGasLimit: callbackGasLimit,
+      acceptablePrice: acceptablePrice,
+      minOutputAmount: 0
+    });
+    _gmxLock = true;
+    gmxProxy.createOrder(orderType, orderData);
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
+
+// Function Implementation:
+function _withdraw(uint256 depositId, bytes memory metadata, MarketPrices memory prices) internal {
+    uint256 shares = depositInfo[depositId].shares;
+    if (shares == 0) {
+      revert Error.ZeroValue();
+    }
+    
+    if (positionIsClosed) {
+      _handleReturn(0, true, false);
+    } else if (_isLongOneLeverage(beenLong)) {  // beenLong && leverage == BASIS_POINTS_DIVISOR
+      uint256 swapAmount = IERC20(indexToken).balanceOf(address(this)) * shares / totalShares;
+      nextAction.selector = NextActionSelector.SWAP_ACTION;
+      // abi.encode(swapAmount, swapDirection): if swap direction is true, swap collateralToken to indexToken
+      nextAction.data = abi.encode(swapAmount, false);
+    } else if (curPositionKey == bytes32(0)) {    // vault liquidated
+      _handleReturn(0, true, false);
+    } else {
+      IVaultReader.PositionData memory positionData = vaultReader.getPositionInfo(curPositionKey, prices);
+      uint256 collateralDeltaAmount = positionData.collateralAmount * shares / totalShares;
+      uint256 sizeDeltaInUsd = positionData.sizeInUsd * shares / totalShares;
+      // we always charge the position fee of negative price impact case.
+      uint256 feeAmount = vaultReader.getPositionFeeUsd(market, sizeDeltaInUsd, false) / prices.shortTokenPrice.max;
+      int256 pnl = vaultReader.getPnl(curPositionKey, prices, sizeDeltaInUsd);
+      if (pnl < 0) {
+        collateralDeltaAmount = collateralDeltaAmount - feeAmount - uint256(-pnl) / prices.shortTokenPrice.max;
+      } else {
+        collateralDeltaAmount = collateralDeltaAmount - feeAmount;
+      }
+      uint256 acceptablePrice = abi.decode(metadata, (uint256));
+      _createDecreasePosition(collateralDeltaAmount, sizeDeltaInUsd, beenLong, acceptablePrice, prices);
+    }
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
+
+// Function Implementation:
+function _doGmxSwap(bytes memory data, bool isCollateralToIndex) internal {
+    Order.OrderType orderType = Order.OrderType.MarketSwap;
+    (address[] memory gPath, uint256 amountIn, uint256 minOutputAmount) = abi.decode(data, (address[], uint256, uint256));
+    swapProgressData.remaining = amountIn;
+    swapProgressData.isCollateralToIndex = isCollateralToIndex;
+
+    address tokenIn;
+    if (isCollateralToIndex) {
+      tokenIn = address(collateralToken);
+    } else {
+      tokenIn = address(indexToken);
+    }
+    IERC20(tokenIn).safeTransfer(address(gmxProxy), amountIn);
+    
+    IGmxProxy.OrderData memory orderData = IGmxProxy.OrderData({
+      market: address(0),
+      indexToken: address(0),
+      initialCollateralToken: tokenIn,
+      swapPath: gPath,
+      isLong: isCollateralToIndex,    // this param has no meaning in swap order, but uses it to see the swap direction
+      sizeDeltaUsd: 0,
+      initialCollateralDeltaAmount: 0,
+      amountIn: amountIn,
+      callbackGasLimit: callbackGasLimit,
+      acceptablePrice: 0,
+      minOutputAmount: minOutputAmount
+    });
+    _gmxLock = true;
+    gmxProxy.createOrder(orderType, orderData);
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+
+// Function Implementation:
+function _validateCallData(address to, bytes memory callData) internal view {
+    require(to == address(0xDEF171Fe48CF0115B1d80b88dc8eAB59176FEe57), "invalid paraswap callee");
+    address receiver;
     assembly {
-      if or(iszero(b), iszero(iszero(gt(a, div(sub(not(0), div(b, 2)), RAY))))) {
-        revert(0, 0)
-      }
+      receiver := mload(add(callData, 196))
+    }
+    require(receiver == address(this), "invalid paraswap calldata");
+  }
 
-      c := div(add(mul(a, RAY), div(b, 2)), b)
+// Contract State Variables:
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
+
+// Function Implementation:
+function _isLongOneLeverage(bool _isLong) internal view returns (bool) {
+    return _isLong && leverage == BASIS_POINTS_DIVISOR;
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
+
+// Function Implementation:
+function _noneFlow() internal view {
+    if (flow != FLOW.NONE) {
+      revert Error.FlowInProgress();
     }
   }
 
 // Contract State Variables:
-uint256 internal constant ACTIVE_MASK =          0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFF;
-uint256 internal constant FROZEN_MASK =          0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFDFFFFFFFFFFFF;
-uint256 internal constant BORROWING_MASK =         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFBFFFFFFFFFFFF;
-uint256 internal constant SHORT_MASK =           0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF7FFFFFFFFFFFF;
-uint256 internal constant PAUSED_MASK =          0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFF;
-uint256 internal constant SWAP_FEE_FACTOR_MASK =      0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000FFFFFFFFFFFFFF;
-uint256 internal constant TREASURY_FEE_FACTOR_MASK =    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000FFFFFFFFFFFFFFFFFF;
-uint256 internal constant DECIMALS_BASE_MASK =       0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00FFFFFFFFFFFFFFFFFFFFFF;
-uint256 internal constant DECIMALS_MEME_MASK =       0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00FFFFFFFFFFFFFFFFFFFFFFFF;
-uint256 internal constant SUPPLY_CAP_MASK =        0xFFFFFFFFFFFFFFFFFFFFFFFF000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
-uint256 internal constant IS_ACTIVE_START_BIT_POSITION = 48;
-uint256 internal constant IS_FROZEN_START_BIT_POSITION = 49;
-uint256 internal constant BORROWING_ENABLED_START_BIT_POSITION = 50;
-uint256 internal constant IS_SHORT_START_BIT_POSITION = 51;
-uint256 internal constant IS_PAUSED_START_BIT_POSITION = 52;
-uint256 internal constant SWAP_FEE_FACTOR_START_BIT_POSITION = 56;
-uint256 internal constant TREASURY_FEE_FACTOR_START_BIT_POSITION = 72;
-uint256 internal constant DECIMALS_BASE_START_BIT_POSITION = 88;
-uint256 internal constant DECIMALS_MEME_START_BIT_POSITION = 96;
-uint256 internal constant SUPPLY_CAP_START_BIT_POSITION = 124;
-uint256 internal constant MAX_VALID_DECIMALS = 255;
-uint256 internal constant MAX_VALID_FEE_FACTOR = 65535;
-uint256 public constant DEBT_CEILING_DECIMALS = 2;
-uint16 public constant MAX_POOLS_COUNT = 128;
+using SafeCast for uint256;
+bytes32 public constant SIZE_IN_USD = keccak256(abi.encode("SIZE_IN_USD"));
+bytes32 public constant SIZE_IN_TOKENS = keccak256(abi.encode("SIZE_IN_TOKENS"));
+bytes32 public constant POSITION_FEE_FACTOR = keccak256(abi.encode("POSITION_FEE_FACTOR"));
+uint256 public constant PRECISION = 1e30;
+address public orderHandler;
+IDataStore public dataStore;
+address public orderVault;
+IGmxReader public gmxReader;
+address public referralStorage;
 
 // Function Implementation:
-function getDecimals(
-        uint256 poolConfigration,
-        uint8 tokenIndex
-    ) internal pure returns (uint256) {
-        uint256 decimalsMask = DECIMALS_BASE_MASK;
-        uint256 startBitPosition = DECIMALS_BASE_START_BIT_POSITION;
-        if (tokenIndex == Pool.MEME){
-            decimalsMask = DECIMALS_MEME_MASK;
-            startBitPosition = DECIMALS_MEME_START_BIT_POSITION;
-        }
-        return (poolConfigration & ~decimalsMask) >> startBitPosition;
-    }
+function getPnl(
+    bytes32 key,
+    MarketPrices memory prices,
+    uint256 sizeDeltaUsd
+  ) external view returns (int256) {
+    uint256 sizeInTokens = getPositionSizeInUsd(key);
+    if (sizeInTokens == 0) return 0;
+    
+    PositionInfo memory positionInfo = gmxReader.getPositionInfo(
+      address(dataStore),
+      referralStorage,
+      key,
+      prices,
+      sizeDeltaUsd,
+      address(0),
+      true
+    );
+
+    return positionInfo.pnlAfterPriceImpactUsd;
+  }
 
 // Contract State Variables:
+using SafeCast for uint256;
+bytes32 public constant SIZE_IN_USD = keccak256(abi.encode("SIZE_IN_USD"));
+bytes32 public constant SIZE_IN_TOKENS = keccak256(abi.encode("SIZE_IN_TOKENS"));
+bytes32 public constant POSITION_FEE_FACTOR = keccak256(abi.encode("POSITION_FEE_FACTOR"));
+uint256 public constant PRECISION = 1e30;
+address public orderHandler;
+IDataStore public dataStore;
+address public orderVault;
+IGmxReader public gmxReader;
+address public referralStorage;
+
+// Function Implementation:
+function getPositionInfo(
+    bytes32 key,
+    MarketPrices memory prices
+  ) external view returns (PositionData memory) {
+    uint256 sizeInTokens = getPositionSizeInUsd(key);
+    if (sizeInTokens == 0) {
+      return PositionData({
+        sizeInUsd: 0,
+        sizeInTokens: 0,
+        collateralAmount: 0,
+        netValue: 0,
+        pnl: 0,
+        isLong: true
+      });
+    }
+    PositionInfo memory positionInfo = gmxReader.getPositionInfo(
+      address(dataStore),
+      referralStorage,
+      key,
+      prices,
+      uint256(0),
+      address(0),
+      true
+    );
+    uint256 netValue = 
+      positionInfo.position.numbers.collateralAmount * prices.shortTokenPrice.min +
+      positionInfo.fees.funding.claimableLongTokenAmount * prices.longTokenPrice.min +
+      positionInfo.fees.funding.claimableShortTokenAmount * prices.shortTokenPrice.min -
+      positionInfo.fees.borrowing.borrowingFeeUsd -
+      positionInfo.fees.funding.fundingFeeAmount * prices.shortTokenPrice.min -
+      positionInfo.fees.positionFeeAmount * prices.shortTokenPrice.min;
+    
+    if (positionInfo.basePnlUsd >= 0) {
+      netValue = netValue + uint256(positionInfo.basePnlUsd);
+    } else {
+      netValue = netValue - uint256(-positionInfo.basePnlUsd);
+    }
+
+    return PositionData({
+      sizeInUsd: positionInfo.position.numbers.sizeInUsd,
+      sizeInTokens: positionInfo.position.numbers.sizeInTokens,
+      collateralAmount: positionInfo.position.numbers.collateralAmount,
+      netValue: netValue,
+      pnl: positionInfo.basePnlUsd,
+      isLong: positionInfo.position.flags.isLong
+    });
+  }
+
+// Contract State Variables:
+using SafeCast for uint256;
+bytes32 public constant SIZE_IN_USD = keccak256(abi.encode("SIZE_IN_USD"));
+bytes32 public constant SIZE_IN_TOKENS = keccak256(abi.encode("SIZE_IN_TOKENS"));
+bytes32 public constant POSITION_FEE_FACTOR = keccak256(abi.encode("POSITION_FEE_FACTOR"));
+uint256 public constant PRECISION = 1e30;
+address public orderHandler;
+IDataStore public dataStore;
+address public orderVault;
+IGmxReader public gmxReader;
+address public referralStorage;
+
+// Function Implementation:
+function getPositionSizeInUsd(bytes32 key) public view returns (uint256 sizeInUsd) {
+    sizeInUsd = dataStore.getUint(keccak256(abi.encode(key, SIZE_IN_USD)));
+  }
+
+// Contract State Variables:
+using SafeCast for uint256;
+bytes32 public constant SIZE_IN_USD = keccak256(abi.encode("SIZE_IN_USD"));
+bytes32 public constant SIZE_IN_TOKENS = keccak256(abi.encode("SIZE_IN_TOKENS"));
+bytes32 public constant POSITION_FEE_FACTOR = keccak256(abi.encode("POSITION_FEE_FACTOR"));
+uint256 public constant PRECISION = 1e30;
+address public orderHandler;
+IDataStore public dataStore;
+address public orderVault;
+IGmxReader public gmxReader;
+address public referralStorage;
+
+// Function Implementation:
+function willPositionCollateralBeInsufficient(
+    MarketPrices memory prices,
+    bytes32 positionKey,
+    address market,
+    bool isLong,
+    uint256 sizeDeltaUsd,
+    uint256 collateralDeltaAmount
+  ) external view returns (bool) {
+    if (getPositionSizeInUsd(positionKey) == 0) return true;
+    PositionInfo memory positionInfo = gmxReader.getPositionInfo(
+      address(dataStore),
+      referralStorage,
+      positionKey,
+      prices,
+      uint256(0),
+      address(0),
+      true
+    );
+    int256 realizedPnlUsd;
+    if (positionInfo.basePnlUsd > 0) {
+      realizedPnlUsd = (uint256(positionInfo.basePnlUsd) * sizeDeltaUsd / positionInfo.position.numbers.sizeInUsd).toInt256();
+    } else {
+      realizedPnlUsd = -(uint256(-positionInfo.basePnlUsd) * uint256(sizeDeltaUsd) / uint256(positionInfo.position.numbers.sizeInUsd)).toInt256();
+    }
+    MarketUtils.WillPositionCollateralBeSufficientValues memory values = MarketUtils.WillPositionCollateralBeSufficientValues({
+      positionSizeInUsd: positionInfo.position.numbers.sizeInUsd - sizeDeltaUsd,
+      positionCollateralAmount: positionInfo.position.numbers.collateralAmount - collateralDeltaAmount,
+      realizedPnlUsd: realizedPnlUsd,
+      openInterestDelta: -int256(sizeDeltaUsd)
+    });
+    MarketProps memory marketInfo = getMarket(market);
+    (bool willBeSufficient, ) = MarketUtils.willPositionCollateralBeSufficient(
+      dataStore,
+      marketInfo,
+      prices,
+      isLong,
+      values
+    );
+
+    return !willBeSufficient;
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
+
+// Function Implementation:
+function _handleReturn(uint256 withdrawn, bool positionClosed, bool refundFee) internal {
+    (uint256 depositId) = flowData;
+    uint256 shares = depositInfo[depositId].shares;
+    uint256 amount;
+    if (positionClosed) {
+      amount = collateralToken.balanceOf(address(this)) * shares / totalShares;
+    } else {
+      uint256 balanceBeforeWithdrawal = collateralToken.balanceOf(address(this)) - withdrawn;
+      amount = withdrawn + balanceBeforeWithdrawal * shares / totalShares;
+    }
+    if (amount > 0) {
+      _transferToken(depositId, amount);
+    }
+    emit Burned(depositId, depositInfo[depositId].recipient, depositInfo[depositId].shares, amount);
+    _burn(depositId);
+
+    if (refundFee) {
+      uint256 usedFee = callbackGasLimit * tx.gasprice;
+      if (depositInfo[depositId].executionFee > usedFee) {
+        try IGmxProxy(gmxProxy).refundExecutionFee(depositInfo[counter].owner, depositInfo[counter].executionFee - usedFee) {} catch {}
+      }
+    }
+
+    // update global state
+    delete swapProgressData;
+    delete flowData;
+    delete flow;
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
+
+// Function Implementation:
+function _transferToken(uint256 depositId, uint256 amount) internal {
+    uint256 fee;
+    if (amount > depositInfo[depositId].amount) {
+      fee = (amount - depositInfo[depositId].amount) * governanceFee / BASIS_POINTS_DIVISOR;
+      if (fee > 0) {
+        collateralToken.safeTransfer(treasury, fee);
+      }
+    }
+    
+    try collateralToken.transfer(depositInfo[depositId].recipient, amount - fee) {}
+    catch  {
+      collateralToken.transfer(treasury, amount - fee);
+      emit TokenTranferFailed(depositInfo[depositId].recipient, amount - fee);
+    }
+    totalDepositAmount -= depositInfo[depositId].amount;
+    
+    emit GovernanceFeeCollected(address(collateralToken), fee);
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+using SafeCast for uint256;
 using Position for Position.Props;
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SignedMath for int256;
-using PoolConfigurationUtils for uint256;
+bytes32 requestKey;
+bool isSettle;
+bytes32 public constant COLLATERAL_TOKEN = keccak256(abi.encode("COLLATERAL_TOKEN"));
+bytes32 public constant SIZE_IN_USD = keccak256(abi.encode("SIZE_IN_USD"));
+bytes32 public constant SIZE_IN_TOKENS = keccak256(abi.encode("SIZE_IN_TOKENS"));
+bytes32 public constant COLLATERAL_AMOUNT = keccak256(abi.encode("COLLATERAL_AMOUNT"));
+bytes32 public constant ESTIMATED_GAS_FEE_BASE_AMOUNT_V2_1 = keccak256(abi.encode("ESTIMATED_GAS_FEE_BASE_AMOUNT_V2_1"));
+bytes32 public constant ESTIMATED_GAS_FEE_PER_ORACLE_PRICE = keccak256(abi.encode("ESTIMATED_GAS_FEE_PER_ORACLE_PRICE"));
+bytes32 public constant ESTIMATED_GAS_FEE_MULTIPLIER_FACTOR = keccak256(abi.encode("ESTIMATED_GAS_FEE_MULTIPLIER_FACTOR"));
+bytes32 public constant INCREASE_ORDER_GAS_LIMIT = keccak256(abi.encode("INCREASE_ORDER_GAS_LIMIT"));
+bytes32 public constant DECREASE_ORDER_GAS_LIMIT = keccak256(abi.encode("DECREASE_ORDER_GAS_LIMIT"));
+bytes32 public constant SWAP_ORDER_GAS_LIMIT = keccak256(abi.encode("SWAP_ORDER_GAS_LIMIT"));
+bytes32 public constant SINGLE_SWAP_GAS_LIMIT = keccak256(abi.encode("SINGLE_SWAP_GAS_LIMIT"));
+bytes32 public constant POSITION_FEE_FACTOR = keccak256(abi.encode("POSITION_FEE_FACTOR"));
+bytes32 public constant EXECUTE_ORDER_FEATURE_DISABLED = keccak256(abi.encode("EXECUTE_ORDER_FEATURE_DISABLED"));
+bytes32 public constant IS_LONG = keccak256(abi.encode("IS_LONG"));
+bytes32 public constant referralCode = bytes32(0);
+uint256 public constant PRECISION = 1e30;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+address public orderHandler;
+address public liquidationHandler;
+address public adlHandler;
+IExchangeRouter public gExchangeRouter;
+address public gmxRouter;
+IDataStore public dataStore;
+address public orderVault;
+IGmxReader public gmxReader;
+address public referralStorage;
+address public perpVault;
+OrderQueue public queue;
+uint256 public minEth;
 
 // Function Implementation:
-function maxAmountToRedeem(
-        address dataStore,
-        Pool.Props memory pool,
-        Position.Props memory position,
-        uint256 memePriceInBaseUnits,
-        uint8 tokenIndex
-    ) internal view returns (uint256) {
-        RedeemCalculation memory vars;
-
-        // Calculate the total collateral and debt in Base Units
-        (vars.collateral, vars.debt) = calcTotalCollateralAndDebt(pool, position, memePriceInBaseUnits, address(0));
-
-        // If there is no collateral, nothing can be redeemed
-        if (vars.collateral == 0 || position.assets[tokenIndex].collateral == 0) {
-            return 0;
-        }
-
-        // Fetch the debt rate threshold from the data store
-        vars.debtSafetyFactor = PositionStoreUtils.getDebtSafetyFactor(dataStore);
-
-        // Calculate the total debt including the threshold
-        vars.adjustedDebt = vars.debt.rayMul(vars.debtSafetyFactor);
-
-        // If collateral is less than the required debt, no redemption is possible
-        if (vars.collateral < vars.adjustedDebt) {
-            return 0;
-        }
-
-        // Calculate available collateral that can be redeemed
-        vars.availableCollateral = vars.collateral - vars.adjustedDebt;
-
-        // Get the number of decimals for the token
-        vars.decimals = PoolConfigurationUtils.getDecimals(pool.configuration, tokenIndex);
-
-        // Adjust the available collateral based on token decimals and Ray scale
-        vars.adjustedAvailableCollateral = Math.mulDiv(vars.availableCollateral, 10**vars.decimals, WadRayMath.RAY);
-
-        // If redeeming MEME, adjust for the price in Base Units
-        if (tokenIndex == Pool.MEME) {
-            vars.adjustedAvailableCollateral = vars.adjustedAvailableCollateral.rayDiv(memePriceInBaseUnits);
-        }
-
-        // adjust for the asset collateral amount
-        if (vars.adjustedAvailableCollateral > position.assets[tokenIndex].collateral) {
-            vars.adjustedAvailableCollateral = position.assets[tokenIndex].collateral;
-        }
-
-        return vars.adjustedAvailableCollateral;
-    }
+function refundExecutionFee(address receipient, uint256 amount) external {
+    require(msg.sender == perpVault, "invalid caller");
+    payable(receipient).transfer(amount);
+  }
 
 // Contract State Variables:
-uint8 private _decimals;
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
 
 // Function Implementation:
-function decimals() public view virtual override returns (uint8) {
-        return _decimals;
-    }
+function _burn(uint256 depositId) internal {
+    EnumerableSet.remove(userDeposits[depositInfo[depositId].owner], depositId);
+    totalShares = totalShares - depositInfo[depositId].shares;
+    delete depositInfo[depositId];
+  }
 
 // Contract State Variables:
-using Position for Position.Props;
-bytes32 public constant ACCOUNT_POSITION    = keccak256(abi.encode("ACCOUNT_POSITION"));
-bytes32 public constant POS_ID         = keccak256(abi.encode("POS_ID"));
-bytes32 public constant POS_ACCOUNT       = keccak256(abi.encode("POS_ACCOUNT"));
-bytes32 public constant POS_TOKEN_0       = keccak256(abi.encode("POS_TOKEN_0"));
-bytes32 public constant POS_COLLATERAL_0    = keccak256(abi.encode("POS_COLLATERAL_0"));
-bytes32 public constant POS_DEBTSCALED_0    = keccak256(abi.encode("POS_DEBTSCALED_0"));
-bytes32 public constant POS_BORROWINDEX_0    = keccak256(abi.encode("POS_BORROWINDEX_0"));
-bytes32 public constant POS_ENTRY_LONG_PRICE_0 = keccak256(abi.encode("POS_ENTRY_LONG_PRICE_0"));
-bytes32 public constant POS_ACC_LONG_AMOUNT_0  = keccak256(abi.encode("POS_ACC_LONG_AMOUNT_0"));
-bytes32 public constant POS_ENTRY_SHORT_PRICE_0 = keccak256(abi.encode("POS_ENTRY_SHORT_PRICE_0"));
-bytes32 public constant POS_ACC_SHORT_AMOUNT_0 = keccak256(abi.encode("POS_ACC_SHORT_AMOUNT_0"));
-bytes32 public constant POS_TYPE_0       = keccak256(abi.encode("POS_TYPE_0"));
-bytes32 public constant POS_TOKEN_1       = keccak256(abi.encode("POS_TOKEN_1"));
-bytes32 public constant POS_COLLATERAL_1    = keccak256(abi.encode("POS_COLLATERAL_1"));
-bytes32 public constant POS_DEBTSCALED_1    = keccak256(abi.encode("POS_DEBTSCALED_1"));
-bytes32 public constant POS_BORROWINDEX_1    = keccak256(abi.encode("POS_BORROWINDEX_1"));
-bytes32 public constant POS_ENTRY_LONG_PRICE_1 = keccak256(abi.encode("POS_ENTRY_LONG_PRICE_1"));
-bytes32 public constant POS_ACC_LONG_AMOUNT_1  = keccak256(abi.encode("POS_ACC_LONG_AMOUNT_1"));
-bytes32 public constant POS_ENTRY_SHORT_PRICE_1 = keccak256(abi.encode("POS_ENTRY_SHORT_PRICE_1"));
-bytes32 public constant POS_ACC_SHORT_AMOUNT_1 = keccak256(abi.encode("POS_ACC_SHORT_AMOUNT_1"));
-bytes32 public constant POS_TYPE_1       = keccak256(abi.encode("POS_TYPE_1"));
+using SafeCast for uint256;
+bytes32 public constant SIZE_IN_USD = keccak256(abi.encode("SIZE_IN_USD"));
+bytes32 public constant SIZE_IN_TOKENS = keccak256(abi.encode("SIZE_IN_TOKENS"));
+bytes32 public constant POSITION_FEE_FACTOR = keccak256(abi.encode("POSITION_FEE_FACTOR"));
+uint256 public constant PRECISION = 1e30;
+address public orderHandler;
+IDataStore public dataStore;
+address public orderVault;
+IGmxReader public gmxReader;
+address public referralStorage;
 
 // Function Implementation:
-function get(address dataStoreAddress, bytes32 key) external view returns (Pool.Props memory) {
-        IDataStore dataStore = IDataStore(dataStoreAddress);
-
-        Pool.Props memory pool;
-        if (!dataStore.containsBytes32(Keys.POOL_LIST, key)) { return pool; }
-
-        pool.assets[Pool.BASE].token = dataStore.getAddress(keccak256(abi.encode(key, POOL_TOKEN_0)));
-        pool.assets[Pool.BASE].borrowIndex = dataStore.getUint(keccak256(abi.encode(key, POOL_BORROW_INDEX_0)));
-        pool.assets[Pool.BASE].borrowRate = dataStore.getUint(keccak256(abi.encode(key, POOL_BORROW_RATE_0)));
-        pool.assets[Pool.BASE].totalCollateral = dataStore.getUint(keccak256(abi.encode(key, POOL_TOTAL_COLLATERAL_0)));
-        pool.assets[Pool.BASE].totalCollateralWithDebt = dataStore.getUint(keccak256(abi.encode(key, POOL_TOTAL_COLLATERAL_WITH_DEBT_0)));
-        pool.assets[Pool.BASE].totalDebtScaled = dataStore.getUint(keccak256(abi.encode(key, POOL_TOTAL_SCALED_DEBT_0)));
-        pool.assets[Pool.BASE].unclaimedFee = dataStore.getUint(keccak256(abi.encode(key, POOL_UNCLAIMED_FEE_0)));
-
-        pool.assets[Pool.MEME].token = dataStore.getAddress(keccak256(abi.encode(key, POOL_TOKEN_1)));
-        pool.assets[Pool.MEME].borrowIndex = dataStore.getUint(keccak256(abi.encode(key, POOL_BORROW_INDEX_1)));
-        pool.assets[Pool.MEME].borrowRate = dataStore.getUint(keccak256(abi.encode(key, POOL_BORROW_RATE_1)));
-        pool.assets[Pool.MEME].totalCollateral = dataStore.getUint(keccak256(abi.encode(key, POOL_TOTAL_COLLATERAL_1)));
-        pool.assets[Pool.MEME].totalCollateralWithDebt = dataStore.getUint(keccak256(abi.encode(key, POOL_TOTAL_COLLATERAL_WITH_DEBT_1)));
-        pool.assets[Pool.MEME].totalDebtScaled = dataStore.getUint(keccak256(abi.encode(key, POOL_TOTAL_SCALED_DEBT_1)));
-        pool.assets[Pool.MEME].unclaimedFee= dataStore.getUint(keccak256(abi.encode(key, POOL_UNCLAIMED_FEE_1)));
-
-        pool.bank                 = dataStore.getAddress(keccak256(abi.encode(key, POOL_BANK)));
-        pool.interestRateStrategy = dataStore.getAddress(keccak256(abi.encode(key, POOL_INTEREST_RATE_STRATEGY)));
-        pool.configuration        = dataStore.getUint(keccak256(abi.encode(key, POOL_CONFIGURATION)));
-        pool.lastUpdateTimestamp  = dataStore.getUint(keccak256(abi.encode(key, POOL_LAST_UPDATE_TIME_STAMP)));
-        //pool.createdTimestamp     = dataStore.getUint(keccak256(abi.encode(key, POOL_CREATED_TIME_STAMP)));
-
-        return pool;
-    }
+function getPositionFeeUsd(address market, uint256 sizeDeltaUsd, bool forPositiveImpact) external view returns (uint256 positionFeeAmount) {
+    uint256 positionFeeFactor = dataStore.getUint(keccak256(abi.encode(
+      POSITION_FEE_FACTOR,
+      market,
+      forPositiveImpact
+    )));
+    positionFeeAmount = sizeDeltaUsd * positionFeeFactor / PRECISION;
+  }
 
 // Contract State Variables:
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
+
+// Function Implementation:
+function _mint(uint256 depositId, uint256 amount, bool refundFee, MarketPrices memory prices) internal {
+    uint256 _shares;
+    if (totalShares == 0) {
+      _shares = depositInfo[depositId].amount * 1e8;
+    } else {
+      uint256 totalAmountBefore;
+      if (positionIsClosed == false && _isLongOneLeverage(beenLong)) {
+        totalAmountBefore = IERC20(indexToken).balanceOf(address(this)) - amount;
+      } else {
+        totalAmountBefore = _totalAmount(prices) - amount;
+      }
+      if (totalAmountBefore == 0) totalAmountBefore = 1;
+      _shares = amount * totalShares / totalAmountBefore;
+    }
+
+    depositInfo[depositId].shares = _shares;
+    totalShares = totalShares + _shares;
+
+    if (refundFee) {
+      uint256 usedFee = callbackGasLimit * tx.gasprice;
+      if (depositInfo[counter].executionFee > usedFee) {
+        try IGmxProxy(gmxProxy).refundExecutionFee(depositInfo[counter].owner, depositInfo[counter].executionFee - usedFee) {} catch {}
+      }
+    }
+
+    emit Minted(depositId, depositInfo[depositId].owner, _shares, amount);
+  }
+
+// Contract State Variables:
+using SafeERC20 for IERC20;
+bool isCollateralToIndex;
+uint256 swapped;
+uint256 remaining;
+NextActionSelector selector;
+bytes data;
+uint256 amount;
+uint256 shares;
+address owner;
+uint256 executionFee;
+uint256 timestamp;
+address recipient;
+uint256 public constant BASIS_POINTS_DIVISOR = 10_000;
+uint256 constant ONE_USD = 1e30;
+uint256 public totalShares;
+uint256 counter;
+mapping (uint256 => DepositInfo) public depositInfo;
+mapping (address => EnumerableSet.UintSet) userDeposits;
+address public market;
+address public indexToken;
+IERC20 public collateralToken;
+IGmxProxy public gmxProxy;
+IVaultReader public vaultReader;
+address public keeper;
+address public treasury;
+bytes32 public curPositionKey;
+uint256 public maxDepositAmount;
+uint256 public minDepositAmount;
+uint256 public totalDepositAmount;
+uint256 public governanceFee;
+uint256 public callbackGasLimit;
+
+// Function Implementation:
+function _totalAmount(MarketPrices memory prices) internal view returns (uint256) {
+    if (positionIsClosed) {
+      return collateralToken.balanceOf(address(this));
+    } else {
+      IVaultReader.PositionData memory positionData = vaultReader.getPositionInfo(curPositionKey, prices);
+      uint256 total = IERC20(indexToken).balanceOf(address(this)) * prices.indexTokenPrice.min / prices.shortTokenPrice.min
+          + collateralToken.balanceOf(address(this))
+          + positionData.netValue / prices.shortTokenPrice.min;
+
+      return total;
+    }
+  }
+
+// Contract State Variables:
+using SafeCast for uint256;
+bytes32 public constant SIZE_IN_USD = keccak256(abi.encode("SIZE_IN_USD"));
+bytes32 public constant SIZE_IN_TOKENS = keccak256(abi.encode("SIZE_IN_TOKENS"));
+bytes32 public constant POSITION_FEE_FACTOR = keccak256(abi.encode("POSITION_FEE_FACTOR"));
+uint256 public constant PRECISION = 1e30;
+address public orderHandler;
+IDataStore public dataStore;
+address public orderVault;
+IGmxReader public gmxReader;
+address public referralStorage;
+
+// Function Implementation:
+function getMarket(address market) public view returns (MarketProps memory) {
+    return gmxReader.getMarket(address(dataStore), market);
+  }
+
+// Contract State Variables:
+using SignedSafeMath for int256;
 using SafeCast for int256;
-using EnumerableSet for EnumerableSet.Bytes32Set;
-using EnumerableSet for EnumerableSet.AddressSet;
-using EnumerableSet for EnumerableSet.UintSet;
-using EnumerableValues for EnumerableSet.Bytes32Set;
-using EnumerableValues for EnumerableSet.AddressSet;
-using EnumerableValues for EnumerableSet.UintSet;
-mapping(bytes32 => uint256) public uintValues;
-mapping(bytes32 => int256) public intValues;
-mapping(bytes32 => address) public addressValues;
-mapping(bytes32 => bool) public boolValues;
-mapping(bytes32 => string) public stringValues;
-mapping(bytes32 => bytes32) public bytes32Values;
-mapping(bytes32 => uint256[]) public uintArrayValues;
-mapping(bytes32 => int256[]) public intArrayValues;
-mapping(bytes32 => address[]) public addressArrayValues;
-mapping(bytes32 => bool[]) public boolArrayValues;
-mapping(bytes32 => string[]) public stringArrayValues;
-mapping(bytes32 => bytes32[]) public bytes32ArrayValues;
-mapping(bytes32 => EnumerableSet.Bytes32Set) internal bytes32Sets;
-mapping(bytes32 => EnumerableSet.AddressSet) internal addressSets;
-mapping(bytes32 => EnumerableSet.UintSet) internal uintSets;
+using SafeCast for uint256;
+uint256 public constant FLOAT_PRECISION = 10 ** 30;
+bytes32 public constant OPEN_INTEREST = keccak256(abi.encode("OPEN_INTEREST"));
+bytes32 public constant MIN_COLLATERAL_FACTOR_FOR_OPEN_INTEREST_MULTIPLIER = keccak256(abi.encode("MIN_COLLATERAL_FACTOR_FOR_OPEN_INTEREST_MULTIPLIER"));
+bytes32 public constant MIN_COLLATERAL_FACTOR = keccak256(abi.encode("MIN_COLLATERAL_FACTOR"));
+uint256 positionSizeInUsd;
+uint256 positionCollateralAmount;
+int256 realizedPnlUsd;
+int256 openInterestDelta;
 
 // Function Implementation:
-function containsBytes32(bytes32 setKey, bytes32 value) external view returns (bool) {
-        return bytes32Sets[setKey].contains(value);
-    }
+function willPositionCollateralBeSufficient(
+        IDataStore dataStore,
+        MarketProps memory market,
+        MarketPrices memory prices,
+        bool isLong,
+        WillPositionCollateralBeSufficientValues memory values
+    ) external view returns (bool, int256) {
+        PriceProps memory collateralTokenPrice = prices.shortTokenPrice;
 
-// Contract State Variables:
-using SafeCast for int256;
-using EnumerableSet for EnumerableSet.Bytes32Set;
-using EnumerableSet for EnumerableSet.AddressSet;
-using EnumerableSet for EnumerableSet.UintSet;
-using EnumerableValues for EnumerableSet.Bytes32Set;
-using EnumerableValues for EnumerableSet.AddressSet;
-using EnumerableValues for EnumerableSet.UintSet;
-mapping(bytes32 => uint256) public uintValues;
-mapping(bytes32 => int256) public intValues;
-mapping(bytes32 => address) public addressValues;
-mapping(bytes32 => bool) public boolValues;
-mapping(bytes32 => string) public stringValues;
-mapping(bytes32 => bytes32) public bytes32Values;
-mapping(bytes32 => uint256[]) public uintArrayValues;
-mapping(bytes32 => int256[]) public intArrayValues;
-mapping(bytes32 => address[]) public addressArrayValues;
-mapping(bytes32 => bool[]) public boolArrayValues;
-mapping(bytes32 => string[]) public stringArrayValues;
-mapping(bytes32 => bytes32[]) public bytes32ArrayValues;
-mapping(bytes32 => EnumerableSet.Bytes32Set) internal bytes32Sets;
-mapping(bytes32 => EnumerableSet.AddressSet) internal addressSets;
-mapping(bytes32 => EnumerableSet.UintSet) internal uintSets;
+        int256 remainingCollateralUsd = values.positionCollateralAmount.toInt256() * collateralTokenPrice.min.toInt256();
 
-// Function Implementation:
-function getAddress(bytes32 key) external view returns (address) {
-        return addressValues[key];
-    }
-
-// Contract State Variables:
-using Position for Position.Props;
-bytes32 public constant ACCOUNT_POSITION    = keccak256(abi.encode("ACCOUNT_POSITION"));
-bytes32 public constant POS_ID         = keccak256(abi.encode("POS_ID"));
-bytes32 public constant POS_ACCOUNT       = keccak256(abi.encode("POS_ACCOUNT"));
-bytes32 public constant POS_TOKEN_0       = keccak256(abi.encode("POS_TOKEN_0"));
-bytes32 public constant POS_COLLATERAL_0    = keccak256(abi.encode("POS_COLLATERAL_0"));
-bytes32 public constant POS_DEBTSCALED_0    = keccak256(abi.encode("POS_DEBTSCALED_0"));
-bytes32 public constant POS_BORROWINDEX_0    = keccak256(abi.encode("POS_BORROWINDEX_0"));
-bytes32 public constant POS_ENTRY_LONG_PRICE_0 = keccak256(abi.encode("POS_ENTRY_LONG_PRICE_0"));
-bytes32 public constant POS_ACC_LONG_AMOUNT_0  = keccak256(abi.encode("POS_ACC_LONG_AMOUNT_0"));
-bytes32 public constant POS_ENTRY_SHORT_PRICE_0 = keccak256(abi.encode("POS_ENTRY_SHORT_PRICE_0"));
-bytes32 public constant POS_ACC_SHORT_AMOUNT_0 = keccak256(abi.encode("POS_ACC_SHORT_AMOUNT_0"));
-bytes32 public constant POS_TYPE_0       = keccak256(abi.encode("POS_TYPE_0"));
-bytes32 public constant POS_TOKEN_1       = keccak256(abi.encode("POS_TOKEN_1"));
-bytes32 public constant POS_COLLATERAL_1    = keccak256(abi.encode("POS_COLLATERAL_1"));
-bytes32 public constant POS_DEBTSCALED_1    = keccak256(abi.encode("POS_DEBTSCALED_1"));
-bytes32 public constant POS_BORROWINDEX_1    = keccak256(abi.encode("POS_BORROWINDEX_1"));
-bytes32 public constant POS_ENTRY_LONG_PRICE_1 = keccak256(abi.encode("POS_ENTRY_LONG_PRICE_1"));
-bytes32 public constant POS_ACC_LONG_AMOUNT_1  = keccak256(abi.encode("POS_ACC_LONG_AMOUNT_1"));
-bytes32 public constant POS_ENTRY_SHORT_PRICE_1 = keccak256(abi.encode("POS_ENTRY_SHORT_PRICE_1"));
-bytes32 public constant POS_ACC_SHORT_AMOUNT_1 = keccak256(abi.encode("POS_ACC_SHORT_AMOUNT_1"));
-bytes32 public constant POS_TYPE_1       = keccak256(abi.encode("POS_TYPE_1"));
-
-// Function Implementation:
-function _get(address dataStoreAddress, bytes32 key) internal view returns (Position.Props memory) {
-        IDataStore dataStore = IDataStore(dataStoreAddress);
-        Position.Props memory position;
-        if (!dataStore.containsBytes32(Keys.POSITION_LIST, key)) { return position; }
-
-        position.id      = dataStore.getUint(keccak256(abi.encode(key, POS_ID)));
-        position.account = dataStore.getAddress(keccak256(abi.encode(key, POS_ACCOUNT)));
-
-        position.assets[Pool.BASE].token      = dataStore.getAddress(keccak256(abi.encode(key, POS_TOKEN_0)));
-        position.assets[Pool.BASE].collateral = dataStore.getUint(keccak256(abi.encode(key, POS_COLLATERAL_0)));
-        position.assets[Pool.BASE].debtScaled = dataStore.getUint(keccak256(abi.encode(key, POS_DEBTSCALED_0)));
-        position.assets[Pool.BASE].entryLongPrice  = dataStore.getUint(keccak256(abi.encode(key, POS_ENTRY_LONG_PRICE_0)));
-        position.assets[Pool.BASE].accumulatedLongAmount   = dataStore.getUint(keccak256(abi.encode(key, POS_ACC_LONG_AMOUNT_0)));
-        position.assets[Pool.BASE].entryShortPrice = dataStore.getUint(keccak256(abi.encode(key, POS_ENTRY_SHORT_PRICE_0)));
-        position.assets[Pool.BASE].accumulatedShortAmount  = dataStore.getUint(keccak256(abi.encode(key, POS_ACC_SHORT_AMOUNT_0)));
-        position.assets[Pool.BASE].positionType    = dataStore.getUint(keccak256(abi.encode(key, POS_TYPE_0)));
-
-        position.assets[Pool.MEME].token      = dataStore.getAddress(keccak256(abi.encode(key, POS_TOKEN_1)));
-        position.assets[Pool.MEME].collateral = dataStore.getUint(keccak256(abi.encode(key, POS_COLLATERAL_1)));
-        position.assets[Pool.MEME].debtScaled = dataStore.getUint(keccak256(abi.encode(key, POS_DEBTSCALED_1)));
-        position.assets[Pool.MEME].entryLongPrice  = dataStore.getUint(keccak256(abi.encode(key, POS_ENTRY_LONG_PRICE_1)));
-        position.assets[Pool.MEME].accumulatedLongAmount   = dataStore.getUint(keccak256(abi.encode(key, POS_ACC_LONG_AMOUNT_1)));
-        position.assets[Pool.MEME].entryShortPrice = dataStore.getUint(keccak256(abi.encode(key, POS_ENTRY_SHORT_PRICE_1)));
-        position.assets[Pool.MEME].accumulatedShortAmount  = dataStore.getUint(keccak256(abi.encode(key, POS_ACC_SHORT_AMOUNT_1)));
-        position.assets[Pool.MEME].positionType    = dataStore.getUint(keccak256(abi.encode(key, POS_TYPE_1)));
-
-        return position;
-    }
-
-// Contract State Variables:
-using Position for Position.Props;
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SignedMath for int256;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function calcTotalCollateralAndDebt(
-        Pool.Props memory pool,
-        Position.Props memory position,
-        uint256 memePriceInBaseUnits,
-        address tokenToExclude
-    ) internal view returns (uint256 totalCollateralInBaseUnits, uint256 totalDebtInBaseUnits) {
-
-        uint256 baseCollateralRay;
-        uint256 baseDebtRay;
-
-        // Process Base collateral and debt if not excluded
-        if (tokenToExclude != position.assets[Pool.BASE].token) {
-            (uint256 baseCollateral, uint256 baseDebt) = getCollateralAndDebt(
-                pool, position, Pool.BASE
-            );
-
-            uint256 baseDecimals = pool.configuration.getDecimals(Pool.BASE);
-            uint256 baseCollateralInRay = Math.mulDiv(baseCollateral, WadRayMath.RAY, 10**baseDecimals);
-            uint256 baseDebtInRay = Math.mulDiv(baseDebt, WadRayMath.RAY, 10**baseDecimals);
-
-            baseCollateralRay += baseCollateralInRay;
-            baseDebtRay += baseDebtInRay;
+        // deduct realized pnl if it is negative since this would be paid from
+        // the position's collateral
+        if (values.realizedPnlUsd < 0) {
+            remainingCollateralUsd = remainingCollateralUsd + values.realizedPnlUsd;
         }
 
-        // Process Meme collateral and debt if not excluded
-        if (tokenToExclude != position.assets[Pool.MEME].token) {
-            (uint256 memeCollateral, uint256 memeDebt) = getCollateralAndDebt(
-                pool, position, Pool.MEME
-            );
-
-            uint256 memeDecimals = pool.configuration.getDecimals(Pool.MEME);
-            uint256 memeCollateralInRay = Math.mulDiv(memeCollateral, WadRayMath.RAY, 10**memeDecimals);
-            uint256 memeDebtInRay = Math.mulDiv(memeDebt, WadRayMath.RAY, 10**memeDecimals);
-
-            // Convert Meme collateral and debt to Base Units using memePrice
-            uint256 memeCollateralInBaseUnits = memeCollateralInRay.rayMul(memePriceInBaseUnits);
-            uint256 memeDebtInBaseUnits = memeDebtInRay.rayMul(memePriceInBaseUnits);
-
-            baseCollateralRay += memeCollateralInBaseUnits;
-            baseDebtRay += memeDebtInBaseUnits;
+        if (remainingCollateralUsd < 0) {
+            return (false, remainingCollateralUsd);
         }
 
-        // Return total collateral and debt in Base Units (scaled)
-        totalCollateralInBaseUnits = baseCollateralRay;
-        totalDebtInBaseUnits = baseDebtRay;
-    }
-
-// Contract State Variables:
-using Position for Position.Props;
-using Pool for Pool.Props;
-using WadRayMath for uint256;
-using SignedMath for int256;
-using PoolConfigurationUtils for uint256;
-
-// Function Implementation:
-function getCollateralAndDebt(
-        Pool.Props memory pool,
-        Position.Props memory position,
-        uint8 tokenIndex
-    ) internal view returns (uint256 collateral, uint256 debt) {
-
-        // Get the debt scaled for the selected token index
-        uint256 scaledDebt = position.assets[tokenIndex].debtScaled;
-        uint256 normalizedBorrowingIndex = PoolUtils.calcNormalizedBorrowIndex(
-            pool.assets[tokenIndex], pool.lastUpdateTimestamp
+        // the min collateral factor will increase as the open interest for a market increases
+        // this may lead to previously created limit increase orders not being executable
+        //
+        // the position's pnl is not factored into the remainingCollateralUsd value, since
+        // factoring in a positive pnl may allow the user to manipulate price and bypass this check
+        // it may be useful to factor in a negative pnl for this check, this can be added if required
+        uint256 minCollateralFactor = MarketUtils.getMinCollateralFactorForOpenInterest(
+            dataStore,
+            market,
+            values.openInterestDelta,
+            isLong
         );
 
-        // Calculate debt if it's non-zero, otherwise set to 0
-        debt = (scaledDebt == 0) ? 0 : scaledDebt.rayMul(normalizedBorrowingIndex);
+        uint256 minCollateralFactorForMarket = MarketUtils.getMinCollateralFactor(dataStore, market.marketToken);
+        // use the minCollateralFactor for the market if it is larger
+        if (minCollateralFactorForMarket > minCollateralFactor) {
+            minCollateralFactor = minCollateralFactorForMarket;
+        }
 
-        // Return the collateral and calculated debt
-        collateral = position.assets[tokenIndex].collateral;
+        int256 minCollateralUsdForLeverage = applyFactor(values.positionSizeInUsd, minCollateralFactor).toInt256();
+        bool willBeSufficient = remainingCollateralUsd >= minCollateralUsdForLeverage;
+
+        return (willBeSufficient, remainingCollateralUsd);
     }
 
 // Contract State Variables:
-using Position for Position.Props;
-bytes32 public constant ACCOUNT_POSITION    = keccak256(abi.encode("ACCOUNT_POSITION"));
-bytes32 public constant POS_ID         = keccak256(abi.encode("POS_ID"));
-bytes32 public constant POS_ACCOUNT       = keccak256(abi.encode("POS_ACCOUNT"));
-bytes32 public constant POS_TOKEN_0       = keccak256(abi.encode("POS_TOKEN_0"));
-bytes32 public constant POS_COLLATERAL_0    = keccak256(abi.encode("POS_COLLATERAL_0"));
-bytes32 public constant POS_DEBTSCALED_0    = keccak256(abi.encode("POS_DEBTSCALED_0"));
-bytes32 public constant POS_BORROWINDEX_0    = keccak256(abi.encode("POS_BORROWINDEX_0"));
-bytes32 public constant POS_ENTRY_LONG_PRICE_0 = keccak256(abi.encode("POS_ENTRY_LONG_PRICE_0"));
-bytes32 public constant POS_ACC_LONG_AMOUNT_0  = keccak256(abi.encode("POS_ACC_LONG_AMOUNT_0"));
-bytes32 public constant POS_ENTRY_SHORT_PRICE_0 = keccak256(abi.encode("POS_ENTRY_SHORT_PRICE_0"));
-bytes32 public constant POS_ACC_SHORT_AMOUNT_0 = keccak256(abi.encode("POS_ACC_SHORT_AMOUNT_0"));
-bytes32 public constant POS_TYPE_0       = keccak256(abi.encode("POS_TYPE_0"));
-bytes32 public constant POS_TOKEN_1       = keccak256(abi.encode("POS_TOKEN_1"));
-bytes32 public constant POS_COLLATERAL_1    = keccak256(abi.encode("POS_COLLATERAL_1"));
-bytes32 public constant POS_DEBTSCALED_1    = keccak256(abi.encode("POS_DEBTSCALED_1"));
-bytes32 public constant POS_BORROWINDEX_1    = keccak256(abi.encode("POS_BORROWINDEX_1"));
-bytes32 public constant POS_ENTRY_LONG_PRICE_1 = keccak256(abi.encode("POS_ENTRY_LONG_PRICE_1"));
-bytes32 public constant POS_ACC_LONG_AMOUNT_1  = keccak256(abi.encode("POS_ACC_LONG_AMOUNT_1"));
-bytes32 public constant POS_ENTRY_SHORT_PRICE_1 = keccak256(abi.encode("POS_ENTRY_SHORT_PRICE_1"));
-bytes32 public constant POS_ACC_SHORT_AMOUNT_1 = keccak256(abi.encode("POS_ACC_SHORT_AMOUNT_1"));
-bytes32 public constant POS_TYPE_1       = keccak256(abi.encode("POS_TYPE_1"));
-
-// Function Implementation:
-function set(address dataStoreAddress, bytes32 key,  Pool.Props memory pool) external {
-        IDataStore dataStore = IDataStore(dataStoreAddress);
-        dataStore.addBytes32(Keys.POOL_LIST, key);
-
-        dataStore.setAddress(keccak256(abi.encode(key, POOL_TOKEN_0)), pool.assets[Pool.BASE].token);
-        dataStore.setUint(keccak256(abi.encode(key, POOL_BORROW_INDEX_0)), pool.assets[Pool.BASE].borrowIndex);
-        dataStore.setUint(keccak256(abi.encode(key, POOL_BORROW_RATE_0)), pool.assets[Pool.BASE].borrowRate);
-        dataStore.setUint(keccak256(abi.encode(key, POOL_TOTAL_COLLATERAL_0)), pool.assets[Pool.BASE].totalCollateral); 
-        dataStore.setUint(keccak256(abi.encode(key, POOL_TOTAL_COLLATERAL_WITH_DEBT_0)), pool.assets[Pool.BASE].totalCollateralWithDebt); 
-        dataStore.setUint(keccak256(abi.encode(key, POOL_TOTAL_SCALED_DEBT_0)), pool.assets[Pool.BASE].totalDebtScaled);
-        dataStore.setUint(keccak256(abi.encode(key, POOL_UNCLAIMED_FEE_0)), pool.assets[Pool.BASE].unclaimedFee);
-
-        dataStore.setAddress(keccak256(abi.encode(key, POOL_TOKEN_1)), pool.assets[Pool.MEME].token);
-        dataStore.setUint(keccak256(abi.encode(key, POOL_BORROW_INDEX_1)), pool.assets[Pool.MEME].borrowIndex);
-        dataStore.setUint(keccak256(abi.encode(key, POOL_BORROW_RATE_1)), pool.assets[Pool.MEME].borrowRate);
-        dataStore.setUint(keccak256(abi.encode(key, POOL_TOTAL_COLLATERAL_1)), pool.assets[Pool.MEME].totalCollateral);
-        dataStore.setUint(keccak256(abi.encode(key, POOL_TOTAL_COLLATERAL_WITH_DEBT_1)), pool.assets[Pool.MEME].totalCollateralWithDebt); 
-        dataStore.setUint(keccak256(abi.encode(key, POOL_TOTAL_SCALED_DEBT_1)), pool.assets[Pool.MEME].totalDebtScaled);
-        dataStore.setUint(keccak256(abi.encode(key, POOL_UNCLAIMED_FEE_1)), pool.assets[Pool.MEME].unclaimedFee);
-
-        dataStore.setAddress(keccak256(abi.encode(key, POOL_BANK)), pool.bank);
-        dataStore.setAddress(keccak256(abi.encode(key, POOL_INTEREST_RATE_STRATEGY)), pool.interestRateStrategy);
-        dataStore.setUint(keccak256(abi.encode(key, POOL_CONFIGURATION)), pool.configuration);
-        dataStore.setUint(keccak256(abi.encode(key, POOL_LAST_UPDATE_TIME_STAMP)), pool.lastUpdateTimestamp);
-        //dataStore.setUint(keccak256(abi.encode(key, POOL_CREATED_TIME_STAMP)), pool.createdTimestamp);
-
-    }
-
-// Contract State Variables:
+using SignedSafeMath for int256;
 using SafeCast for int256;
-using EnumerableSet for EnumerableSet.Bytes32Set;
-using EnumerableSet for EnumerableSet.AddressSet;
-using EnumerableSet for EnumerableSet.UintSet;
-using EnumerableValues for EnumerableSet.Bytes32Set;
-using EnumerableValues for EnumerableSet.AddressSet;
-using EnumerableValues for EnumerableSet.UintSet;
-mapping(bytes32 => uint256) public uintValues;
-mapping(bytes32 => int256) public intValues;
-mapping(bytes32 => address) public addressValues;
-mapping(bytes32 => bool) public boolValues;
-mapping(bytes32 => string) public stringValues;
-mapping(bytes32 => bytes32) public bytes32Values;
-mapping(bytes32 => uint256[]) public uintArrayValues;
-mapping(bytes32 => int256[]) public intArrayValues;
-mapping(bytes32 => address[]) public addressArrayValues;
-mapping(bytes32 => bool[]) public boolArrayValues;
-mapping(bytes32 => string[]) public stringArrayValues;
-mapping(bytes32 => bytes32[]) public bytes32ArrayValues;
-mapping(bytes32 => EnumerableSet.Bytes32Set) internal bytes32Sets;
-mapping(bytes32 => EnumerableSet.AddressSet) internal addressSets;
-mapping(bytes32 => EnumerableSet.UintSet) internal uintSets;
+using SafeCast for uint256;
+uint256 public constant FLOAT_PRECISION = 10 ** 30;
+bytes32 public constant OPEN_INTEREST = keccak256(abi.encode("OPEN_INTEREST"));
+bytes32 public constant MIN_COLLATERAL_FACTOR_FOR_OPEN_INTEREST_MULTIPLIER = keccak256(abi.encode("MIN_COLLATERAL_FACTOR_FOR_OPEN_INTEREST_MULTIPLIER"));
+bytes32 public constant MIN_COLLATERAL_FACTOR = keccak256(abi.encode("MIN_COLLATERAL_FACTOR"));
+uint256 positionSizeInUsd;
+uint256 positionCollateralAmount;
+int256 realizedPnlUsd;
+int256 openInterestDelta;
 
 // Function Implementation:
-function setAddress(bytes32 key, address value) external onlyController returns (address) {
-        addressValues[key] = value;
-        return value;
+function getMinCollateralFactorForOpenInterest(
+        IDataStore dataStore,
+        MarketProps memory market,
+        int256 openInterestDelta,
+        bool isLong
+    ) internal view returns (uint256) {
+        uint256 openInterest = getOpenInterest(dataStore, market, isLong);
+        openInterest = sumReturnUint256(openInterest, openInterestDelta);
+        uint256 multiplierFactor = getMinCollateralFactorForOpenInterestMultiplier(dataStore, market.marketToken, isLong);
+        return applyFactor(openInterest, multiplierFactor);
     }
 
 // Contract State Variables:
-bytes32 public constant WNT = keccak256(abi.encode("WNT"));
-bytes32 public constant POOL = keccak256(abi.encode("POOL"));
-bytes32 public constant POOL_LIST = keccak256(abi.encode("POOL_LIST"));
-bytes32 public constant POSITION = keccak256(abi.encode("POSITION"));
-bytes32 public constant POSITION_LIST = keccak256(abi.encode("POSITION_LIST"));
-bytes32 public constant ACCOUNT_POSITION_LIST = keccak256(abi.encode("ACCOUNT_POSITION_LIST"));
-bytes32 public constant REENTRANCY_GUARD_STATUS = keccak256(abi.encode("REENTRANCY_GUARD_STATUS"));
-bytes32 public constant MAX_BORROW_RATE = keccak256(abi.encode("MAX_BORROW_RATE"));
-bytes32 public constant MAX_DEPOSIT_RATE = keccak256(abi.encode("MAX_DEPOSIT_RATE"));
-bytes32 public constant TRADABLE_DEBT_MULTIPIER_FACTOR = keccak256(abi.encode("TRADABLE_DEBT_MULTIPIER_FACTOR"));
-bytes32 public constant SHORT_LIQUIDITY_THRESHOLD = keccak256(abi.encode("SHORT_LIQUIDITY_THRESHOLD"));
-bytes32 public constant MARGIN_LEVELL_THRESHOLD = keccak256(abi.encode("MARGIN_LEVELL_THRESHOLD"));
-bytes32 public constant TREASURY = keccak256(abi.encode("TREASURY"));
-bytes32 public constant DEFAULT_POOL_CONFIGURATION = keccak256(abi.encode("DEFAULT_POOL_CONFIGURATION"));
-bytes32 public constant TOKEN_BASE = keccak256(abi.encode("TOKEN_BASE"));
-bytes32 public constant DEFAULT_INTEREST_RATE_STRATEGY = keccak256(abi.encode("DEFAULT_INTEREST_RATE_STRATEGY"));
-bytes32 public constant DEBT_SAFETY_FACTOR = keccak256(abi.encode("DEBT_SAFETY_FACTOR"));
-bytes32 public constant LIQUIDATION_FEE = keccak256(abi.encode("LIQUIDATION_FEE"));
-
-// Function Implementation:
-function accountPositionListKey(address account) internal pure returns (bytes32) {
-        return keccak256(abi.encode(ACCOUNT_POSITION_LIST, account));
-    }
-
-// Contract State Variables:
+using SignedSafeMath for int256;
 using SafeCast for int256;
-using EnumerableSet for EnumerableSet.Bytes32Set;
-using EnumerableSet for EnumerableSet.AddressSet;
-using EnumerableSet for EnumerableSet.UintSet;
-using EnumerableValues for EnumerableSet.Bytes32Set;
-using EnumerableValues for EnumerableSet.AddressSet;
-using EnumerableValues for EnumerableSet.UintSet;
-mapping(bytes32 => uint256) public uintValues;
-mapping(bytes32 => int256) public intValues;
-mapping(bytes32 => address) public addressValues;
-mapping(bytes32 => bool) public boolValues;
-mapping(bytes32 => string) public stringValues;
-mapping(bytes32 => bytes32) public bytes32Values;
-mapping(bytes32 => uint256[]) public uintArrayValues;
-mapping(bytes32 => int256[]) public intArrayValues;
-mapping(bytes32 => address[]) public addressArrayValues;
-mapping(bytes32 => bool[]) public boolArrayValues;
-mapping(bytes32 => string[]) public stringArrayValues;
-mapping(bytes32 => bytes32[]) public bytes32ArrayValues;
-mapping(bytes32 => EnumerableSet.Bytes32Set) internal bytes32Sets;
-mapping(bytes32 => EnumerableSet.AddressSet) internal addressSets;
-mapping(bytes32 => EnumerableSet.UintSet) internal uintSets;
+using SafeCast for uint256;
+uint256 public constant FLOAT_PRECISION = 10 ** 30;
+bytes32 public constant OPEN_INTEREST = keccak256(abi.encode("OPEN_INTEREST"));
+bytes32 public constant MIN_COLLATERAL_FACTOR_FOR_OPEN_INTEREST_MULTIPLIER = keccak256(abi.encode("MIN_COLLATERAL_FACTOR_FOR_OPEN_INTEREST_MULTIPLIER"));
+bytes32 public constant MIN_COLLATERAL_FACTOR = keccak256(abi.encode("MIN_COLLATERAL_FACTOR"));
+uint256 positionSizeInUsd;
+uint256 positionCollateralAmount;
+int256 realizedPnlUsd;
+int256 openInterestDelta;
 
 // Function Implementation:
-function addBytes32(bytes32 setKey, bytes32 value) external onlyController {
-        bytes32Sets[setKey].add(value);
+function getMinCollateralFactor(IDataStore dataStore, address market) internal view returns (uint256) {
+        return dataStore.getUint(minCollateralFactorKey(market));
     }
 
 // Contract State Variables:
+using SignedSafeMath for int256;
 using SafeCast for int256;
-using EnumerableSet for EnumerableSet.Bytes32Set;
-using EnumerableSet for EnumerableSet.AddressSet;
-using EnumerableSet for EnumerableSet.UintSet;
-using EnumerableValues for EnumerableSet.Bytes32Set;
-using EnumerableValues for EnumerableSet.AddressSet;
-using EnumerableValues for EnumerableSet.UintSet;
-mapping(bytes32 => uint256) public uintValues;
-mapping(bytes32 => int256) public intValues;
-mapping(bytes32 => address) public addressValues;
-mapping(bytes32 => bool) public boolValues;
-mapping(bytes32 => string) public stringValues;
-mapping(bytes32 => bytes32) public bytes32Values;
-mapping(bytes32 => uint256[]) public uintArrayValues;
-mapping(bytes32 => int256[]) public intArrayValues;
-mapping(bytes32 => address[]) public addressArrayValues;
-mapping(bytes32 => bool[]) public boolArrayValues;
-mapping(bytes32 => string[]) public stringArrayValues;
-mapping(bytes32 => bytes32[]) public bytes32ArrayValues;
-mapping(bytes32 => EnumerableSet.Bytes32Set) internal bytes32Sets;
-mapping(bytes32 => EnumerableSet.AddressSet) internal addressSets;
-mapping(bytes32 => EnumerableSet.UintSet) internal uintSets;
+using SafeCast for uint256;
+uint256 public constant FLOAT_PRECISION = 10 ** 30;
+bytes32 public constant OPEN_INTEREST = keccak256(abi.encode("OPEN_INTEREST"));
+bytes32 public constant MIN_COLLATERAL_FACTOR_FOR_OPEN_INTEREST_MULTIPLIER = keccak256(abi.encode("MIN_COLLATERAL_FACTOR_FOR_OPEN_INTEREST_MULTIPLIER"));
+bytes32 public constant MIN_COLLATERAL_FACTOR = keccak256(abi.encode("MIN_COLLATERAL_FACTOR"));
+uint256 positionSizeInUsd;
+uint256 positionCollateralAmount;
+int256 realizedPnlUsd;
+int256 openInterestDelta;
 
 // Function Implementation:
-function setUint(bytes32 key, uint256 value) external onlyController returns (uint256) {
-        uintValues[key] = value;
-        return value;
+function applyFactor(uint256 value, uint256 factor) internal pure returns (uint256) {
+        return Math.mulDiv(value, factor, FLOAT_PRECISION);
     }
+After analyzing the code, I've identified a critical vulnerability related to the ERC20 approval mechanism:
 
-// Contract State Variables:
-using Position for Position.Props;
-bytes32 public constant ACCOUNT_POSITION    = keccak256(abi.encode("ACCOUNT_POSITION"));
-bytes32 public constant POS_ID         = keccak256(abi.encode("POS_ID"));
-bytes32 public constant POS_ACCOUNT       = keccak256(abi.encode("POS_ACCOUNT"));
-bytes32 public constant POS_TOKEN_0       = keccak256(abi.encode("POS_TOKEN_0"));
-bytes32 public constant POS_COLLATERAL_0    = keccak256(abi.encode("POS_COLLATERAL_0"));
-bytes32 public constant POS_DEBTSCALED_0    = keccak256(abi.encode("POS_DEBTSCALED_0"));
-bytes32 public constant POS_BORROWINDEX_0    = keccak256(abi.encode("POS_BORROWINDEX_0"));
-bytes32 public constant POS_ENTRY_LONG_PRICE_0 = keccak256(abi.encode("POS_ENTRY_LONG_PRICE_0"));
-bytes32 public constant POS_ACC_LONG_AMOUNT_0  = keccak256(abi.encode("POS_ACC_LONG_AMOUNT_0"));
-bytes32 public constant POS_ENTRY_SHORT_PRICE_0 = keccak256(abi.encode("POS_ENTRY_SHORT_PRICE_0"));
-bytes32 public constant POS_ACC_SHORT_AMOUNT_0 = keccak256(abi.encode("POS_ACC_SHORT_AMOUNT_0"));
-bytes32 public constant POS_TYPE_0       = keccak256(abi.encode("POS_TYPE_0"));
-bytes32 public constant POS_TOKEN_1       = keccak256(abi.encode("POS_TOKEN_1"));
-bytes32 public constant POS_COLLATERAL_1    = keccak256(abi.encode("POS_COLLATERAL_1"));
-bytes32 public constant POS_DEBTSCALED_1    = keccak256(abi.encode("POS_DEBTSCALED_1"));
-bytes32 public constant POS_BORROWINDEX_1    = keccak256(abi.encode("POS_BORROWINDEX_1"));
-bytes32 public constant POS_ENTRY_LONG_PRICE_1 = keccak256(abi.encode("POS_ENTRY_LONG_PRICE_1"));
-bytes32 public constant POS_ACC_LONG_AMOUNT_1  = keccak256(abi.encode("POS_ACC_LONG_AMOUNT_1"));
-bytes32 public constant POS_ENTRY_SHORT_PRICE_1 = keccak256(abi.encode("POS_ENTRY_SHORT_PRICE_1"));
-bytes32 public constant POS_ACC_SHORT_AMOUNT_1 = keccak256(abi.encode("POS_ACC_SHORT_AMOUNT_1"));
-bytes32 public constant POS_TYPE_1       = keccak256(abi.encode("POS_TYPE_1"));
+Vulnerability: Missing approval reset before setting new approval amount
 
-// Function Implementation:
-function getDebtSafetyFactor(address dataStore) internal view returns (uint256) {
-        return IDataStore(dataStore).getUint(Keys.DEBT_SAFETY_FACTOR);
-    }
-# Vulnerability Analysis in Pool Balance Calculation
+The vulnerability exists in the `swap` function where `safeApprove` is called without first resetting the previous approval to zero. Some ERC20 tokens (like USDT) require the current allowance to be zero before setting a new non-zero allowance for security reasons.
 
-## Vulnerability Description
+Detailed Exploit Steps:
 
-There is a critical vulnerability in the `getPoolBalance` function that can be exploited due to incorrect order of operations in checking and subtracting balances. The function fails to properly handle the case where `balance` is less than `totalCollateral + unclaimedFee`, returning 0 instead of a negative value. This creates an exploitable condition in `calcMemeMaxDeposit`.
-
-## Technical Details of the Vulnerability
-
-The key issue is in this line:
+1. First call to the swap function succeeds:
 ```solidity
-return (balance < totalCollateral + asset.unclaimedFee)?0:balance - totalCollateral - asset.unclaimedFee;
+// First swap with amount 100
+IERC20(fromToken).safeApprove(approvalAddress, 100);
 ```
 
-When the balance is less than the sum of totalCollateral and unclaimedFee, it returns 0. This creates a discontinuity in the pool balance calculation that can be exploited.
+2. Second call with a different amount will revert:
+```solidity
+// Second swap with amount 200 will revert for tokens like USDT
+IERC20(fromToken).safeApprove(approvalAddress, 200);
+```
 
-## Exploitation Steps
-
-1. Monitor the pool for a state where:
-   - `balance` is close to but greater than `totalCollateral + unclaimedFee`
-   
-2. Execute a deposit transaction that makes:
-   - `balance < totalCollateral + unclaimedFee`
-   
-3. Due to the ternary operator in `getPoolBalance`, this will suddenly return 0 instead of a negative value
-
-4. This causes `calcMemeMaxDeposit` to calculate an incorrect `poolBalance` (0), which then:
-   - Sets `poolBalanceAdjust` to 0 
-   - Results in `memeMaxDepositAmount` being 0
-   - Allows further deposits when they should be blocked
-
-## Recommended Fix
-
-```solidity:Pool.sol
-function getPoolBalance(Pool.Props memory pool, uint8 tokenIndex) internal view returns (uint256) {
-    Pool.Asset memory asset = pool.assets[tokenIndex];
-    uint256 balance = IPoolBank(pool.bank).tokenBalanceOf(asset.token);
-    if (balance == 0) {return 0;}
-    
-    // Remove the ternary operator and handle negative cases properly
-    if (balance < totalCollateral + asset.unclaimedFee) {
-        revert InsufficientPoolBalance();
+The fix is to reset the approval to zero before setting the new amount:
+```solidity
+function swap(address to, bytes memory callData) external {
+    _validateCallData(to, callData);
+    address approvalAddress = IAugustusSwapper(to).getTokenTransferProxy();
+    address fromToken;
+    uint256 fromAmount;
+    assembly {
+        fromToken := mload(add(callData, 68))
+        fromAmount := mload(add(callData, 100))
     }
-    return balance - totalCollateral - asset.unclaimedFee;
+    
+    // Fix: Reset approval to zero first
+    IERC20(fromToken).safeApprove(approvalAddress, 0);
+    IERC20(fromToken).safeApprove(approvalAddress, fromAmount);
+    
+    (bool success, ) = to.call(callData);
+    require(success, "paraswap call reverted");
 }
 ```
 
-This fix ensures that when the pool balance becomes insufficient, the transaction reverts instead of returning 0, which prevents the exploitation of the discontinuity in balance calculations.
+Impact:
+- The contract becomes unusable after the first swap when using certain ERC20 tokens
+- Subsequent transactions will revert
+- Users cannot perform multiple swaps with different amounts
+- This is a practical issue that affects real-world tokens like USDT
 
-## Impact
-
-The current implementation could allow:
-- Manipulation of deposit limits
-- Incorrect pool balance reporting
-- Potential economic attacks on the pool's balance mechanism
-
-The vulnerability is practical and exploitable in normal operating conditions, requiring no special permissions or extreme conditions to execute.
+This vulnerability is particularly dangerous because it can completely block the functionality of the contract for certain tokens, making it unusable after the first swap operation.
 
         First analyze this vulnerability step by step, and then determine if it really exists based on the analysis result or need deeper function code.
         Please note the following points:

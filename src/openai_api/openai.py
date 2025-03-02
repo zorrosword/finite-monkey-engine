@@ -126,8 +126,8 @@ def ask_openai_for_json(prompt):
         ]
     }
     response = requests.post(f'https://{api_base}/v1/chat/completions', headers=headers, json=data)
-    if response.status_code != 200:
-        print(response.text)
+    # if response.status_code != 200:
+    #     print(response.text)
     response_josn = response.json()
     if 'choices' not in response_josn:
         return ''
@@ -173,7 +173,7 @@ def ask_claude(prompt):
         return ""
 def ask_claude_37(prompt):
     model = 'claude-3-7-sonnet-20250219'
-    print("prompt:",prompt)
+    # print("prompt:",prompt)
     api_key = os.environ.get('OPENAI_API_KEY')
     api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
     print("api_base:",api_base)
@@ -208,7 +208,7 @@ def ask_claude_37(prompt):
         return ""
 def ask_deepseek(prompt):
     model = 'deepseek-reasoner'
-    print("prompt:",prompt)
+    # print("prompt:",prompt)
     api_key = os.environ.get('OPENAI_API_KEY')
     api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
     print("api_base:",api_base)
@@ -281,7 +281,7 @@ def ask_o3_mini_json(prompt):
 
 def ask_o3_mini(prompt):
     model = 'o3-mini'
-    print("prompt:",prompt)
+    # print("prompt:",prompt)
     api_key = os.environ.get('OPENAI_API_KEY')
     api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
     print("api_base:",api_base)

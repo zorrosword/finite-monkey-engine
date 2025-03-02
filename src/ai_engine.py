@@ -106,8 +106,11 @@ class AiEngine(object):
         return tasks
     def process_task_check_vul(self, task:Project_Task):
         print("\n" + "="*80)
-        print(f"Processing Task ID: {task.id}")
+        print(f"🔍 开始处理任务 ID: {task.id}")
         print("="*80)
+        
+        # 用于收集所有分析结果
+        analysis_collection = []
         
         starttime = time.time()
         result = task.get_result(False)
@@ -115,111 +118,115 @@ class AiEngine(object):
         category_mark = task.get_category()
         
         if result_CN is not None and len(result_CN) > 0 and result_CN != "None" and category_mark is not None and len(category_mark)>0:
-            print("\n🔄 Task already processed, skipping...")
+            print("\n🔄 该任务已处理完成，跳过...")
             return
             
-        print("\n🔍 Starting vulnerability confirmation process...")
+        print("\n🔍 开始漏洞确认流程...")
+        print(f"📝 原始扫描结果长度: {len(result)}")
+        
         function_code = task.content
         if_business_flow_scan = task.if_business_flow_scan
         business_flow_code = task.business_flow_code
         business_flow_context = task.business_flow_context
         
         code_to_be_tested = business_flow_code+"\n"+business_flow_context if if_business_flow_scan=="1" else function_code
+        print(f"\n📊 分析代码类型: {'业务流程代码' if if_business_flow_scan=='1' else '函数代码'}")
         
         # 第一轮分析
-        print("\n=== First Round Analysis ===")
-        print("📝 Analyzing potential vulnerability...")
+        print("\n=== 第一轮分析开始 ===")
+        print("📝 正在分析潜在漏洞...")
         prompt = PromptAssembler.assemble_vul_check_prompt(code_to_be_tested, result)
-        # 把prompot保存到临时文件
+        
         with open("prompt.txt", "w") as file:
             file.write(prompt)
+        print("💾 提示词已保存到 prompt.txt")
 
         initial_response = common_ask_confirmation(prompt)
         if not initial_response or initial_response == "":
             print(f"❌ Error: Empty response received for task {task.id}")
             return
         
-        print("\n📊 Initial Analysis Result:")
+        print("\n📊 Initial Analysis Result Length:")
         print("-" * 80)
-        print(initial_response)
+        print(len(initial_response))
         print("-" * 80)
-        
-        # 提取需要的额外信息
+
+        # 收集初始分析结果
+        analysis_collection.append("=== 初始分析结果 ===")
+        analysis_collection.append(initial_response)
+
+        # 对initial_response进行process_round_response处理
+        initial_result_status = self.process_round_response(initial_response)
+        analysis_collection.append("=== 初始分析状态 ===")
+        analysis_collection.append(initial_result_status)
+
+        # 提取所需信息
         required_info = self.extract_required_info(initial_response)
-        
-        combined_code = code_to_be_tested
         if required_info:
-            print("\n=== Additional Information Required ===")
-            print("🔎 Required context/information:")
-            for i, info in enumerate(required_info, 1):
-                print(f"{i}. {info}")
-            
-            print("\n📥 Retrieving additional context...")
-            additional_context = self.get_additional_context(required_info)
-            
-            if additional_context:
-                print("\n📦 Retrieved additional context (length: {len(additional_context)} chars)")
-                if len(additional_context) < 500:
-                    print("\nAdditional context details:")
-                    print("-" * 80)
-                    print(additional_context)
-                    print("-" * 80)
-                
-                combined_code = f"""Original Code:
-                    {code_to_be_tested}
+            analysis_collection.append("=== 需要进一步分析的信息 ===")
+            analysis_collection.extend(required_info)
 
-                    First Round Analysis:
-                    {initial_response}
-
-                    Additional Context:
-                    {additional_context}"""
+        if "no" in initial_result_status:
+            print("\n🛑 Initial analysis shows clear 'no vulnerability' - stopping further analysis")
+            response_final = "no"
+            final_response = "Analysis stopped after initial round due to clear 'no vulnerability' result"
+            
+            # 格式化所有收集的结果
+            formatted_results = "\n\n".join(analysis_collection)
+            
+            self.project_taskmgr.update_result(task.id, result, response_final, final_response)
+            self.project_taskmgr.update_category(task.id, formatted_results)
+            
+            endtime = time.time()
+            time_cost = endtime - starttime
+            print("\n=== Task Summary ===")
+            print(f"⏱️ Time cost: {time_cost:.2f} seconds")
+            print(f"📝 Analyses performed: 1")
+            print(f"🏁 Final status Length: {len(response_final)}")
+            print("=" * 80 + "\n")
+            return
+        
+        # 使用新的方法进行上下文增强，可以控制轮数
+        combined_code = self.enhance_context_with_additional_info(code_to_be_tested, initial_response, rounds=2)
         
         # 进行三轮确认
         confirmation_results = []
-        response_final = None  # 初始化 response_final
-        final_response = None  # 初始化 final_response
+        response_final = None
+        final_response = None
         
         for i in range(3):
             if response_final == "no":  # 如果已经确认为 no，直接跳过后续循环
                 break
-                
+            
             print(f"\n📊 Round {i+1}/3 Analysis:")
             prompt = PromptAssembler.assemble_vul_check_prompt_final(combined_code, result)
             round_response = common_ask_confirmation(prompt)
             
             print("-" * 80)
-            print(round_response)
+            print(f"Round {i+1} Analysis Length:")
+            print(len(round_response))
             print("-" * 80)
             
-            prompt_translate_to_json = PromptAssembler.brief_of_response()
-            print("\n🔍 Brief Response Prompt:")
-            print(prompt_translate_to_json)
+            # 收集每轮分析结果
+            analysis_collection.append(f"=== 第 {i+1} 轮分析结果 ===")
+            analysis_collection.append(round_response)
             
-            round_json_response = str(common_ask_for_json(round_response+"\n"+prompt_translate_to_json))
-            print("\n📋 JSON Response:")
-            print(round_json_response)
+            # 使用新的方法处理每轮的结果
+            result_status = self.process_round_response(round_response)
+            analysis_collection.append(f"=== 第 {i+1} 轮分析状态 ===")
+            analysis_collection.append(result_status)
             
-            try:
-                response_data = json.loads(round_json_response)
-                result_status = response_data.get("result", "").lower()
-                print("\n🎯 Extracted Result Status:")
-                print(result_status)
-                
-                confirmation_results.append(result_status)
-                
-                # 如果发现一个明确的 "no"，立即确认为不存在漏洞
-                if "no" in result_status:
-                    print("\n🛑 Clear 'no vulnerability' detected - stopping further analysis")
-                    response_final = "no"
-                    final_response = f"Analysis stopped after round {i+1} due to clear 'no vulnerability' result"
-                    continue  # 使用 continue 让循环能够在下一轮开始时通过上面的 break 检查退出
-                
-            except json.JSONDecodeError:
-                print("\n⚠️ JSON Decode Error - marking as 'not sure'")
-                confirmation_results.append("not sure")
+            confirmation_results.append(result_status)
+            
+            # 如果发现一个明确的 "no"，立即确认为不存在漏洞
+            if "no" in result_status:
+                print("\n🛑 Clear 'no vulnerability' detected - stopping further analysis")
+                response_final = "no"
+                final_response = f"Analysis stopped after round {i+1} due to clear 'no vulnerability' result"
+                continue
         
         # 只有在没有提前退出（找到明确的 no）的情况下才进行多数投票
-        if response_final != "no":  # 修改判断条件
+        if response_final != "no":
             # 统计结果
             yes_count = sum(1 for r in confirmation_results if "yes" in r or "confirmed" in r)
             no_count = sum(1 for r in confirmation_results if "no" in r and "vulnerability" in r)
@@ -236,7 +243,16 @@ class AiEngine(object):
             
             final_response = "\n".join([f"Round {i+1} Analysis:\n{resp}" for i, resp in enumerate(confirmation_results)])
         
+        # 添加最终结论
+        analysis_collection.append("=== 最终结论 ===")
+        analysis_collection.append(f"结果: {response_final}")
+        analysis_collection.append(f"详细说明: {final_response}")
+        
+        # 格式化所有收集的结果
+        formatted_results = "\n\n".join(analysis_collection)
+        
         self.project_taskmgr.update_result(task.id, result, response_final, final_response)
+        self.project_taskmgr.update_category(task.id, formatted_results)
         
         endtime = time.time()
         time_cost = endtime - starttime
@@ -244,8 +260,97 @@ class AiEngine(object):
         print("\n=== Task Summary ===")
         print(f"⏱️ Time cost: {time_cost:.2f} seconds")
         print(f"📝 Analyses performed: {len(confirmation_results)}")
-        print(f"🏁 Final status: {response_final}")
+        print(f"🏁 Final status Length: {len(response_final)}")
         print("=" * 80 + "\n")
+
+    def enhance_context_with_additional_info(self, code_to_be_tested, initial_response, rounds=1):
+        """
+        增强代码上下文，通过多轮提取所需信息和获取额外上下文
+        
+        Args:
+            code_to_be_tested: 原始代码
+            initial_response: 初始分析结果
+            rounds: 需要执行的轮数
+            
+        Returns:
+            str: 增强后的代码上下文
+        """
+        combined_code = code_to_be_tested
+        current_response = initial_response
+        
+        for round_num in range(rounds):
+            required_info = self.extract_required_info(current_response)
+            
+            if not required_info:
+                print(f"\n🔍 第 {round_num+1} 轮: 无需额外信息")
+                break
+            
+            print(f"\n=== 额外信息收集 - 第 {round_num+1} 轮 ===")
+            print("🔎 需要补充的上下文信息:")
+            for i, info in enumerate(required_info, 1):
+                print(f"{i}. {info}")
+            
+            print("\n📥 正在获取额外上下文...")
+            additional_context = self.get_additional_context(required_info)
+            
+            if additional_context:
+                print(f"\n📦 已获取额外上下文 (长度: {len(additional_context)} 字符)")
+                if len(additional_context) < 500:
+                    print("\n额外上下文详情:")
+                    print("-" * 80)
+                    print(len(additional_context))
+                    print("-" * 80)
+                
+                # 更新组合代码，包含所有历史信息
+                combined_code = f"""Original Code:
+                    {code_to_be_tested}
+
+                    Analysis Round {round_num}:
+                    {current_response}
+
+                    Additional Context Round {round_num+1}:
+                    {additional_context}"""
+                
+                # 如果需要继续进行下一轮，可以对新的组合代码再次进行分析
+                if round_num < rounds - 1:
+                    prompt = PromptAssembler.assemble_vul_check_prompt(combined_code, "")
+                    current_response = common_ask_confirmation(prompt)
+                    print(f"\n📊 Intermediate Analysis Result (Round {round_num+1}) Length:")
+                    print("-" * 80)
+                    print(len(current_response))
+                    print("-" * 80)
+            else:
+                print("\n⚠️ No additional context found, stopping context enhancement")
+                break
+        
+        return combined_code
+
+    def process_round_response(self, round_response):
+        """
+        处理每轮分析的响应，提取结果状态
+        
+        Args:
+            round_response: 当前轮次的响应
+            
+        Returns:
+            str: 提取的结果状态
+        """
+        prompt_translate_to_json = PromptAssembler.brief_of_response()
+        
+        round_json_response = str(common_ask_for_json(round_response+"\n"+prompt_translate_to_json))
+        print("\n📋 JSON Response Length:")
+        print(len(round_json_response))
+        
+        try:
+            response_data = json.loads(round_json_response)
+            result_status = response_data.get("result", "").lower()
+            print("\n🎯 Extracted Result Status Length:")
+            print(len(result_status))
+            return result_status
+        except json.JSONDecodeError:
+            print("\n⚠️ JSON Decode Error - marking as 'not sure'")
+            return "not sure"
+
     def get_related_functions(self,query,k=3):
         query_embedding = common_get_embedding(query)
         table = self.lancedb.open_table(self.lance_table_name)
@@ -433,19 +538,25 @@ class AiEngine(object):
     def get_additional_context(self, query_contents):
         """获取额外的上下文信息"""
         if not query_contents:
+            print("❌ 没有查询内容，无法获取额外上下文")
             return ""
         
-        # 使用所有查询内容获取相关信息
+        print(f"🔍 正在查询 {len(query_contents)} 条相关信息...")
         related_functions = []
         for query in query_contents:
-            results = self.get_related_functions(query, k=10)  # 获取最相关的3个匹配
+            results = self.get_related_functions(query, k=10)
             if results:
+                print(f"✅ 找到 {len(results)} 个相关函数")
                 related_functions.extend(results)
+            else:
+                print("⚠️ 未找到相关函数")
         
-        # 提取这些函数的上下文
         if related_functions:
             function_names = [func['name'].split('.')[-1] for func in related_functions]
+            print(f"📑 正在提取 {len(function_names)} 个函数的上下文...")
             return self.extract_related_functions_by_level(function_names, 2)
+        
+        print("❌ 未找到任何相关函数")
         return ""
 
 if __name__ == "__main__":

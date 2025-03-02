@@ -72,7 +72,11 @@ class ProjectTaskMgr(object):
     def _update_similarity_generated_referenced_score(self, session, id, similarity_with_rule):
         session.query(Project_Task).filter_by(id=id).update({Project_Task.similarity_with_rule: similarity_with_rule})
         session.commit()
-
+    def update_category(self, id, category):
+        self._operate_in_session(self._update_category, id, category)
+    def _update_category(self, session, id, category):
+        session.query(Project_Task).filter_by(id=id).update({Project_Task.category: category})
+        session.commit()
     def update_description(self, id, description):
         self._operate_in_session(self._update_description, id, description)
     def _update_description(self, session, id, description):
