@@ -27,23 +27,6 @@ class AiEngine(object):
         self.project_audit=project_audit
     def do_planning(self):
         self.planning.do_planning()
-    def extract_title_from_text(self,input_text):
-        try:
-            # Regular expression pattern to capture the value of the title field
-            pattern = r'"title"\s*:\s*"([^"]+)"'
-            
-            # Searching for the pattern in the input text
-            match = re.search(pattern, input_text)
-
-            # Extracting the value if the pattern is found
-            if match:
-                return match.group(1)
-            else:
-                return "Logic Error"
-        except Exception as e:
-            # Handling any exception that occurs and returning a message
-            return f"Logic Error"
-
     def process_task_do_scan(self,task, filter_func = None, is_gpt4 = False):
         
         response_final = ""
@@ -137,9 +120,6 @@ class AiEngine(object):
         print("📝 正在分析潜在漏洞...")
         prompt = PromptAssembler.assemble_vul_check_prompt(code_to_be_tested, result)
         
-        with open("prompt.txt", "w") as file:
-            file.write(prompt)
-        print("💾 提示词已保存到 prompt.txt")
 
         initial_response = common_ask_confirmation(prompt)
         if not initial_response or initial_response == "":
@@ -186,46 +166,79 @@ class AiEngine(object):
             print("=" * 80 + "\n")
             return
         
-        # 使用新的方法进行上下文增强，可以控制轮数
-        combined_code = self.enhance_context_with_additional_info(code_to_be_tested, initial_response, rounds=2)
-        
-        # 进行三轮确认
+        # 设置最大确认轮数
+        max_rounds = int(os.getenv("MAX_CONFIRMATION_ROUNDS", 3))
         confirmation_results = []
         response_final = None
         final_response = None
         
-        for i in range(3):
-            if response_final == "no":  # 如果已经确认为 no，直接跳过后续循环
-                break
+        # 获取初始代码上下文
+        current_code = code_to_be_tested
+        current_response = initial_response
+        
+        for round_num in range(max_rounds):
+            print(f"\n=== 确认轮次 {round_num + 1}/{max_rounds} ===")
             
-            print(f"\n📊 Round {i+1}/3 Analysis:")
-            prompt = PromptAssembler.assemble_vul_check_prompt_final(combined_code, result)
+            # 提取所需的额外信息
+            required_info = self.extract_required_info(current_response)
+            
+            current_additional_info = []  # 用于收集本轮的所有额外信息
+            
+            if required_info:
+                print(f"\n🔍 第 {round_num + 1} 轮需要额外信息:")
+                for i, info in enumerate(required_info, 1):
+                    print(f"{i}. {info}")
+                
+                # 获取网络搜索信息
+                print("\n🌐 检查是否需要网络搜索...")
+                internet_info = self.get_additional_internet_info(required_info)
+                if internet_info:
+                    current_additional_info.append("=== Internet Search Results ===")
+                    current_additional_info.append(internet_info)
+                    analysis_collection.append(f"=== 第 {round_num + 1} 轮网络搜索结果 ===")
+                    analysis_collection.append(internet_info)
+                
+                # 获取额外上下文
+                print("\n📥 正在获取额外上下文...")
+                additional_context = self.get_additional_context(required_info)
+                if additional_context:
+                    print(f"\n📦 获取到新的上下文 (长度: {len(additional_context)} 字符)")
+                    current_additional_info.append("=== Additional Context ===")
+                    current_additional_info.append(additional_context)
+                    analysis_collection.append(f"=== 第 {round_num + 1} 轮额外上下文 ===")
+                    analysis_collection.append(additional_context)
+            
+            # 组合所有额外信息
+            if current_additional_info:
+                current_code = "\n\n".join(current_additional_info)
+            
+            # 使用当前上下文进行确认
+            print(f"\n📊 使用当前上下文进行第 {round_num + 1} 轮确认...")
+            prompt = PromptAssembler.assemble_vul_check_prompt_final(current_code, result)
             round_response = common_ask_confirmation(prompt)
             
-            print("-" * 80)
-            print(f"Round {i+1} Analysis Length:")
-            print(len(round_response))
-            print("-" * 80)
+            print(f"\n📋 第 {round_num + 1} 轮分析结果长度: {len(round_response)}")
             
-            # 收集每轮分析结果
-            analysis_collection.append(f"=== 第 {i+1} 轮分析结果 ===")
+            # 收集分析结果
+            analysis_collection.append(f"=== 第 {round_num + 1} 轮分析结果 ===")
             analysis_collection.append(round_response)
             
-            # 使用新的方法处理每轮的结果
+            # 处理响应结果
             result_status = self.process_round_response(round_response)
-            analysis_collection.append(f"=== 第 {i+1} 轮分析状态 ===")
+            analysis_collection.append(f"=== 第 {round_num + 1} 轮分析状态 ===")
             analysis_collection.append(result_status)
             
             confirmation_results.append(result_status)
+            current_response = round_response  # 更新当前响应用于下一轮分析
             
-            # 如果发现一个明确的 "no"，立即确认为不存在漏洞
+            # 检查是否有明确的"no"结果
             if "no" in result_status:
-                print("\n🛑 Clear 'no vulnerability' detected - stopping further analysis")
+                print("\n🛑 发现明确的'无漏洞'结果 - 停止进一步分析")
                 response_final = "no"
-                final_response = f"Analysis stopped after round {i+1} due to clear 'no vulnerability' result"
-                continue
+                final_response = f"分析在第 {round_num + 1} 轮后停止，因为发现明确的'无漏洞'结果"
+                break
         
-        # 只有在没有提前退出（找到明确的 no）的情况下才进行多数投票
+        # 只有在没有提前退出的情况下才进行多数投票
         if response_final != "no":
             # 统计结果
             yes_count = sum(1 for r in confirmation_results if "yes" in r or "confirmed" in r)
@@ -233,13 +246,13 @@ class AiEngine(object):
             
             if yes_count >= 2:
                 response_final = "yes"
-                print("\n⚠️ Final Result: Vulnerability Confirmed (2+ positive confirmations)")
+                print("\n⚠️ 最终结果: 漏洞已确认 (2+ 次确认)")
             elif no_count >= 2:
                 response_final = "no"
-                print("\n✅ Final Result: No Vulnerability (2+ negative confirmations)")
+                print("\n✅ 最终结果: 无漏洞 (2+ 次否定)")
             else:
                 response_final = "not sure"
-                print("\n❓ Final Result: Not Sure (inconclusive results)")
+                print("\n❓ 最终结果: 不确定 (结果不明确)")
             
             final_response = "\n".join([f"Round {i+1} Analysis:\n{resp}" for i, resp in enumerate(confirmation_results)])
         
@@ -262,68 +275,6 @@ class AiEngine(object):
         print(f"📝 Analyses performed: {len(confirmation_results)}")
         print(f"🏁 Final status Length: {len(response_final)}")
         print("=" * 80 + "\n")
-
-    def enhance_context_with_additional_info(self, code_to_be_tested, initial_response, rounds=1):
-        """
-        增强代码上下文，通过多轮提取所需信息和获取额外上下文
-        
-        Args:
-            code_to_be_tested: 原始代码
-            initial_response: 初始分析结果
-            rounds: 需要执行的轮数
-            
-        Returns:
-            str: 增强后的代码上下文
-        """
-        combined_code = code_to_be_tested
-        current_response = initial_response
-        
-        for round_num in range(rounds):
-            required_info = self.extract_required_info(current_response)
-            
-            if not required_info:
-                print(f"\n🔍 第 {round_num+1} 轮: 无需额外信息")
-                break
-            
-            print(f"\n=== 额外信息收集 - 第 {round_num+1} 轮 ===")
-            print("🔎 需要补充的上下文信息:")
-            for i, info in enumerate(required_info, 1):
-                print(f"{i}. {info}")
-            
-            print("\n📥 正在获取额外上下文...")
-            additional_context = self.get_additional_context(required_info)
-            
-            if additional_context:
-                print(f"\n📦 已获取额外上下文 (长度: {len(additional_context)} 字符)")
-                if len(additional_context) < 500:
-                    print("\n额外上下文详情:")
-                    print("-" * 80)
-                    print(len(additional_context))
-                    print("-" * 80)
-                
-                # 更新组合代码，包含所有历史信息
-                combined_code = f"""Original Code:
-                    {code_to_be_tested}
-
-                    Analysis Round {round_num}:
-                    {current_response}
-
-                    Additional Context Round {round_num+1}:
-                    {additional_context}"""
-                
-                # 如果需要继续进行下一轮，可以对新的组合代码再次进行分析
-                if round_num < rounds - 1:
-                    prompt = PromptAssembler.assemble_vul_check_prompt(combined_code, "")
-                    current_response = common_ask_confirmation(prompt)
-                    print(f"\n📊 Intermediate Analysis Result (Round {round_num+1}) Length:")
-                    print("-" * 80)
-                    print(len(current_response))
-                    print("-" * 80)
-            else:
-                print("\n⚠️ No additional context found, stopping context enhancement")
-                break
-        
-        return combined_code
 
     def process_round_response(self, round_response):
         """
@@ -558,6 +509,67 @@ class AiEngine(object):
         
         print("❌ 未找到任何相关函数")
         return ""
+
+    def get_additional_internet_info(self, required_info):
+        """判断是否需要联网搜索并获取网络信息
+        
+        Args:
+            required_info: 需要进一步调查的信息列表
+            
+        Returns:
+            str: 搜索获取的相关信息
+        """
+        if not required_info:
+            print("❌ 没有查询内容，无法进行网络搜索")
+            return ""
+        
+        # 构建判断是否需要联网搜索的提示词
+        judge_prompt = """
+        Please analyze if the following information points require internet search to understand better.
+        The information might need internet search if it involves:
+        1. Technical concepts or protocols that need explanation
+        2. Specific vulnerabilities or CVEs
+        3. Industry standards or best practices
+        4. Historical incidents or known attack vectors
+        
+        Please return in strict JSON format:
+        {
+            "needs_search": "yes/no",
+            "reason": "brief explanation"
+        }
+        
+        Information to analyze:
+        {query}
+        """
+        
+        # 将所有required_info合并成一个查询文本
+        combined_query = "\n".join(required_info)
+        
+        # 获取判断结果
+        judge_response = ask_claude(judge_prompt.format(query=combined_query))
+        print("\n🔍 网络搜索需求分析:")
+        print(judge_response)
+        
+        try:
+            judge_result = json.loads(judge_response)
+            if judge_result.get("needs_search", "no").lower() == "yes":
+                print(f"\n🌐 需要网络搜索: {judge_result.get('reason', '')}")
+                
+                # 使用 grok 进行深度搜索
+                search_results = ask_grok3_deepsearch(combined_query)
+                if search_results:
+                    print(f"\n✅ 获取到网络搜索结果 (长度: {len(search_results)} 字符)")
+                    return search_results
+                else:
+                    print("\n⚠️ 网络搜索未返回有效结果")
+                    return ""
+            else:
+                print(f"\n📝 无需网络搜索: {judge_result.get('reason', '')}")
+                return ""
+            
+        except json.JSONDecodeError:
+            print("\n⚠️ JSON 解析错误 - 跳过网络搜索")
+            return ""
 
 if __name__ == "__main__":
     pass

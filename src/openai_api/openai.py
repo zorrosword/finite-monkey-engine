@@ -176,8 +176,8 @@ def ask_claude_37(prompt):
     # print("prompt:",prompt)
     api_key = os.environ.get('OPENAI_API_KEY')
     api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
-    print("api_base:",api_base)
-    print("api_key:",api_key)
+    # print("api_base:",api_base)
+    # print("api_key:",api_key)
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {api_key}'
@@ -211,8 +211,8 @@ def ask_deepseek(prompt):
     # print("prompt:",prompt)
     api_key = os.environ.get('OPENAI_API_KEY')
     api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
-    print("api_base:",api_base)
-    print("api_key:",api_key)
+    # print("api_base:",api_base)
+    # print("api_key:",api_key)
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {api_key}'
@@ -278,14 +278,48 @@ def ask_o3_mini_json(prompt):
     except requests.exceptions.RequestException as e:
         print(f"wokaai o3-mini API调用失败。错误: {str(e)}")
         return ""
+def ask_grok3_deepsearch(prompt):
+    model = 'grok-3-deepsearch'
+    # print("prompt:",prompt)
+    api_key = os.environ.get('OPENAI_API_KEY')
+    api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
+    # print("api_base:",api_base)
+    # print("api_key:",api_key)
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
 
+    data = {
+        'model': model,
+        'messages': [
+            {
+                'role': 'user',
+                'content': prompt
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(f'https://{api_base}/v1/chat/completions', 
+                               headers=headers, 
+                               json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            return response_data['choices'][0]['message']['content']
+        else:
+            return ""
+    except requests.exceptions.RequestException as e:
+        print(f"wokaai deepseek API调用失败。错误: {str(e)}")
+        return ""
 def ask_o3_mini(prompt):
     model = 'o3-mini'
     # print("prompt:",prompt)
     api_key = os.environ.get('OPENAI_API_KEY')
     api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
-    print("api_base:",api_base)
-    print("api_key:",api_key)
+    # print("api_base:",api_base)
+    # print("api_key:",api_key)
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {api_key}'
