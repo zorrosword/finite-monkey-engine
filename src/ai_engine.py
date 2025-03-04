@@ -62,6 +62,7 @@ class AiEngine(object):
                     # 数据库中保存的形式是xxxx,xxxxx,xxxx... 转成assemble_prompt_for_specific_project可以接收的数组形式
                     business_type_list=business_type.split(',')
                     print(f"[DEBUG] business_type_list: {business_type_list}")
+                    # prompt = PromptAssembler.assemble_prompt_for_specific_project_directly_ask(code_to_be_tested, business_type_list)
                     prompt = PromptAssembler.assemble_prompt_for_specific_project(code_to_be_tested, business_type_list)
                     print(f"[DEBUG] Generated prompt: {prompt}")
                 response_vul=ask_claude(prompt)
@@ -152,7 +153,7 @@ class AiEngine(object):
             final_response = "Analysis stopped after initial round due to clear 'no vulnerability' result"
             
             # 格式化所有收集的结果
-            formatted_results = "\n\n".join(analysis_collection)
+            formatted_results = "\n\n".join(str(item or '').strip() for item in analysis_collection)
             
             self.project_taskmgr.update_result(task.id, result, response_final, final_response)
             self.project_taskmgr.update_category(task.id, formatted_results)
@@ -262,7 +263,7 @@ class AiEngine(object):
         analysis_collection.append(f"详细说明: {final_response}")
         
         # 格式化所有收集的结果
-        formatted_results = "\n\n".join(analysis_collection)
+        formatted_results = "\n\n".join(str(item or '').strip() for item in analysis_collection)
         
         self.project_taskmgr.update_result(task.id, result, response_final, final_response)
         self.project_taskmgr.update_category(task.id, formatted_results)
@@ -532,26 +533,37 @@ class AiEngine(object):
         3. Industry standards or best practices
         4. Historical incidents or known attack vectors
         
-        Please return in strict JSON format:
-        {
+        Return ONLY a JSON response in this exact format, with no additional text:
+        {{
             "needs_search": "yes/no",
             "reason": "brief explanation"
-        }
+        }}
         
         Information to analyze:
-        {query}
+        {0}
         """
         
         # 将所有required_info合并成一个查询文本
         combined_query = "\n".join(required_info)
         
         # 获取判断结果
-        judge_response = ask_claude(judge_prompt.format(query=combined_query))
+        judge_response = ask_claude(judge_prompt.format(combined_query))
         print("\n🔍 网络搜索需求分析:")
         print(judge_response)
         
         try:
-            judge_result = json.loads(judge_response)
+            # 尝试提取JSON部分 - 只匹配第一个完整的JSON对象
+            import re
+            # 使用非贪婪匹配来获取第一个完整的JSON对象
+            json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', judge_response)
+            if json_match:
+                json_str = json_match.group(0)
+                # 清理可能的额外字符
+                json_str = json_str.strip()
+                judge_result = json.loads(json_str)
+            else:
+                raise json.JSONDecodeError("No JSON found in response", judge_response, 0)
+                
             if judge_result.get("needs_search", "no").lower() == "yes":
                 print(f"\n🌐 需要网络搜索: {judge_result.get('reason', '')}")
                 

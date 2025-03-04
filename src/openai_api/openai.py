@@ -204,7 +204,7 @@ def ask_claude_37(prompt):
         else:
             return ""
     except requests.exceptions.RequestException as e:
-        print(f"wokaai deepseek API调用失败。错误: {str(e)}")
+        print(f"claude3.7 API调用失败。错误: {str(e)}")
         return ""
 def ask_deepseek(prompt):
     model = 'deepseek-reasoner'

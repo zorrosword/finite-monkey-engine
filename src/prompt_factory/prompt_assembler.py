@@ -24,7 +24,9 @@ class PromptAssembler:
 
                     
         return ret_prompt
-    def assemble_prompt_for_specific_project(code, business_type):
+    
+    @staticmethod
+    def _get_vul_prompts(business_type):
         vul_prompts = []
         for type in business_type:
             if type == "chainlink":
@@ -47,8 +49,22 @@ class PromptAssembler:
                 vul_prompts.append(VulPrompt.vul_prompt_univ3())
             elif type == "other":
                 vul_prompts.append(VulPrompt.vul_prompt_common())
+        return "\n\n".join(vul_prompts)
 
-        combined_vul_prompt = "\n\n".join(vul_prompts)
+    def assemble_prompt_for_specific_project_directly_ask(code, business_type):
+        combined_vul_prompt = PromptAssembler._get_vul_prompts(business_type)
+        
+        ret_prompt = code+"\n"\
+                    +PeripheryPrompt.role_set_solidity_common()+"\n"\
+                    +CorePrompt.directly_ask_prompt()+"\n"\
+                    +combined_vul_prompt+"\n"\
+                    +PeripheryPrompt.guidelines()+"\n"\
+                    +PeripheryPrompt.jailbreak_prompt()
+                    
+        return ret_prompt
+
+    def assemble_prompt_for_specific_project(code, business_type):
+        combined_vul_prompt = PromptAssembler._get_vul_prompts(business_type)
         
         ret_prompt = code+"\n"\
                     +PeripheryPrompt.role_set_solidity_common()+"\n"\

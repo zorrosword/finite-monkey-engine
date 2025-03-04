@@ -7,6 +7,10 @@ class CorePrompt:
         and the vulnerability is include but [not limited] to the following vulnerabilities:
 
         """
+    def directly_ask_prompt():
+        return """
+        Is there any exploitable vulnerability related to the vulnerability type I mentioned following in the code?
+        """
     def core_prompt_pure():
         return """
         We have already confirmed that the code contains only one exploitable, \
