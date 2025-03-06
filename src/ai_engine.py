@@ -279,7 +279,7 @@ class AiEngine(object):
 
     def process_round_response(self, round_response):
         """
-        处理每轮分析的响应，提取结果状态
+        处理每轮分析的响应，提取结果状态，增加防御性编程
         
         Args:
             round_response: 当前轮次的响应
@@ -289,18 +289,48 @@ class AiEngine(object):
         """
         prompt_translate_to_json = PromptAssembler.brief_of_response()
         
+        # 使用 common_ask_for_json 获取 JSON 响应
         round_json_response = str(common_ask_for_json(round_response+"\n"+prompt_translate_to_json))
         print("\n📋 JSON Response Length:")
         print(len(round_json_response))
         
         try:
-            response_data = json.loads(round_json_response)
-            result_status = response_data.get("result", "").lower()
-            print("\n🎯 Extracted Result Status Length:")
-            print(len(result_status))
+            # 清理响应
+            cleaned_response = round_json_response.strip()
+            cleaned_response = cleaned_response.replace("```json", "").replace("```", "")
+            cleaned_response = cleaned_response.replace("\n", "").replace(" ", "")
+            cleaned_response = cleaned_response.strip()
+            
+            # 确保响应是有效的 JSON 格式
+            if not cleaned_response.startswith("{"):
+                cleaned_response = "{" + cleaned_response
+            if not cleaned_response.endswith("}"):
+                cleaned_response = cleaned_response + "}"
+            
+            print(f"\n🔍 清理后的响应: {cleaned_response}")
+            
+            # 解析 JSON
+            response_data = json.loads(cleaned_response)
+            
+            # 获取结果状态，使用 get 方法提供默认值
+            result_status = response_data.get("result", "not sure").lower()
+            
+            print(f"\n🎯 提取的结果状态: {result_status}")
+            print(f"📏 结果状态长度: {len(result_status)}")
+            
+            # 验证结果状态的有效性
+            valid_statuses = {"yes", "no", "not sure", "confirmed"}
+            if not any(status in result_status for status in valid_statuses):
+                print("\n⚠️ 无效的结果状态 - 标记为 'not sure'")
+                return "not sure"
+            
             return result_status
-        except json.JSONDecodeError:
-            print("\n⚠️ JSON Decode Error - marking as 'not sure'")
+        
+        except json.JSONDecodeError as e:
+            print(f"\n⚠️ JSON 解析错误: {str(e)} - 标记为 'not sure'")
+            return "not sure"
+        except Exception as e:
+            print(f"\n⚠️ 意外错误: {str(e)} - 标记为 'not sure'")
             return "not sure"
 
     def get_related_functions(self,query,k=3):
