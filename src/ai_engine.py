@@ -155,6 +155,9 @@ class AiEngine(object):
             # 格式化所有收集的结果
             formatted_results = "\n\n".join(str(item or '').strip() for item in analysis_collection)
             
+            # 在更新数据库之前清理字符串
+            formatted_results = formatted_results.replace('\x00', '')
+            
             self.project_taskmgr.update_result(task.id, result, response_final, final_response)
             self.project_taskmgr.update_category(task.id, formatted_results)
             
@@ -264,6 +267,9 @@ class AiEngine(object):
         
         # 格式化所有收集的结果
         formatted_results = "\n\n".join(str(item or '').strip() for item in analysis_collection)
+        
+        # 在更新数据库之前清理字符串
+        formatted_results = formatted_results.replace('\x00', '')
         
         self.project_taskmgr.update_result(task.id, result, response_final, final_response)
         self.project_taskmgr.update_category(task.id, formatted_results)
