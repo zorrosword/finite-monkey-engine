@@ -128,9 +128,11 @@ def ask_openai_for_json(prompt):
     response = requests.post(f'https://{api_base}/v1/chat/completions', headers=headers, json=data)
     # if response.status_code != 200:
     #     print(response.text)
+    
     response_josn = response.json()
     if 'choices' not in response_josn:
         return ''
+    # print(response_josn['choices'][0]['message']['content'])
     return response_josn['choices'][0]['message']['content']
 
 def common_ask_for_json(prompt):

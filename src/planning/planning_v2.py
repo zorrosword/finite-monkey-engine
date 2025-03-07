@@ -39,31 +39,57 @@ class PlanningV2(object):
         
     def extract_filtered_functions(self, json_string):
         """
-        Extracts function names from a JSON string. For function names and keys containing a period,
-        only the substring after the last period is included. The key is included as the first
-        element in the returned list, processed in the same way as the functions.
+        从 JSON 字符串中提取函数名。对于包含句点的函数名和键，只包含最后一个句点后的子字符串。
+        键作为返回列表的第一个元素，以相同的方式处理。
 
-        :param json_string: A string representation of a JSON object.
-        :return: A list of the processed key followed by its corresponding filtered function names.
+        :param json_string: JSON 对象的字符串表示。
+        :return: 处理后的键后跟其对应的过滤后的函数名的列表。
         """
-        # Load the JSON data into a Python dictionary
-        json_string=json_string.replace("```json",'"')
-        data = json.loads(json_string)
-
-        # Initialize the result list
-        result_list = []
-
-        # Process each key-value pair in the dictionary
-        for key, functions in data.items():
-            # Process the key in the same way as function names
-            result_list.append(key)
+        # 清理 JSON 字符串
+        json_string = json_string.strip()
+        # 移除可能存在的 markdown 代码块标记
+        json_string = json_string.replace('```json', '').replace('```', '')
+        
+        # 尝试找到第一个 { 和最后一个 } 之间的内容
+        start_idx = json_string.find('{')
+        end_idx = json_string.rfind('}')
+        if start_idx != -1 and end_idx != -1:
+            json_string = json_string[start_idx:end_idx + 1]
+        
+        try:
+            # 加载 JSON 数据到 Python 字典
+            data = json.loads(json_string)
             
-            # Extend the list with filtered function names
-            filtered_functions = [function for function in functions]
-            result_list.extend(filtered_functions)
-
-        # Remove duplicates by converting to a set and back to a list
-        return list(set(result_list))
+            # 初始化结果列表
+            result_list = []
+            
+            # 处理字典中的每个键值对
+            for key, functions in data.items():
+                # 处理键（与函数名相同的方式）
+                key = key.split('.')[-1] if '.' in key else key
+                result_list.append(key)
+                
+                # 如果 functions 是字符串，将其转换为单元素列表
+                if isinstance(functions, str):
+                    functions = [functions]
+                
+                # 处理函数列表
+                if isinstance(functions, list):
+                    for function in functions:
+                        if isinstance(function, str):
+                            # 处理可能包含句点的函数名
+                            function_name = function.split('.')[-1] if '.' in function else function
+                            result_list.append(function_name)
+            
+            # 通过转换为集合再转回列表来移除重复项
+            return list(set(result_list))
+            
+        except json.JSONDecodeError as e:
+            print(f"JSON 解析错误: {e}")
+            return []
+        except Exception as e:
+            print(f"处理 JSON 时发生错误: {e}")
+            return []
     def extract_and_concatenate_functions_content(self,function_lists, contract_info):
         """
         Extracts the content of functions based on a given function list and contract info,

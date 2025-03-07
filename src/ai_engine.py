@@ -298,14 +298,13 @@ class AiEngine(object):
             # 清理响应
             cleaned_response = round_json_response.strip()
             cleaned_response = cleaned_response.replace("```json", "").replace("```", "")
-            cleaned_response = cleaned_response.replace("\n", "").replace(" ", "")
-            cleaned_response = cleaned_response.strip()
+            print("**********",cleaned_response)
             
             # 确保响应是有效的 JSON 格式
-            if not cleaned_response.startswith("{"):
-                cleaned_response = "{" + cleaned_response
-            if not cleaned_response.endswith("}"):
-                cleaned_response = cleaned_response + "}"
+            # if not cleaned_response.startswith("{"):
+            #     cleaned_response = "{" + cleaned_response
+            # if not cleaned_response.endswith("}"):
+            #     cleaned_response = cleaned_response + "}"
             
             print(f"\n🔍 清理后的响应: {cleaned_response}")
             
@@ -319,7 +318,7 @@ class AiEngine(object):
             print(f"📏 结果状态长度: {len(result_status)}")
             
             # 验证结果状态的有效性
-            valid_statuses = {"yes", "no", "not sure", "confirmed"}
+            valid_statuses = {"yes", "no", "need creator to decide", "confirmed"}
             if not any(status in result_status for status in valid_statuses):
                 print("\n⚠️ 无效的结果状态 - 标记为 'not sure'")
                 return "not sure"
@@ -550,6 +549,11 @@ class AiEngine(object):
         Returns:
             str: 搜索获取的相关信息
         """
+        # 检查环境变量是否允许网络搜索
+        if os.getenv("ENABLE_INTERNET_SEARCH", "False").lower() != "True":
+            print("❌ 网络搜索已禁用")
+            return ""
+        
         if not required_info:
             print("❌ 没有查询内容，无法进行网络搜索")
             return ""
