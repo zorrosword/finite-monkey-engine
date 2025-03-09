@@ -410,18 +410,18 @@ class PlanningV2(object):
                     type_response = common_ask_for_json(formatted_prompt)
                     print(f"[DEBUG] Claude返回的响应: {type_response}")
                     
-                    # 更严格的响应清理
-                    cleaned_response = type_response.strip()
-                    cleaned_response = cleaned_response.replace("```json", "").replace("```", "")
-                    cleaned_response = cleaned_response.replace("\n", "").replace(" ", "")
-                    cleaned_response = cleaned_response.strip()
+                    # # 更严格的响应清理
+                    # cleaned_response = type_response.strip()
+                    # cleaned_response = cleaned_response.replace("```json", "").replace("```", "")
+                    # cleaned_response = cleaned_response.replace("\n", "").replace(" ", "")
+                    # cleaned_response = cleaned_response.strip()
                     
-                    # 确保响应是有效的JSON格式
-                    if not cleaned_response.startswith("{"):
-                        cleaned_response = "{" + cleaned_response
-                    if not cleaned_response.endswith("}"):
-                        cleaned_response = cleaned_response + "}"
-                        
+                    # # 确保响应是有效的JSON格式
+                    # if not cleaned_response.startswith("{"):
+                    #     cleaned_response = "{" + cleaned_response
+                    # if not cleaned_response.endswith("}"):
+                    #     cleaned_response = cleaned_response + "}"
+                    cleaned_response = type_response    
                     print(f"[DEBUG] 清理后的响应: {cleaned_response}")
                     
                     type_data = json.loads(cleaned_response)

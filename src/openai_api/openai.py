@@ -1,8 +1,16 @@
 import json
 import os
+import re
 import numpy as np
 import requests
 from openai import OpenAI
+
+class JSONExtractError(Exception):
+    def __init__(self, ErrorInfo):
+        super().__init__(self)
+        self.errorinfo=ErrorInfo
+    def __str__(self):
+        return self.errorinfo
 
 def azure_openai(prompt):
     # Azure OpenAI配置
@@ -125,15 +133,55 @@ def ask_openai_for_json(prompt):
             }
         ]
     }
-    response = requests.post(f'https://{api_base}/v1/chat/completions', headers=headers, json=data)
-    # if response.status_code != 200:
-    #     print(response.text)
+    # response = requests.post(f'https://{api_base}/v1/chat/completions', headers=headers, json=data)
+    # # if response.status_code != 200:
+    # #     print(response.text)
     
-    response_josn = response.json()
-    if 'choices' not in response_josn:
-        return ''
-    # print(response_josn['choices'][0]['message']['content'])
-    return response_josn['choices'][0]['message']['content']
+    # response_josn = response.json()
+    # if 'choices' not in response_josn:
+    #     return ''
+    # # print(response_josn['choices'][0]['message']['content'])
+    # return response_josn['choices'][0]['message']['content']
+    while True:
+        try:
+            response = requests.post(f'https://{api_base}/v1/chat/completions', headers=headers, json=data)
+            response_json = response.json()
+            if 'choices' not in response_json:
+                return ''
+            response_content = response_json['choices'][0]['message']['content']
+            try:
+                cleaned_json = extract_json_string(response_content)
+                break
+            except JSONExtractError as e:
+                print(e)
+                print("===Error in extracting json. Retry request===")
+                continue
+            break
+        except Exception as e:
+            print("===Error in requesting LLM. Retry request===")
+    return cleaned_json
+
+def extract_json_string(response):
+    json_pattern = re.compile(r'```json(.*?)```', re.DOTALL)
+    response = response.strip()
+    extracted_json = re.findall(json_pattern, response)
+    if len(extracted_json) > 1:
+        print("[DEBUG]⚠️Error json string:")
+        print(response)
+        raise JSONExtractError("⚠️Return JSON format error: More than one JSON format found")
+    elif len(extracted_json) == 0:
+        print("[DEBUG]⚠️Error json string:")
+        print(response)
+        raise JSONExtractError("⚠️Return JSON format error: No JSON format found")
+    else:
+        cleaned_json = extracted_json[0]
+        data_json = json.loads(cleaned_json)
+        if isinstance(data_json, dict):
+            return cleaned_json
+        else:
+            print("[DEBUG]⚠️Error json string:")
+            print(response)
+            raise JSONExtractError("⚠️Return JSON format error: input format is not a JSON")
 
 def common_ask_for_json(prompt):
     if os.environ.get('AZURE_OR_OPENAI') == 'AZURE':
