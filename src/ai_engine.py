@@ -301,17 +301,17 @@ class AiEngine(object):
         print(len(round_json_response))
         
         try:
-            # 清理响应
-            cleaned_response = round_json_response.strip()
-            cleaned_response = cleaned_response.replace("```json", "").replace("```", "")
-            print("**********",cleaned_response)
+            # # 清理响应
+            # cleaned_response = round_json_response.strip()
+            # cleaned_response = cleaned_response.replace("```json", "").replace("```", "")
+            # print("**********",cleaned_response)
             
-            # 确保响应是有效的 JSON 格式
-            # if not cleaned_response.startswith("{"):
-            #     cleaned_response = "{" + cleaned_response
-            # if not cleaned_response.endswith("}"):
-            #     cleaned_response = cleaned_response + "}"
-            
+            # # 确保响应是有效的 JSON 格式
+            # # if not cleaned_response.startswith("{"):
+            # #     cleaned_response = "{" + cleaned_response
+            # # if not cleaned_response.endswith("}"):
+            # #     cleaned_response = cleaned_response + "}"
+            cleaned_response = round_json_response
             print(f"\n🔍 清理后的响应: {cleaned_response}")
             
             # 解析 JSON
