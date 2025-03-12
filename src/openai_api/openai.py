@@ -149,14 +149,31 @@ def ask_openai_for_json(prompt):
             if 'choices' not in response_json:
                 return ''
             response_content = response_json['choices'][0]['message']['content']
-            try:
-                cleaned_json = extract_json_string(response_content)
-                break
-            except JSONExtractError as e:
-                print(e)
-                print("===Error in extracting json. Retry request===")
-                continue
-            break
+            if "```json" in response_content:
+                try:
+                    cleaned_json = extract_json_string(response_content)
+                    break
+                except JSONExtractError as e:
+                    print(e)
+                    print("===Error in extracting json. Retry request===")
+                    continue
+            else:
+                try:
+                    decoded_content = json.loads(response_content)
+                    if isinstance(decoded_content, dict):
+                        cleaned_json = response_content
+                        break
+                    else:
+                        print("===Unexpected JSON format. Retry request===")
+                        print(response_content)
+                        continue
+                except json.JSONDecodeError as e:
+                    print("===Error in decoding JSON. Retry request===")
+                    continue
+                except Exception as e:
+                    print("===Unexpected error. Retry request===")
+                    print(e)
+                    continue
         except Exception as e:
             print("===Error in requesting LLM. Retry request===")
     return cleaned_json
