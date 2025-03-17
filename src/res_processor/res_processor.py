@@ -4,6 +4,7 @@ import json
 from openai_api.openai import ask_claude, ask_deepseek, ask_o3_mini_json, common_ask_for_json,ask_claude_37
 import concurrent.futures
 from threading import Lock
+from prompt_factory.core_prompt import CorePrompt
 
 class ResProcessor:
     def __init__(self, df):
@@ -101,10 +102,11 @@ class ResProcessor:
         )
 
     def _process_single_vulnerability(self, row):
-        translate_prompt = f"""请对以下漏洞描述翻译，用中文输出，请不要包含任何特殊字符或格式符号：
-原漏洞描述：
-{row['漏洞结果']}
-"""
+#         translate_prompt = f"""请对以下漏洞描述翻译，用中文输出，请不要包含任何特殊字符或格式符号：
+# 原漏洞描述：
+# {row['漏洞结果']}
+# """
+        translate_prompt = CorePrompt.translate_prompt().format(vul_res=row['漏洞结果'])
         
         translated_description = ask_claude(translate_prompt)
         # 清理特殊字符
@@ -190,25 +192,25 @@ class ResProcessor:
     def _collect_all_groups(self, group, base_info, id_list):
         """收集所有归集组"""
         vuln_descriptions = self._get_vuln_descriptions(group)
-        group_prompt = f"""将以下漏洞进行归集分组，用中文输出，必须严格遵循以下要求：
-1. 被归集的多个漏洞必须发生在同一个函数中
-2. 可能存在一个函数有多种漏洞，这种情况下依然把它们归集到一起
-3. 必须按照如下JSON格式输出，可能有多组ID：
-{{
-    "groups": [
-        {{
-            "grouped_ids": [ID1, ID2...]
-        }},
-        {{
-            "grouped_ids": [ID3, ID4...]
-        }}
-    ]
-}}
+#         group_prompt = f"""将以下漏洞进行归集分组，用中文输出，必须严格遵循以下要求：
+# 1. 被归集的多个漏洞必须发生在同一个函数中
+# 2. 可能存在一个函数有多种漏洞，这种情况下依然把它们归集到一起
+# 3. 必须按照如下JSON格式输出，可能有多组ID：
+# {{
+#     "groups": [
+#         {{
+#             "grouped_ids": [ID1, ID2...]
+#         }},
+#         {{
+#             "grouped_ids": [ID3, ID4...]
+#         }}
+#     ]
+# }}
 
-以下是需要归集的漏洞列表：
-{vuln_descriptions}
-"""
-        
+# 以下是需要归集的漏洞列表：
+# {vuln_descriptions}
+# """
+        group_prompt = CorePrompt.group_prompt().format(vuln_descriptions=vuln_descriptions)   
         print("\nDebug - Starting grouping process...")
         grouped_result = self._process_grouping(group_prompt)
         grouped_data = json.loads(grouped_result)
@@ -514,15 +516,16 @@ class ResProcessor:
             for _, row in relevant_vulns.iterrows()
         ])
         
-        merge_desc_prompt = f"""请将以下同一函数中的多个漏洞描述合并成一段完整的描述，要求：
-1. 合并后的描述要完整概括所有漏洞的细节，如果存在多个漏洞，一定要在一段话内分开描述，分点描述
-2. 保持描述的准确性和完整性，同时保持逻辑易理解，不要晦涩难懂
-3. 不要包含任何特殊字符或格式符号
-4. 用中文输出
+#         merge_desc_prompt = f"""请将以下同一函数中的多个漏洞描述合并成一段完整的描述，要求：
+# 1. 合并后的描述要完整概括所有漏洞的细节，如果存在多个漏洞，一定要在一段话内分开描述，分点描述
+# 2. 保持描述的准确性和完整性，同时保持逻辑易理解，不要晦涩难懂
+# 3. 不要包含任何特殊字符或格式符号
+# 4. 用中文输出
 
-以下是需要合并的漏洞描述：
-{vuln_details}
-"""
+# 以下是需要合并的漏洞描述：
+# {vuln_details}
+# """
+        merge_desc_prompt = CorePrompt.merge_desc_prompt().format(vuln_details=vuln_details)
         
         try:
             # 直接使用模型返回的文本结果

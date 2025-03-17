@@ -53,3 +53,81 @@ class CorePrompt:
 
 
         """
+# In AiEngine
+    def extract_required_info_prompt():
+        return """
+        Please extract all information points that need further understanding or confirmation from the following analysis response.
+        If the analysis explicitly states "no additional information needed" or similar, return empty.
+        If the analysis mentions needing more information, extract these information points.
+        
+        Analysis response:
+        {response}
+        """
+
+    def judge_prompt():
+        return  """
+        Please analyze if the following information points require internet search to understand better.
+        The information might need internet search if it involves:
+        1. Technical concepts or protocols that need explanation
+        2. Specific vulnerabilities or CVEs
+        3. Industry standards or best practices
+        4. Historical incidents or known attack vectors
+        
+        Return ONLY a JSON response in this exact format, with no additional text:
+        {{
+            "needs_search": "yes/no",
+            "reason": "brief explanation"
+        }}
+        
+        Information to analyze:
+        {0}
+        """
+
+# In PlanningV2
+    def type_check_prompt():
+        return """分析以下智能合约代码，判断它属于哪些业务类型。可能的类型包括：
+chainlink, dao, inline assembly, lending, liquidation, liquidity manager, signature, slippage, univ3, other
+
+请以JSON格式返回结果，格式为：{{"business_types": ["type1", "type2"]}}
+
+代码：
+{0}
+"""
+
+# In ResProcessor
+    def translate_prompt():
+        return """请对以下漏洞描述翻译，用中文输出，请不要包含任何特殊字符或格式符号：
+原漏洞描述：
+{vul_res}
+"""
+
+    def group_prompt():
+        return """将以下漏洞进行归集分组，用中文输出，必须严格遵循以下要求：
+1. 被归集的多个漏洞必须发生在同一个函数中
+2. 可能存在一个函数有多种漏洞，这种情况下依然把它们归集到一起
+3. 必须按照如下JSON格式输出，可能有多组ID：
+{{
+    "groups": [
+        {{
+            "grouped_ids": [ID1, ID2...]
+        }},
+        {{
+            "grouped_ids": [ID3, ID4...]
+        }}
+    ]
+}}
+
+以下是需要归集的漏洞列表：
+{vuln_descriptions}
+"""
+
+    def merge_desc_prompt():
+        return """请将以下同一函数中的多个漏洞描述合并成一段完整的描述，要求：
+1. 合并后的描述要完整概括所有漏洞的细节，如果存在多个漏洞，一定要在一段话内分开描述，分点描述
+2. 保持描述的准确性和完整性，同时保持逻辑易理解，不要晦涩难懂
+3. 不要包含任何特殊字符或格式符号
+4. 用中文输出
+
+以下是需要合并的漏洞描述：
+{vuln_details}
+"""

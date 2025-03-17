@@ -514,14 +514,15 @@ class AiEngine(object):
 
     def extract_required_info(self, claude_response):
         """Extract information that needs further investigation from Claude's response"""
-        prompt = """
-        Please extract all information points that need further understanding or confirmation from the following analysis response.
-        If the analysis explicitly states "no additional information needed" or similar, return empty.
-        If the analysis mentions needing more information, extract these information points.
+        # prompt = """
+        # Please extract all information points that need further understanding or confirmation from the following analysis response.
+        # If the analysis explicitly states "no additional information needed" or similar, return empty.
+        # If the analysis mentions needing more information, extract these information points.
         
-        Analysis response:
-        {response}
-        """
+        # Analysis response:
+        # {response}
+        # """
+        prompt = CorePrompt.extract_required_info_prompt()
         
         extraction_result = ask_claude(prompt.format(response=claude_response))
         if not extraction_result or extraction_result.isspace():
@@ -576,23 +577,24 @@ class AiEngine(object):
             return ""
         
         # 构建判断是否需要联网搜索的提示词
-        judge_prompt = """
-        Please analyze if the following information points require internet search to understand better.
-        The information might need internet search if it involves:
-        1. Technical concepts or protocols that need explanation
-        2. Specific vulnerabilities or CVEs
-        3. Industry standards or best practices
-        4. Historical incidents or known attack vectors
+        # judge_prompt = """
+        # Please analyze if the following information points require internet search to understand better.
+        # The information might need internet search if it involves:
+        # 1. Technical concepts or protocols that need explanation
+        # 2. Specific vulnerabilities or CVEs
+        # 3. Industry standards or best practices
+        # 4. Historical incidents or known attack vectors
         
-        Return ONLY a JSON response in this exact format, with no additional text:
-        {{
-            "needs_search": "yes/no",
-            "reason": "brief explanation"
-        }}
+        # Return ONLY a JSON response in this exact format, with no additional text:
+        # {{
+        #     "needs_search": "yes/no",
+        #     "reason": "brief explanation"
+        # }}
         
-        Information to analyze:
-        {0}
-        """
+        # Information to analyze:
+        # {0}
+        # """
+        judge_prompt = CorePrompt.judge_prompt()
         
         # 将所有required_info合并成一个查询文本
         combined_query = "\n".join(required_info)

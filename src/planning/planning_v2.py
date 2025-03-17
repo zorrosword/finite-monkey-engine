@@ -7,6 +7,7 @@ import os, sys
 from tqdm import tqdm
 import pickle
 from openai_api.openai import *
+from prompt_factory.core_prompt import CorePrompt
 import re
 
 '''
@@ -395,14 +396,15 @@ class PlanningV2(object):
                 print(f"[DEBUG] 获取到的业务流代码长度: {len(business_flow_code) if business_flow_code else 0}")
                 print(f"[DEBUG] 获取到的其他合约上下文长度: {len(other_contract_context) if other_contract_context else 0}")
                 
-                type_check_prompt = '''分析以下智能合约代码，判断它属于哪些业务类型。可能的类型包括：
-                    chainlink, dao, inline assembly, lending, liquidation, liquidity manager, signature, slippage, univ3, other
+                # type_check_prompt = '''分析以下智能合约代码，判断它属于哪些业务类型。可能的类型包括：
+                #     chainlink, dao, inline assembly, lending, liquidation, liquidity manager, signature, slippage, univ3, other
                     
-                    请以JSON格式返回结果，格式为：{{"business_types": ["type1", "type2"]}}
+                #     请以JSON格式返回结果，格式为：{{"business_types": ["type1", "type2"]}}
                     
-                    代码：
-                    {0}
-                    '''
+                #     代码：
+                #     {0}
+                #     '''
+                type_check_prompt = CorePrompt.type_check_prompt()
                     
                 try:
                     # 使用format方法而不是.format()
