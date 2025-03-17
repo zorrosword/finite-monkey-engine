@@ -172,6 +172,7 @@ class AiEngine(object):
         
         # 设置最大确认轮数
         max_rounds = int(os.getenv("MAX_CONFIRMATION_ROUNDS", 3))
+        request_per_round = int(os.getenv("REQUESTS_PER_CONFIRMATION_ROUND", 3))
         confirmation_results = []
         response_final = None
         final_response = None
@@ -219,28 +220,38 @@ class AiEngine(object):
             # 使用当前上下文进行确认
             print(f"\n📊 使用当前上下文进行第 {round_num + 1} 轮确认...")
             prompt = PromptAssembler.assemble_vul_check_prompt_final(current_code, result)
-            round_response = common_ask_confirmation(prompt)
+            round_response = ""
+            for request_num in range(request_per_round):
+                print(f"\n🔍 第 {request_num + 1} / {request_per_round} 次询问")
+                sub_round_response = common_ask_confirmation(prompt)
             
-            print(f"\n📋 第 {round_num + 1} 轮分析结果长度: {len(round_response)}")
+                print(f"\n📋 第 {request_num + 1} 次询问结果长度: {len(sub_round_response)}")
             
-            # 收集分析结果
-            analysis_collection.append(f"=== 第 {round_num + 1} 轮分析结果 ===")
-            analysis_collection.append(round_response)
+                # 收集分析结果
+                analysis_collection.append(f"=== 第 {round_num + 1} 轮 {request_num + 1} 次询问分析结果 ===")
+                analysis_collection.append(sub_round_response)
             
-            # 处理响应结果
-            result_status = self.process_round_response(round_response)
-            analysis_collection.append(f"=== 第 {round_num + 1} 轮分析状态 ===")
-            analysis_collection.append(result_status)
+                # 处理响应结果
+                if len(sub_round_response) == 0:
+                    print(f"\n❌ 无效的响应: 第 {round_num + 1} 轮 {request_num + 1} 次询问结果为空")
+                    continue
+                sub_result_status = self.process_round_response(sub_round_response)
+                analysis_collection.append(f"=== 第 {round_num + 1} 轮 {request_num + 1} 次分析状态 ===")
+                print(f"=== 第 {round_num + 1} 轮 {request_num + 1} 次分析状态 ===") # @debug
+                analysis_collection.append(sub_result_status)
+                print(sub_result_status) # @debug
             
-            confirmation_results.append(result_status)
+                confirmation_results.append(sub_result_status)
+                round_response += sub_round_response + "\n"
+
+                # 检查是否有明确的"no"结果
+                if "no" in sub_result_status:
+                    print("\n🛑 发现明确的'无漏洞'结果 - 停止进一步分析")
+                    response_final = "no"
+                    final_response = f"分析在第 {round_num + 1} 轮 {request_num + 1} 次询问后停止，因为发现明确的'无漏洞'结果"
+                    break
+            
             current_response = round_response  # 更新当前响应用于下一轮分析
-            
-            # 检查是否有明确的"no"结果
-            if "no" in result_status:
-                print("\n🛑 发现明确的'无漏洞'结果 - 停止进一步分析")
-                response_final = "no"
-                final_response = f"分析在第 {round_num + 1} 轮后停止，因为发现明确的'无漏洞'结果"
-                break
         
         # 只有在没有提前退出的情况下才进行多数投票
         if response_final != "no":
@@ -503,14 +514,15 @@ class AiEngine(object):
 
     def extract_required_info(self, claude_response):
         """Extract information that needs further investigation from Claude's response"""
-        prompt = """
-        Please extract all information points that need further understanding or confirmation from the following analysis response.
-        If the analysis explicitly states "no additional information needed" or similar, return empty.
-        If the analysis mentions needing more information, extract these information points.
+        # prompt = """
+        # Please extract all information points that need further understanding or confirmation from the following analysis response.
+        # If the analysis explicitly states "no additional information needed" or similar, return empty.
+        # If the analysis mentions needing more information, extract these information points.
         
-        Analysis response:
-        {response}
-        """
+        # Analysis response:
+        # {response}
+        # """
+        prompt = CorePrompt.extract_required_info_prompt()
         
         extraction_result = ask_claude(prompt.format(response=claude_response))
         if not extraction_result or extraction_result.isspace():
@@ -565,23 +577,24 @@ class AiEngine(object):
             return ""
         
         # 构建判断是否需要联网搜索的提示词
-        judge_prompt = """
-        Please analyze if the following information points require internet search to understand better.
-        The information might need internet search if it involves:
-        1. Technical concepts or protocols that need explanation
-        2. Specific vulnerabilities or CVEs
-        3. Industry standards or best practices
-        4. Historical incidents or known attack vectors
+        # judge_prompt = """
+        # Please analyze if the following information points require internet search to understand better.
+        # The information might need internet search if it involves:
+        # 1. Technical concepts or protocols that need explanation
+        # 2. Specific vulnerabilities or CVEs
+        # 3. Industry standards or best practices
+        # 4. Historical incidents or known attack vectors
         
-        Return ONLY a JSON response in this exact format, with no additional text:
-        {{
-            "needs_search": "yes/no",
-            "reason": "brief explanation"
-        }}
+        # Return ONLY a JSON response in this exact format, with no additional text:
+        # {{
+        #     "needs_search": "yes/no",
+        #     "reason": "brief explanation"
+        # }}
         
-        Information to analyze:
-        {0}
-        """
+        # Information to analyze:
+        # {0}
+        # """
+        judge_prompt = CorePrompt.judge_prompt()
         
         # 将所有required_info合并成一个查询文本
         combined_query = "\n".join(required_info)
