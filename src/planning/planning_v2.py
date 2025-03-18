@@ -21,14 +21,15 @@ class PlanningV2(object):
 
     
     def ask_openai_for_business_flow(self,function_name,contract_code_without_comment):
-        prompt=f"""
-        Based on the code above, analyze the business flows that start with the {function_name} function, consisting of multiple function calls. The analysis should adhere to the following requirements:
-        1. only output the one sub-business flows, and must start from {function_name}.
-        2. The output business flows should only involve the list of functions of the contract itself (ignoring calls to other contracts or interfaces, as well as events).
-        3. After step-by-step analysis, output one result in JSON format, with the structure: {{"{function_name}":[function1,function2,function3....]}}
-        4. The business flows must include all involved functions without any omissions
+        # prompt=f"""
+        # Based on the code above, analyze the business flows that start with the {function_name} function, consisting of multiple function calls. The analysis should adhere to the following requirements:
+        # 1. only output the one sub-business flows, and must start from {function_name}.
+        # 2. The output business flows should only involve the list of functions of the contract itself (ignoring calls to other contracts or interfaces, as well as events).
+        # 3. After step-by-step analysis, output one result in JSON format, with the structure: {{"{function_name}":[function1,function2,function3....]}}
+        # 4. The business flows must include all involved functions without any omissions
 
-        """
+        # """
+        prompt=CorePrompt.ask_openai_for_business_flow_prompt().format(function_name=function_name)
         question=f"""
 
         {contract_code_without_comment}
