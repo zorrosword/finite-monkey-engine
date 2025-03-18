@@ -5,7 +5,7 @@ from prompt_factory.vul_check_prompt import VulCheckPrompt
 class PromptAssembler:
     def assemble_prompt_common(code):
         ret_prompt=code+"\n"\
-                    +PeripheryPrompt.role_set_rust_common()+"\n"\
+                    +PeripheryPrompt.role_set_solidity_common()+"\n"\
                     +PeripheryPrompt.task_set_blockchain_common()+"\n"\
                     +CorePrompt.core_prompt_assembled()+"\n"\
                     +VulPrompt.vul_prompt_common()+"\n"\
@@ -16,11 +16,13 @@ class PromptAssembler:
         return ret_prompt
     def assemble_prompt_pure(code):
         ret_prompt=code+"\n"\
+                    +PeripheryPrompt.optimized_head_prompt_reasoning()+"\n"\
                     +PeripheryPrompt.role_set_solidity_common()+"\n"\
                     +PeripheryPrompt.task_set_blockchain_common()+"\n"\
                     +CorePrompt.core_prompt_pure()+"\n"\
                     +PeripheryPrompt.guidelines()+"\n"\
-                    +PeripheryPrompt.jailbreak_prompt()
+                    +PeripheryPrompt.jailbreak_prompt()+"\n"\
+                    +PeripheryPrompt.optimized_tail_prompt_reasoning()
 
                     
         return ret_prompt
@@ -84,12 +86,16 @@ class PromptAssembler:
     def assemble_vul_check_prompt(code,vul):
         ret_prompt=code+"\n"\
                 +str(vul)+"\n"\
-                +VulCheckPrompt.vul_check_prompt_claude_no_overflow()+"\n"
+                +PeripheryPrompt.optimized_head_prompt_validating()+"\n"\
+                +VulCheckPrompt.vul_check_prompt_claude_no_overflow()+"\n"\
+                +PeripheryPrompt.optimized_tail_prompt_validating()
         return ret_prompt
     def assemble_vul_check_prompt_final(code,vul):
         ret_prompt=code+"\n"\
                 +str(vul)+"\n"\
-                +VulCheckPrompt.vul_check_prompt_claude_no_overflow_final()+"\n"
+                +PeripheryPrompt.optimized_head_prompt_reasoning()+"\n"\
+                +VulCheckPrompt.vul_check_prompt_claude_no_overflow_final()+"\n"\
+                +PeripheryPrompt.optimized_tail_prompt_reasoning()
         return ret_prompt
 
     def brief_of_response():

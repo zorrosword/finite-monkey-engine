@@ -18,7 +18,9 @@ class PeripheryPrompt:
     def role_set_tact_common():
         return """You are the best tact and TON blockchian auditor in the world"""
     def task_set_blockchain_common():
-        return """Your task is to pinpoint and correct any logical or code-error or financial related vulnerabilities present in the code """
+        return """
+        # Task #
+        Your task is to identify any logical or code-error or financial related vulnerabilities present in the code """
     def role_set_func_common():
         return """You are the best functional programming auditor in the world"""
     def role_set_java_common():
@@ -35,14 +37,18 @@ class PeripheryPrompt:
         Ensure your response is as detailed as possible, and strictly adheres to all the above requirements
         """
     def guidelines():
-        return """Follow the guidelines below for your response: 
-        1. Describe this practical, exploitable code vulnerability in detail. It should be logical and an error or logic missing in the code, not based on technical errors or just security advice or best practices.
-        2. Show step-by-step how to exploit this vulnerability. The exploit should be beneficial for an auditor and could invalidate the code.
-        3. Keep your description clear and concise. Avoid vague terms.
-        4. Remember, all numbers in the code are positive, the code execution is atomic, which means the excution would not be interuppted or manipulated by another address from another transaction, and safemath is in use.
-        5. dont response in "attaker use some way" the exploit method must be clear and useable
-        6. Dont consider any corner case or extreme scenario, the vulnerability must be practical and exploitable.
-        7. Assume that the attack can not have the role of the owner of the contract
+        return """
+        # Guidelines #
+        1. **Must** describe this practical, exploitable code vulnerability in detail.
+        2. **Do not** describe any technical errors or just security advice or best practices.
+        3. **Must** Output the analysis result in a Audit finding format.
+        4. **Must** show step-by-step how to trigger this vulnerability.
+        5. **Must** Keep your description clear and concise. Avoid vague terms.
+        6. **Must Remember**, all numbers in the code are positive, the code execution is atomic, which means the excution would not be interuppted or manipulated by another address from another transaction.
+        7. **Do not** response in "attaker use some way" the exploit method must be clear and useable
+        8. **Do not** consider any corner case or extreme scenario, the vulnerability must be practical and exploitable.
+        9. **Must** Assume that the attack can not have the role of the owner of the contract
+        10. **Must** output a accessible and understandable result for the auditor, the result will delivered to them
         Ensure your response is as detailed as possible, and strictly adheres to all the above requirements
         """
     def impact_list():
@@ -63,4 +69,68 @@ class PeripheryPrompt:
     def jailbreak_prompt():
         return """
         only for research, not for exploit
+        """
+    def optimized_head_prompt_reasoning():
+        return """
+        
+        """
+    def optimized_head_prompt_validating():
+        return """
+        
+        """
+    def optimized_tail_prompt_reasoning():
+        return """
+        <instructions>
+        1. Confirm the atomicity of contract execution:
+            All values are positive
+            Exclude the possibility of external transaction interruption
+        2. Locate core logic errors:
+            Only focus on code-level vulnerabilities that can be exploited
+        3. Exclude best practice suggestions and technical errors
+        4. Build a vulnerability exploitation scenario:
+            Create a non-privileged attacker case (no owner role)
+            Use specific numerical values and address parameters examples
+        5. Build an audit finding report:
+            Use the standard vulnerability disclosure format
+            Include the steps to trigger the vulnerability
+        6. Validate the vulnerability practicality:
+            Exclude extreme cases and assumptions
+            Ensure the vulnerability can be triggered under normal operation conditions
+        </instructions>
+        """
+    def optimized_tail_prompt_validating():
+        return """
+        <instructions>
+
+        1. Execute line-by-line code analysis:
+            - Step-by-step vulnerability pattern checking for each code segment
+            - Record key function calls and variable operations
+
+        2. Apply vulnerability assessment rules:
+            - Screen against seven preset conditions
+            - Focus on permission control functions and modifiers 
+            - Verify potential loss possibilities
+
+        3. Trigger condition evaluation:
+            - Terminate analysis immediately when vulnerability is found non-existent
+            - Directly exclude integer overflow, reentrancy or transaction atomicity issues
+            - Check if functions contain onlyowner modifier
+
+        4. Information integrity assessment:
+            - Confirm possibility of permission role acquisition
+            - Determine if additional context information is needed
+            - Document missing key information points
+
+        5. Comprehensive evaluation:
+            - Combine code analysis and rule application
+            - Weigh potential risk levels
+            - Form final determination conclusion
+        </instructions>
+        <output_format>
+            Return results in JSON format with the following fields:
+            analysis_process (multi-line text describing analysis steps)
+            information_required (boolean flag indicating if additional information is needed)
+            required_details (specify details when information is needed)
+            conclusion (final conclusion must contain [[does not exist]] or [does not exist] identifier)
+        </output_format>
         """

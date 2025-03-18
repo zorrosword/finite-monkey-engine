@@ -1,9 +1,9 @@
 class CorePrompt:
     def core_prompt_assembled():
         return """
+        # Critical Context #
         We have already confirmed that the code contains only one exploitable, \
         code-error based vulnerability due to error logic in the code, \
-        and your job is to identify it.
         and the vulnerability is include but [not limited] to the following vulnerabilities:
 
         """
@@ -13,9 +13,9 @@ class CorePrompt:
         """
     def core_prompt_pure():
         return """
+        # Critical Context #
         We have already confirmed that the code contains only one exploitable, \
-        code-error based vulnerability due to error logic in the code, \
-        and your job is to identify it.
+        code-error based vulnerability due to error logic in the code
         """
     
     def core_prompt_vul_type_liquidation():
@@ -134,7 +134,7 @@ chainlink, dao, inline assembly, lending, liquidation, liquidity manager, signat
     def merge_desc_prompt():
         return """请将以上同一函数中的多个漏洞描述合并成一段完整的描述，要求：
 1. 合并后的描述要完整概括所有漏洞的所有细节，如果存在多个漏洞，一定要在一段话内分开描述，分点描述，详细描述
-2. 保持描述的准确性和完整性，同时保持逻辑易理解，不要晦涩难懂
+2. **必须**保持描述的准确性和完整性，同时保持逻辑易理解，不要晦涩难懂
 3. 描述中必须附带有代码或代码段辅助解释，代码或代码段必须和描述互有交错，其最终目的是为了保证描述易懂,不要给出大段代码段
 4. 每个漏洞的描述必须清晰，完整，不能遗漏任何关键点或代码或代码段或变量
 5. 不要包含任何特殊字符或格式符号
