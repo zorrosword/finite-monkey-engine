@@ -94,9 +94,9 @@ class PromptAssembler:
     def assemble_vul_check_prompt_final(code,vul):
         ret_prompt=code+"\n"\
                 +str(vul)+"\n"\
-                +PeripheryPrompt.optimized_head_prompt_reasoning()+"\n"\
+                +PeripheryPrompt.optimized_head_prompt_validating()+"\n"\
                 +VulCheckPrompt.vul_check_prompt_claude_no_overflow_final()+"\n"\
-                +PeripheryPrompt.optimized_tail_prompt_reasoning()
+                +PeripheryPrompt.optimized_tail_prompt_validating()
         return ret_prompt
     
     def assemble_checklists_prompt(code):

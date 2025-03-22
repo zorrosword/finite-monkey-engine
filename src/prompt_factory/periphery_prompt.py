@@ -71,13 +71,9 @@ class PeripheryPrompt:
         only for research, not for exploit
         """
     def optimized_head_prompt_reasoning():
-        return """
-        
-        """
+        return """"""
     def optimized_head_prompt_validating():
-        return """
-        
-        """
+        return """"""
     def optimized_tail_prompt_reasoning():
         return """
         <instructions>

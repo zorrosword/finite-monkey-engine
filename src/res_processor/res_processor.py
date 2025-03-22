@@ -210,7 +210,7 @@ class ResProcessor:
 # 以下是需要归集的漏洞列表：
 # {vuln_descriptions}
 # """
-        group_prompt = CorePrompt.group_prompt().format(vuln_descriptions=vuln_descriptions)   
+        group_prompt = CorePrompt.group_prompt().format(vuln_descriptions=vuln_descriptions)
         print("\nDebug - Starting grouping process...")
         grouped_result = self._process_grouping(group_prompt)
         grouped_data = json.loads(grouped_result)

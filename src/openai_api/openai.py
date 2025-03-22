@@ -308,6 +308,12 @@ def ask_deepseek(prompt):
     except requests.exceptions.RequestException as e:
         print(f"wokaai deepseek API调用失败。错误: {str(e)}")
         return ""
+def cut_reasoning_content(input):
+    if "</think>" not in input:
+        print("No </think> tag found in input")
+        return input
+    return input.split("</think>")[1]
+
 def ask_o3_mini_json(prompt):
     model = 'o3-mini'
     api_key = os.environ.get('OPENAI_API_KEY')
