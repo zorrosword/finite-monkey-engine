@@ -49,8 +49,15 @@ class AiEngine(object):
                 print("\t skipped (filtered)")
             else:
                 print("\t to scan")
+
+                
                 if os.getenv("SCAN_MODE","COMMON_VUL")=="OPTIMIZE":  
                     prompt=PromptAssembler.assemble_optimize_prompt(code_to_be_tested)
+                elif os.getenv("SCAN_MODE","COMMON_VUL")=="CHECKLIST":
+                    print("generating checklist...")
+                    prompt=PromptAssembler.assemble_checklists_prompt(code_to_be_tested)
+                    response_checklist=ask_deepseek(prompt)
+                    prompt=PromptAssembler.assemble_checklists_prompt_for_scan(code_to_be_tested,response_checklist)
                 elif os.getenv("SCAN_MODE","COMMON_VUL")=="COMMON_PROJECT":
                     prompt=PromptAssembler.assemble_prompt_common(code_to_be_tested)
                 elif os.getenv("SCAN_MODE","COMMON_VUL")=="PURE_SCAN":

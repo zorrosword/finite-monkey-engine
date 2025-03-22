@@ -1,3 +1,4 @@
+from prompt_factory.checklists_prompt import ChecklistsPrompt
 from prompt_factory.core_prompt import CorePrompt
 from prompt_factory.periphery_prompt import PeripheryPrompt
 from prompt_factory.vul_prompt import VulPrompt
@@ -97,7 +98,15 @@ class PromptAssembler:
                 +VulCheckPrompt.vul_check_prompt_claude_no_overflow_final()+"\n"\
                 +PeripheryPrompt.optimized_tail_prompt_reasoning()
         return ret_prompt
-
+    
+    def assemble_checklists_prompt(code):
+        ret_prompt=code+"\n"\
+                    +ChecklistsPrompt.checklists_prompt()+"\n"
+        return ret_prompt
+    def assemble_checklists_prompt_for_scan(code,checklist_response):
+        ret_prompt=code+"\n"\
+                    +checklist_response
+        return ret_prompt
     def brief_of_response():
         return """Based on the analysis response, please translate the response to JSON format. 
         The JSON format should be one of the following:
