@@ -104,8 +104,16 @@ class PromptAssembler:
                     +ChecklistsPrompt.checklists_prompt()+"\n"
         return ret_prompt
     def assemble_checklists_prompt_for_scan(code,checklist_response):
-        ret_prompt=code+"\n"\
-                    +checklist_response
+        ret_prompt = code+"\n"\
+                    +PeripheryPrompt.role_set_solidity_common()+"\n"\
+                    +PeripheryPrompt.task_set_blockchain_common()+"\n"\
+                    +CorePrompt.core_prompt_assembled()+"\n"\
+                    +"<checklist>"+"\n"\
+                    +checklist_response+"\n"\
+                    +"</checklist>"+"\n"\
+                    +PeripheryPrompt.guidelines()+"\n"\
+                    +PeripheryPrompt.jailbreak_prompt()+"\n"\
+                    +PeripheryPrompt.optimized_tail_prompt_reasoning()
         return ret_prompt
     def brief_of_response():
         return """Based on the analysis response, please translate the response to JSON format. 
