@@ -213,8 +213,8 @@
         "files":[],
         "functions":[]
     },
-    "hypeaudit1":{
-        "path":"hypeaudit",
+    "dexevm":{
+        "path":"dexevm",
         "files":[],
         "functions":[]
     }

@@ -531,7 +531,7 @@ class ResProcessor:
         
         try:
             # 直接使用模型返回的文本结果
-            merged_description = ask_deepseek(merge_desc_prompt)
+            merged_description = ask_claude(merge_desc_prompt)
             # 清理特殊字符
             return self._clean_text_for_excel(merged_description)
             

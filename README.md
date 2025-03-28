@@ -62,30 +62,78 @@ As of May 2024, this tool has helped discover over $60,000 worth of bug bounties
 
 4. Configure `.env`:
 ```env
-# Database connection
-DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+# 数据库连接URL，使用PostgreSQL数据库
+# Database connection URL using PostgreSQL
+DATABASE_URL=postgresql://postgres:1234@127.0.0.1:5432/postgres
 
-# API settings
-OPENAI_API_BASE="api.example.com"
-OPENAI_API_KEY=sk-your-api-key-here
+# 所有llm的基础URL（llm中转平台），用于API请求
+# Base URL for all LLM requests (LLM proxy platform) used for API requests
+OPENAI_API_BASE="4.0.wokaai.com"
 
-# Model settings
-VUL_MODEL_ID=gpt-4-turbo
-CLAUDE_MODEL=claude-3-5-sonnet-20240620
+# 用于文本嵌入的模型名称
+# Model name used for text embeddings
+EMBEDDING_MODEL="text-embedding-3-large"
 
-# Azure configuration
-AZURE_API_KEY="your-azure-api-key"
-AZURE_API_BASE="https://your-resource.openai.azure.com/"
-AZURE_API_VERSION="2024-02-15-preview"
-AZURE_DEPLOYMENT_NAME="your-deployment"
+# llm中转平台的API密钥
+# API key for LLM proxy platform
+OPENAI_API_KEY=your-api-key（通常建议从openrouter和wokaai获取，一次性多个模型）
 
-# API selection
-AZURE_OR_OPENAI="OPENAI"  # Options: OPENAI, AZURE, CLAUDE
+# 确认模型的选择，使用DeepSeek模型
+# Confirmation model selection, using DeepSeek model
+CONFIRMATION_MODEL="DEEPSEEK"
 
-# Scan parameters
-BUSINESS_FLOW_COUNT=4
+# OpenAI模型的选择，使用GPT-4 Turbo
+# OpenAI model selection, using GPT-4 Turbo
+OPENAI_MODEL=gpt-4-turbo
+
+# Claude模型的选择，使用Claude 3.5 Sonnet版本
+# Claude model selection, using Claude 3.5 Sonnet version
+CLAUDE_MODEL=claude-3-5-sonnet-20241022
+
+# 扫描模式设置，当前为纯扫描模式
+# Scan mode setting, currently set to pure scan mode
+# 可选值：SPECIFIC_PROJECT(特定项目CHECKLIST) / OPTIMIZE(代码建议模式) / COMMON_PROJECT(通用项目CHECKLIST) / PURE_SCAN(纯扫描) / CHECKLIST(检查清单自动生成)
+# Available options: SPECIFIC_PROJECT / OPTIMIZE / COMMON_PROJECT / PURE_SCAN / CHECKLIST
+SCAN_MODE=SPECIFIC_PROJECT 
+
+# API服务提供商选择
+# API service provider selection
+# 可选值：OPENAI / AZURE / CLAUDE / DEEPSEEK
+# Available options: OPENAI / AZURE / CLAUDE / DEEPSEEK
+AZURE_OR_OPENAI="OPENAI" 
+
+# 确认阶段的最大线程数
+# Maximum number of threads for confirmation phase
+MAX_THREADS_OF_CONFIRMATION=10
+
+# 扫描阶段的最大线程数
+# Maximum number of threads for scanning phase
+MAX_THREADS_OF_SCAN=20
+
+# 业务流程重复数量（触发幻觉的数量，数字越大幻觉越多，输出越多，时间越长）
+# Business flow repeat count (number of hallucinations triggered, higher number means more hallucinations, more output, longer time)
+BUSINESS_FLOW_COUNT=10
+
+# 是否启用函数代码扫描
+# Whether to enable function code scanning
 SWITCH_FUNCTION_CODE=False
+
+# 是否启用业务代码扫描
+# Whether to enable business code scanning
 SWITCH_BUSINESS_CODE=True
+
+# 最大确认轮数
+# Maximum number of confirmation rounds
+MAX_CONFIRMATION_ROUNDS=2
+
+# JSON模型ID
+# JSON model ID
+JSON_MODEL_ID="gpt-4-turbo"
+
+# 是否启用网络搜索
+# Whether to enable internet search
+ENABLE_INTERNET_SEARCH=False
+
 ```
 
 ## 🌈 Supported Languages
