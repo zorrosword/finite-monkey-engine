@@ -1,7 +1,7 @@
 class ChecklistPipelinePrompt:
 
 
-    def generate_checklist_prompt(self, business_description):
+    def generate_checklist_prompt(business_description):
         return f"""
         {business_description}
         <optimized_prompt>
@@ -39,7 +39,7 @@ class ChecklistPipelinePrompt:
 
         """
 
-    def extract_business_prompt(self, code_to_be_tested):
+    def extract_business_prompt(code_to_be_tested):
         return f"""
         {code_to_be_tested}
         <optimized_prompt>
@@ -83,7 +83,7 @@ class ChecklistPipelinePrompt:
         </output_format>
         </optimized_prompt>
         """
-    def generate_consensus_prompt(self, checklists):
+    def generate_consensus_prompt(checklists):
         checklists_str = "\n---\n".join(checklists)
         return f"""
         <optimized_prompt>
@@ -114,7 +114,7 @@ class ChecklistPipelinePrompt:
         </optimized_prompt>
         """
 
-    def generate_add_on_checklist_prompt(self, business_description, base_checklist):
+    def generate_add_on_checklist_prompt(business_description, base_checklist):
         return f"""
         {business_description}
         <optimized_prompt>

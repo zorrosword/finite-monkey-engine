@@ -34,5 +34,5 @@ class ChecklistGenerator:
             
             print(f"第 {round + 1} 轮检查清单生成完成")
         
-        return current_checklist
+        return business_description,current_checklist
     
