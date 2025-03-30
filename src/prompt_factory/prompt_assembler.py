@@ -65,7 +65,14 @@ class PromptAssembler:
                     +PeripheryPrompt.jailbreak_prompt()
                     
         return ret_prompt
-
+    def assemble_prompt_for_checklist_pipeline(code, checklist):
+        ret_prompt = code+"\n"\
+                    +PeripheryPrompt.role_set_solidity_common()+"\n"\
+                    +PeripheryPrompt.task_set_blockchain_common()+"\n"\
+                    +CorePrompt.core_prompt_assembled()+"\n"\
+                    +checklist+"\n"\
+                    +PeripheryPrompt.guidelines()+"\n"\
+                    +PeripheryPrompt.jailbreak_prompt()
     def assemble_prompt_for_specific_project(code, business_type):
         combined_vul_prompt = PromptAssembler._get_vul_prompts(business_type)
         

@@ -60,6 +60,11 @@ class AiEngine(object):
                     print("[DEBUG🐞]📋response_checklist length: ",len(response_checklist))
                     print(f"[DEBUG🐞]📋response_checklist: {response_checklist[:50]}...")
                     prompt=PromptAssembler.assemble_checklists_prompt_for_scan(code_to_be_tested,response_checklist)
+                elif os.getenv("SCAN_MODE","COMMON_VUL")=="CHECKLIST_PIPELINE":
+                    # 从task的description字段获取checklist
+                    checklist = task.description
+                    print(f"[DEBUG🐞]📋Using checklist from task description: {checklist[:50]}...")
+                    prompt = PromptAssembler.assemble_prompt_for_checklist_pipeline(code_to_be_tested, checklist)
                 elif os.getenv("SCAN_MODE","COMMON_VUL")=="COMMON_PROJECT":
                     prompt=PromptAssembler.assemble_prompt_common(code_to_be_tested)
                 elif os.getenv("SCAN_MODE","COMMON_VUL")=="PURE_SCAN":
@@ -67,13 +72,13 @@ class AiEngine(object):
                 elif os.getenv("SCAN_MODE","COMMON_VUL")=="SPECIFIC_PROJECT":
                     # 构建提示来判断业务类型
                     business_type=task.recommendation
-                    print(f"[DEBUG] business_type: {business_type}")
+                    # print(f"[DEBUG] business_type: {business_type}")
                     # 数据库中保存的形式是xxxx,xxxxx,xxxx... 转成assemble_prompt_for_specific_project可以接收的数组形式
                     business_type_list=business_type.split(',')
-                    print(f"[DEBUG] business_type_list: {business_type_list}")
+                    # print(f"[DEBUG] business_type_list: {business_type_list}")
                     # prompt = PromptAssembler.assemble_prompt_for_specific_project_directly_ask(code_to_be_tested, business_type_list)
                     prompt = PromptAssembler.assemble_prompt_for_specific_project(code_to_be_tested, business_type_list)
-                    print(f"[DEBUG] Generated prompt: {prompt}")
+                    # print(f"[DEBUG] Generated prompt: {prompt}")
                 response_vul=ask_claude(prompt)
                 print(f"[DEBUG] Claude response: {response_vul}")
                 response_vul = response_vul if response_vul is not None else "no"                

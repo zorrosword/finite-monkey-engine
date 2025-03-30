@@ -9,6 +9,7 @@ import pickle
 from openai_api.openai import *
 from prompt_factory.core_prompt import CorePrompt
 import re
+from checklist_pipeline.checklist_generator import ChecklistGenerator
 
 '''
 根据每个function 的 functionality embbeding 匹配结果 
@@ -18,6 +19,8 @@ class PlanningV2(object):
         self.project = project
         self.taskmgr=taskmgr
         self.scan_list_for_larget_context=[]
+        self.enable_checklist = os.getenv("SCAN_MODE") == "CHECKLIST_PIPELINE"
+        self.checklist_generator = ChecklistGenerator() if self.enable_checklist else None
 
     
     def ask_openai_for_business_flow(self,function_name,contract_code_without_comment):
@@ -385,26 +388,25 @@ class PlanningV2(object):
             
             name = function['name']
             content = function['content']
-            contract_code=function['contract_code']
-            contract_name=function['contract_name']
+            contract_code = function['contract_code']
+            contract_name = function['contract_name']
             # if len(self.scan_list_for_larget_context)>0 and contract_name not in self.scan_list_for_larget_context:
             #     continue
             task_count = 0
             print(f"————————Processing function: {name}————————")
             # business_task_item_id = 
+            checklist = ""    
             if switch_business_code:
                 business_flow_code,line_info_list,other_contract_context=self.search_business_flow(all_business_flow, all_business_flow_line,all_business_flow_context, name.split(".")[1], contract_name)
+                if self.enable_checklist:
+                    print(f"\n📋 为业务流程生成检查清单...")
+                    # 使用业务流程代码 + 原始函数代码
+                    code_for_checklist = f"{business_flow_code}\n{content}"
+                checklist = self.checklist_generator.generate_checklist(code_for_checklist)
+                print("✅ 检查清单生成完成")
                 print(f"[DEBUG] 获取到的业务流代码长度: {len(business_flow_code) if business_flow_code else 0}")
                 print(f"[DEBUG] 获取到的其他合约上下文长度: {len(other_contract_context) if other_contract_context else 0}")
                 
-                # type_check_prompt = '''分析以下智能合约代码，判断它属于哪些业务类型。可能的类型包括：
-                #     chainlink, dao, inline assembly, lending, liquidation, liquidity manager, signature, slippage, univ3, other
-                    
-                #     请以JSON格式返回结果，格式为：{{"business_types": ["type1", "type2"]}}
-                    
-                #     代码：
-                #     {0}
-                #     '''
                 type_check_prompt = CorePrompt.type_check_prompt()
                     
                 try:
@@ -413,17 +415,6 @@ class PlanningV2(object):
                     type_response = common_ask_for_json(formatted_prompt)
                     print(f"[DEBUG] Claude返回的响应: {type_response}")
                     
-                    # # 更严格的响应清理
-                    # cleaned_response = type_response.strip()
-                    # cleaned_response = cleaned_response.replace("```json", "").replace("```", "")
-                    # cleaned_response = cleaned_response.replace("\n", "").replace(" ", "")
-                    # cleaned_response = cleaned_response.strip()
-                    
-                    # # 确保响应是有效的JSON格式
-                    # if not cleaned_response.startswith("{"):
-                    #     cleaned_response = "{" + cleaned_response
-                    # if not cleaned_response.endswith("}"):
-                    #     cleaned_response = cleaned_response + "}"
                     cleaned_response = type_response    
                     print(f"[DEBUG] 清理后的响应: {cleaned_response}")
                     
@@ -474,7 +465,7 @@ class PlanningV2(object):
                             contract_code=contract_code,
                             risklevel='',
                             similarity_with_rule='',
-                            description='',
+                            description=checklist,
                             start_line=function['start_line'],
                             end_line=function['end_line'],
                             relative_file_path=function['relative_file_path'],
@@ -490,6 +481,11 @@ class PlanningV2(object):
                         task_count += 1
             
             if switch_function_code:
+                if self.enable_checklist:
+                    print(f"\n📋 为函数代码生成检查清单...")
+                    # 仅使用函数代码
+                    checklist = self.checklist_generator.generate_checklist(content)
+                    print("✅ 检查清单生成完成")
                 for i in range(int(os.environ.get('BUSINESS_FLOW_COUNT', 1))):
                     task = Project_Task(
                         project_id=self.project.project_id,
@@ -507,7 +503,7 @@ class PlanningV2(object):
                         contract_code=contract_code,
                         risklevel='',
                         similarity_with_rule='',
-                        description='',
+                        description=checklist,
                         start_line=function['start_line'],
                         end_line=function['end_line'],
                         relative_file_path=function['relative_file_path'],
