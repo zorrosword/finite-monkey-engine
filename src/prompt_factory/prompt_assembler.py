@@ -73,6 +73,7 @@ class PromptAssembler:
                     +checklist+"\n"\
                     +PeripheryPrompt.guidelines()+"\n"\
                     +PeripheryPrompt.jailbreak_prompt()
+        return ret_prompt
     def assemble_prompt_for_specific_project(code, business_type):
         combined_vul_prompt = PromptAssembler._get_vul_prompts(business_type)
         

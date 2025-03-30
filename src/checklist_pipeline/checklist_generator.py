@@ -18,7 +18,7 @@ class ChecklistGenerator:
             # 第一轮或开始新一轮
             checklist_prompt = (ChecklistPipelinePrompt.generate_checklist_prompt(business_description) 
                               if current_checklist is None 
-                              else ChecklistPipelinePrompt.generate_add_on_checklist_prompt(current_checklist))
+                              else ChecklistPipelinePrompt.generate_add_on_checklist_prompt(business_description,current_checklist))
             
             # 并行获取各个模型的checklist
             claude_response = ask_claude(checklist_prompt)

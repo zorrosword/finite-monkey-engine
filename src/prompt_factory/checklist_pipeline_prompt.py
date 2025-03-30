@@ -114,13 +114,14 @@ class ChecklistPipelinePrompt:
         </optimized_prompt>
         """
 
-    def generate_add_on_checklist_prompt(self, base_checklist):
+    def generate_add_on_checklist_prompt(self, business_description, base_checklist):
         return f"""
+        {business_description}
         <optimized_prompt>
         <task>基于现有检查清单进行深化和扩展</task>
 
         <context>
-        以下是现有的基础检查清单：
+        以上是一段业务逻辑描述，现有的检查清单如下：
 
         {base_checklist}
 
