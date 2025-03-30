@@ -92,9 +92,11 @@ CLAUDE_MODEL=claude-3-5-sonnet-20241022
 
 # 扫描模式设置，当前为纯扫描模式
 # Scan mode setting, currently set to pure scan mode
-# 可选值：SPECIFIC_PROJECT(特定项目CHECKLIST) / OPTIMIZE(代码建议模式) / COMMON_PROJECT(通用项目CHECKLIST) / PURE_SCAN(纯扫描) / CHECKLIST(检查清单自动生成)
-# Available options: SPECIFIC_PROJECT / OPTIMIZE / COMMON_PROJECT / PURE_SCAN / CHECKLIST
-SCAN_MODE=SPECIFIC_PROJECT 
+# 可选值：SPECIFIC_PROJECT(特定项目CHECKLIST) / OPTIMIZE(代码建议模式) / COMMON_PROJECT(通用项目CHECKLIST) / PURE_SCAN(纯扫描) 
+# / CHECKLIST(检查清单自动生成) / CHECKLIST_PIPELINE(检查清单自动生成+pipeline)
+# Available options: SPECIFIC_PROJECT / OPTIMIZE / COMMON_PROJECT / PURE_SCAN 
+# / CHECKLIST / CHECKLIST_PIPELINE  
+SCAN_MODE=CHECKLIST_PIPELINE 
 
 # API服务提供商选择
 # API service provider selection
@@ -133,6 +135,10 @@ JSON_MODEL_ID="gpt-4-turbo"
 # 是否启用网络搜索
 # Whether to enable internet search
 ENABLE_INTERNET_SEARCH=False
+
+# 设置检查清单生成迭代轮数
+# Set the number of iterations for checklist generation
+CHECKLIST_ITERATION_ROUNDS=3
 
 ```
 
