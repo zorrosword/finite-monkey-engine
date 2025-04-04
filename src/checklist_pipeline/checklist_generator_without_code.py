@@ -2,6 +2,7 @@ from prompt_factory.checklist_pipeline_prompt import ChecklistPipelinePrompt
 from openai_api.openai import *
 import os
 import csv
+import audit_config
 
 class ChecklistGeneratorWithoutCode:
     def __init__(self):
@@ -51,22 +52,21 @@ class ChecklistGeneratorWithoutCode:
         for round in range(self.iteration_rounds):
             print(f"\n执行第 {round + 1} 轮检查清单生成...")
             # 第一轮或开始新一轮
-            checklist_prompt = (ChecklistPipelinePrompt.generate_checklist_for_project_type(project_type_list) 
-                                if current_checklist is None 
-                                else ChecklistPipelinePrompt.complement_checklist(current_checklist))
+            checklist_prompt = (ChecklistPipelinePrompt.generate_checklist_prompt(project_type_list) 
+                              if current_checklist is None 
+                              else ChecklistPipelinePrompt.generate_add_on_checklist_prompt(project_type_list,current_checklist))
             
-            # 获取检查清单
+            # 并行获取各个模型的checklist
             claude_response = ask_claude(checklist_prompt)
             ds_response = ask_deepseek(checklist_prompt)
             o3_response = ask_o3_mini(checklist_prompt)
             gpt_response = ask_openai_common(checklist_prompt)
 
             # 合并所有模型的结果
-            merge_prompt = ChecklistPipelinePrompt.merge_checklist([
+            consensus_prompt = ChecklistPipelinePrompt.generate_consensus_prompt([
                 claude_response, ds_response, o3_response, gpt_response
             ])
-
-            current_checklist = ask_deepseek(merge_prompt)
+            current_checklist = ask_deepseek(consensus_prompt)
             
             # Check if the CSV file exists and write results
             output_file = f"{language}_checklist_results.csv"
