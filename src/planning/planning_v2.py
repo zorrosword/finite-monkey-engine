@@ -403,20 +403,20 @@ class PlanningV2(object):
                     print(f"\n📋 为业务流程生成检查清单...")
                     # 使用业务流程代码 + 原始函数代码
                     code_for_checklist = f"{business_flow_code}\n{content}"
-                business_description,checklist = self.checklist_generator.generate_checklist(code_for_checklist)
-                # Write checklist to a CSV file
-                csv_file_path = "checklist_business_code.csv"
-                # Open the file in append mode to continuously write to it
-                with open(csv_file_path, mode='a', newline='', encoding='utf-8') as csv_file:
-                    csv_writer = csv.writer(csv_file)
-                    # If the file is empty, write the headers
-                    if csv_file.tell() == 0:
-                        csv_writer.writerow(["contract_name", "business_flow_code", "content", "business_description", "checklist"])
-                    # Write data
-                    csv_writer.writerow([contract_name, business_flow_code, content, business_description, checklist])
+                    business_description,checklist = self.checklist_generator.generate_checklist(code_for_checklist)
+                    # Write checklist to a CSV file
+                    csv_file_path = "checklist_business_code.csv"
+                    # Open the file in append mode to continuously write to it
+                    with open(csv_file_path, mode='a', newline='', encoding='utf-8') as csv_file:
+                        csv_writer = csv.writer(csv_file)
+                        # If the file is empty, write the headers
+                        if csv_file.tell() == 0:
+                            csv_writer.writerow(["contract_name", "business_flow_code", "content", "business_description", "checklist"])
+                        # Write data
+                        csv_writer.writerow([contract_name, business_flow_code, content, business_description, checklist])
 
-                print(f"✅ Checklist written to {csv_file_path}")
-                print("✅ 检查清单生成完成")
+                    print(f"✅ Checklist written to {csv_file_path}")
+                    print("✅ 检查清单生成完成")
                 print(f"[DEBUG] 获取到的业务流代码长度: {len(business_flow_code) if business_flow_code else 0}")
                 print(f"[DEBUG] 获取到的其他合约上下文长度: {len(other_contract_context) if other_contract_context else 0}")
                 
