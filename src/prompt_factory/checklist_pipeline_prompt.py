@@ -147,3 +147,98 @@ class ChecklistPipelinePrompt:
         </optimized_prompt>
         """
     
+    def list_project_types_for_specific_language(language):
+        return f"""### Context
+You are a blockchain architect with expertise in multiple programming languages (Solidity, Rust, C++, Go) and their applications in blockchain ecosystem.
+
+### Objective
+Exhaustively list and describe all types of projects that can be developed using {language} in blockchain, covering both mainstream and niche domains.
+
+### Structure
+1. Categorize projects by domain (e.g., DeFi, NFTs, Infrastructure).
+2. Define subcategories (e.g., lending protocols, oracle networks, slippage-related).
+3. Provide examples (protocols, tools, frameworks) and technical specifics (libraries, standards, algorithms).
+
+### Tone
+Technical, precise, and thorough.
+
+### Audience
+Blockchain expert in using {language}.
+
+### Response Requirements
+1. Prioritize completeness over brevity.
+2. Cover innovative use cases (e.g., zero-knowledge proofs in Rust, C++ for blockchain node clients).
+3. Precise and technical language.
+```
+"""
+# 4. Response format (in JSON style), MUST encapsulate with ```json and ```: 
+# ```json
+# {{
+#     {{Domain 1}}:[
+#             {{Subcategory 1}}:[{{protocol/tool/framework/library/standard/algorithm}}, {{protocol/tool/framework/library/standard/algorithm}}],
+#             {{Subcategory 2}}:[{{protocol/tool/framework/library/standard/algorithm}}, {{protocol/tool/framework/library/standard/algorithm}}]
+#         ],
+#     ...
+# }}
+
+
+    def complement_project_type_list(language, project_types):
+        return f"""### Context
+You are a blockchain architect with expertise in multiple programming languages (Solidity, Rust, C++, Go) and their applications in blockchain ecosystem.
+
+### Objective
+Expand the list (encapsulated by <project type list> and </project type list>) by adding novel, non-overlapping project types that were omitted, focusing on niche domains, emerging trends, or underutilized technical capabilities of {language}.
+
+### Structure
+1. Review given list: Summarize key categories already covered (to avoid duplication).
+2. Propose New Categories/Subcategory/examples/technical specifics: Identify gaps (e.g., overlooked domains, experimental use cases).
+
+### Tone
+Analytical, forward-looking, and technically rigorous.
+
+### Audience
+Developers seeking to innovate with {language} beyond mainstream applications.
+
+### Response Requirements
+1. Prioritize novel additions (e.g., projects using cutting-edge cryptography, novel governance models).
+2. Highlight language-specific advantages (e.g., C++ for low-latency consensus engines).
+3. Avoid overlap with prior categories—focus on gaps.
+4. Add directly to the given list and comply with the original format.
+
+<project type list>
+{project_types}
+</project type list>
+"""
+    
+    def merge_project_type_list(language, lists):
+        project_type_lists = "\n---\n".join(lists)
+        return f"""### Context
+You are a technical editor synthesizing inputs from multiple LLM-generated lists of {language} blockchain project types.
+
+### Objective
+Merge all input lists (encapsulated by <project type lists> and </project type lists>) into one unified taxonomy that:
+1. Removes duplicates.
+2. Groups overlapping entries under standardized category/subcategory names.
+3. Preserves 100% of unique project types from all sources.
+
+### Structure
+1. Deduplication: Identify identical or semantically equivalent entries.
+2. Hierarchical Merging:
+        Align categories (e.g., "DeFi" vs. "Decentralized Finance" → use "DeFi").
+        Consolidate subcategories (e.g., "Lending" and "Borrowing" → "Lending/Borrowing Platforms").
+3. Validation: Cross-check merged list against inputs to ensure no omissions.
+
+### Tone
+Methodical, precise, and detail-oriented.
+
+### Audience
+Blockchain expert in using {language}.
+
+### Response Requirements
+1. Output a hierarchical markdown list with categories → subcategories → examples/technical specifics.
+2. Prioritize clarity over source formatting (e.g., rename poorly named categories).
+
+<project type lists>
+{project_type_lists}
+</project type lists>
+"""
