@@ -152,26 +152,27 @@ class ChecklistPipelinePrompt:
         </optimized_prompt>
         """
     
-    def merge_project_type_list(language, project_type_lists):
+    def merge_project_type_checklist(language, project_type_lists):
         project_type_lists_str = "\n---\n".join(project_type_lists)
         return f"""
         <optimized_prompt>
-        <task>分析多个检查清单并提取共识内容</task>
+        <task>分析多个检查清单进行合并</task>
 
         <context>
         以下是多个AI模型生成的针对blockchain ecosystem中{language}项目所有可能存在的漏洞的检查清单：
 
         {project_type_lists_str}
 
-        请分析这些清单，提取出所有模型达成共识的检查项。
+        请分析这些清单，提取并合并。
         </context>
 
         <instructions>
         1. 对比分析所有清单中的检查项
-        2. 提取出在多个清单中重复出现的核心检查内容
-        3. 合并相似的检查项，保持描述的准确性和完整性
-        4. 确保提取的共识内容保持原有的逻辑结构
-        5. 重新组织和优化检查项的表述，使其更加清晰和系统
+        2. 优先提取并合并在多个清单中重复出现的核心检查内容
+        3. 对于相似的检查项，进行合并
+        4. 对于不重复的检查项(即只存在部分清单中的检查项)，先分析其合理性，再进行合并
+        5. 合并后需要保持描述的准确性和完整性
+        6. 重新组织和优化检查项的表述，使其更加清晰和系统
         </instructions>
 
         <output_format>

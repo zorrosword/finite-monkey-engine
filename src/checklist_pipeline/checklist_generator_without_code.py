@@ -63,7 +63,7 @@ class ChecklistGeneratorWithoutCode:
             gpt_response = ask_openai_common(checklist_prompt)
 
             # 合并所有模型的结果
-            consensus_prompt = ChecklistPipelinePrompt.merge_project_type_list(language, [
+            consensus_prompt = ChecklistPipelinePrompt.merge_project_type_checklist(language, [
                 claude_response, ds_response, o3_response, gpt_response
             ])
             current_checklist = ask_deepseek(consensus_prompt)
