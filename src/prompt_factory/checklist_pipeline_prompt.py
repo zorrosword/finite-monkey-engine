@@ -38,7 +38,45 @@ class ChecklistPipelinePrompt:
         </optimized_prompt>
 
         """
+    
+    def generate_project_type_checklist_prompt(language,project_type_list):
+        return f"""
+        {project_type_list}
+        <optimized_prompt>
+        <task>制定针对不同项目中所有可能存在的漏洞的详细检查清单</task>
 
+        <context>
+
+        以上是针对blockchain ecosystem中{language}项目的细分，应该有哪些专门的细分中每个项目的漏洞的checklist，把他们列出来，务必要覆盖所有可能的漏洞，包括{language}通用(主流)以及该项目所涉及的技术栈的特定漏洞，详细的列出来
+
+        </context>
+
+        <instructions>
+
+        1. 仔细分析上述所有solidity的项目细分，明确每个项目可能涉及的技术栈、协议、流程。
+
+        2. 根据项目中涉及的技术栈、协议、流程，识别可能存在的漏洞，确保覆盖所有可能的漏洞
+
+        4. 将所有检查项汇总后，按照项目类型分类和整理，形成清晰明确的不同项目下的检查清单。
+
+        5. 确保检查清单完整覆盖项目中所有可能发生漏洞的技术栈、协议、流程，不遗漏任何关键环节。
+
+        </instructions>
+
+        <output_format>
+        以清晰详细的列表形式输出，每个检查项需明确漏洞标题、漏洞描述、检查内容，格式示例如下：
+
+        漏洞类型：XXX (如：还款恢复后借款人立即被清算)
+        漏洞描述：XXX (如：如果在还款暂停期间市场条件恶化，当还款重新启用而没有宽限期时，未变更的清算阙值可能触发即时清算，让借款人几乎没有恢复机会)
+        检查内容：
+        具体检查内容一
+        具体检查内容二
+        以此类推，覆盖所有漏洞检查项。
+        </output_format>
+        </optimized_prompt>
+
+        """
+    
     def extract_business_prompt(code_to_be_tested):
         return f"""
         {code_to_be_tested}
@@ -113,6 +151,37 @@ class ChecklistPipelinePrompt:
         </output_format>
         </optimized_prompt>
         """
+    
+    def merge_project_type_list(language, project_type_lists):
+        project_type_lists_str = "\n---\n".join(project_type_lists)
+        return f"""
+        <optimized_prompt>
+        <task>分析多个检查清单并提取共识内容</task>
+
+        <context>
+        以下是多个AI模型生成的针对blockchain ecosystem中{language}项目所有可能存在的漏洞的检查清单：
+
+        {project_type_lists_str}
+
+        请分析这些清单，提取出所有模型达成共识的检查项。
+        </context>
+
+        <instructions>
+        1. 对比分析所有清单中的检查项
+        2. 提取出在多个清单中重复出现的核心检查内容
+        3. 合并相似的检查项，保持描述的准确性和完整性
+        4. 确保提取的共识内容保持原有的逻辑结构
+        5. 重新组织和优化检查项的表述，使其更加清晰和系统
+        </instructions>
+
+        <output_format>
+        请按照原有的格式输出，包括：
+        - 漏洞标题
+        - 漏洞描述
+        - 检查内容
+        </output_format>
+        </optimized_prompt>
+        """
 
     def generate_add_on_checklist_prompt(business_description, base_checklist):
         return f"""
@@ -143,6 +212,40 @@ class ChecklistPipelinePrompt:
         - 检查内容：
           具体检查内容
         - 业务逻辑环节：XXX环节
+        </output_format>
+        </optimized_prompt>
+        """
+    
+    def generate_add_on_project_type_checklist_prompt(language, project_type_list, base_checklist):
+        return f"""
+        {project_type_list}
+        <optimized_prompt>
+        <task>基于现有检查清单进行深化和扩展</task>
+
+        <context>
+        以上是针对blockchain ecosystem中{language}项目的细分，现有的针对项目中可能存在的漏洞的检查清单如下：
+
+        {base_checklist}
+
+        请基于这个清单，进一步深化和扩展检查内容。
+        </context>
+
+        <instructions>
+        1. 分析现有检查项，找出可能的扩展点和深化方向
+        2. 考虑每个检查项的边界情况和特殊场景
+        3. 添加更细致的子检查项
+        4. 考虑所有与该项目强相关的技术栈、协议、流程，以及可能存在的漏洞
+        5. 确保新增的检查项与现有项目不重复
+        6. 保持检查项之间的逻辑关联性
+        </instructions>
+
+        <output_format>
+        
+        漏洞类型：XXX (如：还款恢复后借款人立即被清算)
+        漏洞描述：XXX (如：如果在还款暂停期间市场条件恶化，当还款重新启用而没有宽限期时，未变更的清算阙值可能触发即时清算，让借款人几乎没有恢复机会)
+        检查内容：
+        具体检查内容一
+        具体检查内容二
         </output_format>
         </optimized_prompt>
         """

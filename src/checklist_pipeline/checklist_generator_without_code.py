@@ -52,9 +52,9 @@ class ChecklistGeneratorWithoutCode:
         for round in range(self.iteration_rounds):
             print(f"\n执行第 {round + 1} 轮检查清单生成...")
             # 第一轮或开始新一轮
-            checklist_prompt = (ChecklistPipelinePrompt.generate_checklist_prompt(project_type_list) 
+            checklist_prompt = (ChecklistPipelinePrompt.generate_project_type_checklist_prompt(language, project_type_list)
                               if current_checklist is None 
-                              else ChecklistPipelinePrompt.generate_add_on_checklist_prompt(project_type_list,current_checklist))
+                              else ChecklistPipelinePrompt.generate_add_on_project_type_checklist_prompt(language, project_type_list, current_checklist))
             
             # 并行获取各个模型的checklist
             claude_response = ask_claude(checklist_prompt)
@@ -63,7 +63,7 @@ class ChecklistGeneratorWithoutCode:
             gpt_response = ask_openai_common(checklist_prompt)
 
             # 合并所有模型的结果
-            consensus_prompt = ChecklistPipelinePrompt.generate_consensus_prompt([
+            consensus_prompt = ChecklistPipelinePrompt.merge_project_type_list(language, [
                 claude_response, ds_response, o3_response, gpt_response
             ])
             current_checklist = ask_deepseek(consensus_prompt)
