@@ -3,6 +3,10 @@ from prompt_factory.core_prompt import CorePrompt
 from prompt_factory.periphery_prompt import PeripheryPrompt
 from prompt_factory.vul_prompt import VulPrompt
 from prompt_factory.vul_check_prompt import VulCheckPrompt
+
+import os
+import pandas as pd
+
 class PromptAssembler:
     def assemble_prompt_common(code):
         ret_prompt=code+"\n"\
@@ -53,6 +57,17 @@ class PromptAssembler:
             elif type == "other":
                 vul_prompts.append(VulPrompt.vul_prompt_common())
         return "\n\n".join(vul_prompts)
+    
+    @staticmethod
+    def _get_checklist_from_knowledge(business_type):
+        def get_from_xlsx(business_type):
+            checklist_path = os.getenv("CHECKLIST_PATH", "src/knowledges/checklist.xlsx")
+            checklist_sheet = os.getenv("CHECKLIST_SHEET", "Sheet1")
+            df = pd.read_excel(checklist_path, sheet_name=checklist_sheet)
+            checklist = df[df["project_type"] == business_type]["checklist"].values[0]
+            return business_type + "\n" + checklist
+        
+        return "\n\n".join([get_from_xlsx(type) for type in business_type])
 
     def assemble_prompt_for_specific_project_directly_ask(code, business_type):
         combined_vul_prompt = PromptAssembler._get_vul_prompts(business_type)
@@ -75,7 +90,8 @@ class PromptAssembler:
                     +PeripheryPrompt.jailbreak_prompt()
         return ret_prompt
     def assemble_prompt_for_specific_project(code, business_type):
-        combined_vul_prompt = PromptAssembler._get_vul_prompts(business_type)
+        # combined_vul_prompt = PromptAssembler._get_vul_prompts(business_type)
+        combined_vul_prompt = PromptAssembler._get_checklist_from_knowledge(business_type)
         
         ret_prompt = code+"\n"\
                     +PeripheryPrompt.role_set_solidity_common()+"\n"\
@@ -132,3 +148,8 @@ class PromptAssembler:
         
         The 'brief of response' should contain a concise summary of the analysis,
         and the 'result' should reflect the final conclusion about the vulnerability's existence."""
+
+if __name__=="__main__":
+    prompt = PromptAssembler()
+    checklists = prompt._get_checklist_from_knowledge(["Decentralized Exchanges (DEX)","Token Standards (ERC-721/ERC-1155)","Event-Driven Automation"])
+    print(checklists)

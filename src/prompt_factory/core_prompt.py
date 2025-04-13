@@ -1,3 +1,5 @@
+import os
+import pandas as pd
 class CorePrompt:
     def core_prompt_assembled():
         return """
@@ -94,10 +96,19 @@ class CorePrompt:
 
         """
 
-    def type_check_prompt():
-        return """分析以下智能合约代码，判断它属于哪些业务类型。可能的类型包括：
-chainlink, dao, inline assembly, lending, liquidation, liquidity manager, signature, slippage, univ3, other
+    def get_project_type(self):
+        checklist_path = os.getenv("CHECKLIST_PATH", "src/knowledges/checklist.xlsx")
+        checklist_sheet = os.getenv("CHECKLIST_SHEET", "Sheet1")
+        df = pd.read_excel(checklist_path, sheet_name=checklist_sheet)
+        df = df.dropna(subset=["project_type"])
+        project_type = df["project_type"].tolist()
+        project_type = list(set(project_type))
+        return project_type
 
+    def type_check_prompt(self):
+        project_type_list = self.get_project_type()
+        project_type_str = ", ".join(project_type_list)
+        return """分析以下智能合约代码，判断它属于哪些业务类型。仅从以下类型中选择：\n"""+project_type_str+"\n"+"""
 请以JSON格式返回结果，格式为：{{"business_types": ["type1", "type2"]}}
 
 代码：
@@ -143,3 +154,7 @@ chainlink, dao, inline assembly, lending, liquidation, liquidity manager, signat
 以下是需要合并的漏洞描述：
 {vuln_details}
 """
+
+if __name__=="__main__":
+    corePrompt = CorePrompt()
+    print(corePrompt.type_check_prompt())
