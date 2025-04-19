@@ -141,7 +141,7 @@ if __name__ == '__main__':
         dataset_base = "./src/dataset/agent-v1-c4"
         projects = load_dataset(dataset_base)
 
-        project_id = 'dexevm'
+        project_id = 'gamma_test3'
         project_path = ''
         project = Project(project_id, projects[project_id])
         
