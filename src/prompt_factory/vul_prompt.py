@@ -118,6 +118,180 @@ class VulPrompt:
     - On‑chain slippage calculations (e.g., using on‑chain estimations) can be manipulated by adversaries, so user‑calculated values (often performed off‑chain) should be used in transactions.  
     - Hard‑coded fee tiers in systems like Uniswap V3 or zero slippage requirements (demanding exact outputs) can lead to transaction reversions, DoS conditions, or severe losses under volatile market conditions.
         """
+    def vul_prompt_common_new():
+        return """
+# Smart Contract Security Checklist
+
+1. **Parameter Validation and Input Verification Deficiencies**  
+   - Checks for parameter order or type errors (e.g., "zero share" issues, incorrect parameter sequencing).  
+   - Insufficient validation of input length, indices, format, and encoding.  
+   - Redundant or improper parameter checks that may allow unexpected values into the system.  
+   - Missing necessary modifiers, data validation, and boundary checks (including insufficient normalization of oracle prices and parameter/boundary value errors).  
+   - In certain trade and minting functions, validation for slippage parameters and transaction deadlines is neglected, which increases the risk of adverse execution.
+   - Missing validation of fund-related parameters allowing manipulation of funds.
+   - Incorrect parameter order leading to unauthorized access.
+   - Failure to validate transaction parameters in cross-chain communications.
+   - Failure to check codehash against keccak256("") for non-existent contracts.
+   - ETH value parameters not properly validated in payable functions.
+
+2. **Arithmetic Calculation and Precision Issues**  
+   - Use of incorrect constants, ratio calculation errors, and imprecise mathematical formulas.  
+   - Decimal precision errors, rounding problems, and unit conversion mistakes (for instance, using a fixed 6-decimal precision when the target token might have 18 decimals).  
+   - Division, bit shift, exchange rate, or interest rate model miscalculations.  
+   - Confusion between "shares" and "amount" calculations leading to misrepresentations of user balances or collateral values.  
+   - Inaccuracies in calculating PnL, yield fees, fund flows, conversion rates, share conversions, and equity ratios.  
+   - Cumulative errors in recursive or multi-step conversions that can amplify small rounding issues.  
+   - In inline assembly, using operations like add, sub, or mul without Solidity's overflow/underflow protection can lead to unnoticed overflows--even issues where uint128 arithmetic is performed in a 256‑bit environment.  
+   - Fixed-point (e.g., Q96) multiplications without proper full‑width intermediate storage may result in overflow; similarly, LP reward distribution using integer division can leave remainders that become permanently locked.
+   - Insufficient precision in mathematical utilities (e.g., MathUtils) causing calculation errors.
+   - Using collateralShare instead of amount for liquidation threshold calculations, causing inaccurate liquidation checks.
+   - Calculation overflows when handling large numbers.
+   - Variable type errors causing insufficient fund burning.
+   - Incorrect reward calculations leading to double-counting of rewards.
+   - Insufficient precision when comparing accumulated fees with total pool value, making reinvestment vulnerable to flash loan attacks.
+   - Failure to account for price differences between ETH and staked ETH2.
+
+3. **State Updates, Synchronization, and Data Storage Defects**  
+   - Incorrect ordering of state updates or improper check sequences that delay or miss critical updates.  
+   - Inconsistent synchronization between global and local (cache) data--including situations where mappings, arrays, or internal caches are not cleared in a timely or complete manner.  
+   - Loss of historical records and vulnerabilities within freezing or reward mechanisms due to unsynchronized state updates.  
+   - "Incorrect determination methods" that can be manipulated to alter the deployment state.  
+   - In inline assembly, failure to update the Free Memory Pointer (FMPA) on time or allocating insufficient memory (for example, missing a 32‑byte offset) leads to memory corruption and data overwrites.  
+   - In DAO implementations, unsynchronized snapshots and NFT voting power updates may result in inaccurate governance state records.
+   - State variables are prematurely updated before asset transfers, leading to improper transaction sequencing.
+   - Asynchronous reserve and balance updates causing double counting of funds.
+   - Incorrect state reset handling due to time-related inconsistencies.
+   - Allowing voting rights to be transferred, harming the weight of other participants.
+   - Not destroying tokens after liquidation procedures.
+   - System shutdowns that stop updating user reward data, allowing new users to steal rewards.
+
+4. **Consistency and Double-counting Issues**
+   - Inconsistencies between token accounting systems leading to double counting.
+   - Reward calculations double-counting unsettled reserves.
+   - Reserve and balance not updated in real-time synchronization leading to double calculations.
+   - Fee double-counting due to inconsistent fee accounting mechanisms.
+   - Inconsistent time reset handling across different contract components.
+   - Inconsistent application of penalty calculations (e.g., grace period penalties not included in market exit penalties).
+   - Elasticity amount variables incorrectly applied in liquidation asset calculations.
+   - Inconsistent handling of price data between different components.
+   - Inconsistent validation processes across similar functions.
+   - Inconsistent initialization of time_weight when adding new gauges.
+   - Inconsistent behavior between original and wrapper contracts for the same assets.
+
+5. **Insufficient Permission Control and Authentication**  
+   - Lack of necessary access permission checks or inappropriate access modifier configurations for critical functions.  
+   - Vulnerabilities in authorization logic, loose role management, and insufficient caller identity verification (including issues with signatures, roles, and distributed identity schemes).  
+   - In cross‑module, flash loan, or flash swap scenarios, insufficient authorization controls can open attack vectors.  
+   - Public interfaces and functions may be exploited by arbitrary calls.  
+   - Signature/replay vulnerabilities occur when signed messages lack a nonce, chain_id, or other key parameters--allowing replay attacks even after a user's status or KYC changes.  
+   - Failure to properly check the result of ecrecover (e.g., a returned zero address) or address signature malleability can permit unauthorized operations.  
+   - For example, updating a router address without revoking old unlimited approvals leaves the previous address with perpetual control over token transfers.
+   - Cross-chain entity address forgery due to inadequate verification.
+   - Borrowers unable to update market's maxTotalSupply or close markets due to insufficient permissions.
+   - Blacklisted users bypassing sanctions by transferring funds in parts within the system.
+
+6. **Business Logic and Process Design Flaws**  
+   - Errors in deployment state determination and improper handling of special edge cases or empty orders.  
+   - Insufficient protection measures in critical processes such as liquidation, lending, auction, redemption, and withdrawal--leading to inadequate collateral protection or weak lending buffers.  
+   - Inconsistencies in multi‑stage processes (including cancellation, settlement, or locking mechanisms) and flawed internal synchronization.  
+   - Specific DAO governance flaws include:  
+     • Flash loans used to temporarily inflate voting power, enabling rapid proposal approval and lock‑in within a single transaction.  
+     • Inconsistent NFT voting power calculation functions that can be exploited to set vote weight to zero or artificially reduce the total voting power (thus amplifying individual influence).  
+     • Unsynchronized vote snapshots, duplicate voting via token transfers, bypass of direct voting restrictions via delegation, and proposals that either remain open indefinitely or get approved before tokens exist.  
+     • Decimal conversion issues in token sales and circumvention of per‑user purchase limits by splitting transactions.  
+   - In lending protocols:  
+     • Liquidation may be triggered prematurely (for example, using an accepted timestamp instead of the last repayment timestamp) or might fail to liquidate a borrower due to errors in managing collateral records.  
+     • Debt closures without real repayments, misdirected repayments (even to the zero address), and infinite loan rollovers can all lead to systemic risk.  
+     • Repayments might be applied only to the current outstanding loan, causing misallocations.  
+   - In liquidation processes:  
+     • Lack of sufficient liquidation incentives (especially for small positions) can let bad debt accumulate.  
+     • Users might over‑withdraw collateral, leaving too little to cover adverse movements.  
+     • Partial liquidations can bypass bad debt handling if certain thresholds (like remaining margin) are not re‑evaluated correctly.  
+     • Other issues include disrupted collateral priority, repayment misallocation when borrower identities change, an overly narrow gap between borrow LTV and liquidation thresholds, and improper handling of accrued yield and positive PnL.
+   - Bad debt incorrectly preserved in the system.
+   - Liquidation debt removal values exceeding actual user collateral value.
+   - First deposit/donation attack vulnerabilities where initial small deposits establish manipulated exchange rates.
+   - Variables that can be set to zero, limiting withdrawals to only already-paid assets in batches.
+   - Reward distribution mechanisms ignoring the actual duration of user deposits.
+   - User scores can be manipulated back and forth to game the system.
+   - Lack of constraints allowing users to delegate voting rights and then vote again, manipulating weight.
+   - Voting rights calculated from current time rather than fixed historical blocks.
+   - Expired vote staking lock periods without timely delegation revocation causing tokens to be permanently locked.
+   - Missing ratio checks between pool y and x values using existing functions.
+   - Failure to reset voting power when gauges are removed.
+   - Lock period extensions that are excessively long.
+
+7. **Reentrancy, Front‑running, and Denial of Service Risks**  
+   - Absence of standard reentrancy protection designs (including protection against cross‑function reentrancy and ERC777 hook-induced vulnerabilities).  
+   - State update order issues that provide windows for reentrant calls.  
+   - Front‑running vulnerabilities that enable attackers to manipulate prices or state (for example, by using a manipulated TWAP or sandwich attacks).  
+   - Unbounded iterations in loops that may cause Denial of Service (DoS) conditions.  
+   - In Uniswap V3 swap callbacks (UniswapV3SwapCallback), sending output tokens before completing the callback routine may allow reentrancy and state manipulation.  
+   - In lending and liquidity deployment, insufficient TWAP protection or sole reliance on a single price source further expose the system to front‑running and sandwich attacks.
+   - Array length increases leading to DoS attacks due to gas limits.
+   - Message path blocking due to insufficient minimum remaining gas verification for storing failure messages.
+   - State modifications in staticcall contexts causing reverts.
+   - Flash loans creating abnormal pool states leading to irregular fund dumps.
+
+8. **Module Call, Upgrade Configuration, and Initialization Vulnerabilities**  
+   - Errors in module calls and delegatecalls--for example, setting immutable module addresses in the constructor or failing to verify cross‑module dependencies adequately.  
+   - Mismatched or misconfigured constructor parameters and imprecise cross‑contract or cross‑module data transmissions.  
+   - Defects in upgrade scripts, deployment, initialization, and configuration management (including loose Namespace registration and weak core system permissions, as well as controller or wallet initialization mistakes).  
+   - Cross‑chain deployment, state variable resets, and upgrade processes may introduce security risks if not handled with strict controls.  
+   - In liquidity management, failure to revoke old router approvals during updates or overly lax TWAP parameter configurations can be exploited for rug‑pulls or retroactive fee increases.
+   - Delegation of funds not considering zero address cases.
+   - Lack of state validation checks after complex operations.
+   - Incompatibilities between vaults and vaults not fully compliant with ERC4626 standards.
+
+9. **Fund Management, Fee Calculation, and Reward Distribution Errors**  
+   - Improper parameter settings in settlements, refunds, and overall fund flows.  
+   - Errors in asset and share conversion, exchange operations, liquidation reward distribution, and related fund flows (including miscalculations in commissions, discounts, and referral rewards).  
+   - Inconsistencies in calculating referral rewards, incentive distributions, yield fees, and overall PnL.  
+   - Unclear rules for fund locking or asset ownership may result in malicious asset extractions or faulty reward distribution (notably in systems using ERC20 rebasing or YieldBox conversions).  
+   - In liquidity management, for example, native reward distributions may leave small remainders permanently locked due to integer arithmetic, and retroactive adjustments to management fees on pending LP rewards can unjustly reduce provider rewards.
+   - Input parameters being used for different fund purposes than intended.
+   - Vault exchange rates that can only increase but never decrease.
+   - Unbalanced deposits into UniV3 pools where unused tokens are neither returned nor accounted for.
+   - Token exchange contracts not accurately calculating and returning expected vs. actual differences.
+   - Inaccurate weight processing affecting distributions.
+   - addCollateral function not properly validating parameters, enabling unlimited borrowing and user fund theft.
+
+10. **Token Approval and Contract Call Errors**  
+    - Missing necessary ERC20/ERC721 token approvals.  
+    - Errors in specifying target addresses, debit accounts, or token transfer parameters during contract calls.  
+    - When updating critical contract addresses (such as routers) or swapping dependencies, failure to revoke old unlimited approvals leaves tokens vulnerable to unauthorized transfers.
+    - Ignoring non-standard ERC20 transfer return values.
+
+11. **External Dependency, Network Configuration, and Security Issues**  
+    - Incorrect assumptions about third‑party contract interfaces, external oracle dependencies, or price data (for example, returning empty or stale data, or employing incorrect price values in calculations).  
+    - Insufficient validation in external interface calls, which can lead to dangerous reliance on inaccurate data.  
+    - In cross‑chain bridges and cross‑domain calls, misconfigured fee or gas parameters--and even overly exposed node ports--can lead to security vulnerabilities.  
+    - Underlying data structures (such as MerkleDB) may have inherent security issues.  
+    - For external oracles like Chainlink, specific concerns include:  
+      • Not checking for stale prices by overlooking the updatedAt timestamp.  
+      • Failing to verify L2 sequencer status on L2 chains.  
+      • Assuming a uniform heartbeat across different feeds instead of using feed‑specific data.  
+      • Not validating that price feeds update frequently or correctly handle decimal precision.  
+      • Inadequate request confirmations vis‑à‑vis chain re‑org depths, use of incorrect oracle addresses, potential for front‑running oracle updates, and unhandled oracle call reverts or depegging events.  
+      • For randomness oracles, allowing bets after the randomness request or permitting re‑requests can undermine fairness.
+    - Ignoring oracle update timestamps leading to using stale data.
+    - Relying on Curve pool instant prices which are easily manipulable.
+    - Using single-sided valuations, allowing cached value manipulation for excessive borrowing or unfair liquidations.
+
+12. **Language‑specific and Low‑level Implementation Vulnerabilities**  
+    - Issues unique to Solidity inline assembly and low‑level EVM code.  
+    - Memory corruption caused by not updating the Free Memory Pointer (FMPA) promptly, or by using incorrect memory offsets (as seen in buffer initialization problems).  
+    - Using assembly instructions (e.g., add, sub, mul) without proper overflow/underflow detection; also, using 256‑bit arithmetic to perform operations intended for smaller types (such as uint128) may bypass expected safety checks.
+
+13. **Trade Execution and Slippage Vulnerabilities**  
+    - Swap functions that do not allow users to specify a minimum acceptable output (minTokensOut) or that hard‑code the slippage parameter (e.g., 0), leaving trades vulnerable to sandwich attacks and adverse execution.  
+    - Not providing a user‑defined deadline, which can result in trades executing under unfavorable conditions if delayed.  
+    - Incorrect slippage calculations--for example, computing slippage based on internal LP token values instead of the actual user‑provided amounts--or applying slippage protection only to intermediate steps while leaving the final output unprotected.  
+    - Mismatches in fixed precision (such as returning a 6‑decimal value) against the target token's actual decimals can cause the slippage protection to fail.  
+    - In minting operations, calculating synthetic token amounts from asset reserves without allowing users to set an acceptable slippage range exposes users to infinite slippage risk.  
+    - On‑chain slippage calculations (e.g., using on‑chain estimations) can be manipulated by adversaries, so user‑calculated values (often performed off‑chain) should be used in transactions.  
+    - Hard‑coded fee tiers in systems like Uniswap V3 or zero slippage requirements (demanding exact outputs) can lead to transaction reversions, DoS conditions, or severe losses under volatile market conditions.
+    - Accepting high slippage, allowing attackers to manipulate pool imbalances and cause losses for all depositors.        """
     def vul_prompt_inline_assembly():
         return """
         1. **Memory Corruption from External Calls**  

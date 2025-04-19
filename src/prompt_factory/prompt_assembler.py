@@ -13,7 +13,7 @@ class PromptAssembler:
                     +PeripheryPrompt.role_set_solidity_common()+"\n"\
                     +PeripheryPrompt.task_set_blockchain_common()+"\n"\
                     +CorePrompt.core_prompt_assembled()+"\n"\
-                    +VulPrompt.vul_prompt_common()+"\n"\
+                    +VulPrompt.vul_prompt_common_new()+"\n"\
                     +PeripheryPrompt.guidelines()+"\n"\
                     +PeripheryPrompt.jailbreak_prompt()
 
@@ -55,7 +55,7 @@ class PromptAssembler:
             elif type == "univ3":
                 vul_prompts.append(VulPrompt.vul_prompt_univ3())
             elif type == "other":
-                vul_prompts.append(VulPrompt.vul_prompt_common())
+                vul_prompts.append(VulPrompt.vul_prompt_common_new())
         return "\n\n".join(vul_prompts)
     
     @staticmethod
