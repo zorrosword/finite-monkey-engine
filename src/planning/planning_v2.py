@@ -420,7 +420,8 @@ class PlanningV2(object):
                 print(f"[DEBUG] 获取到的业务流代码长度: {len(business_flow_code) if business_flow_code else 0}")
                 print(f"[DEBUG] 获取到的其他合约上下文长度: {len(other_contract_context) if other_contract_context else 0}")
                 
-                type_check_prompt = CorePrompt.type_check_prompt()
+                core_prompt = CorePrompt()  # 创建实例
+                type_check_prompt = core_prompt.type_check_prompt()  # 正确调用实例方法
                     
                 try:
                     # 使用format方法而不是.format()
