@@ -3,7 +3,7 @@ import json
 import re
 import threading
 import time
-from typing import List
+from typing import List, Dict
 import requests
 import tqdm
 from sklearn.metrics.pairwise import cosine_similarity
@@ -16,31 +16,37 @@ from dao.entity import Project_Task
 from prompt_factory.prompt_assembler import PromptAssembler
 from prompt_factory.core_prompt import CorePrompt
 from openai_api.openai import *
+from prompt_factory.vul_prompt_common import VulPromptCommon
 class AiEngine(object):
+
+    # 添加类变量来跟踪当前的 prompt index
+    current_prompt_index = 0
+    # 从 VulPromptCommon 中获取实际的检查列表数量
+    total_prompt_count = len(VulPromptCommon.vul_prompt_common_new().keys())
 
     def __init__(self, planning, taskmgr,lancedb,lance_table_name,project_audit):
         # Step 1: 获取results
         self.planning = planning
         self.project_taskmgr = taskmgr
-        self.lancedb=lancedb
-        self.lance_table_name=lance_table_name
-        self.project_audit=project_audit
+        self.lancedb = lancedb
+        self.lance_table_name = lance_table_name
+        self.project_audit = project_audit
+        # 实例级别的 prompt index 追踪
+        self.current_prompt_index = 0
+        self.total_prompt_count = len(VulPromptCommon.vul_prompt_common_new().keys())
     def do_planning(self):
         self.planning.do_planning()
-    def process_task_do_scan(self,task, filter_func = None, is_gpt4 = False):
-        
+    def process_task_do_scan(self, task, filter_func=None, is_gpt4=False):
         response_final = ""
         response_vul = ""
-
-        # print("query vul %s - %s" % (task.name, task.rule))
 
         result = task.get_result(is_gpt4)
         business_flow_code = task.business_flow_code
         if_business_flow_scan = task.if_business_flow_scan
-        function_code=task.content
+        function_code = task.content
         
         # 要进行检测的代码粒度
-        code_to_be_tested=business_flow_code if if_business_flow_scan=="1" else function_code
+        code_to_be_tested = business_flow_code if if_business_flow_scan=="1" else function_code
         if result is not None and len(result) > 0 and str(result).strip() != "NOT A VUL IN RES no":
             print("\t skipped (scanned)")
         else:
@@ -50,56 +56,59 @@ class AiEngine(object):
             else:
                 print("\t to scan")
 
+            if os.getenv("SCAN_MODE","COMMON_VUL")=="OPTIMIZE":  
+                prompt = PromptAssembler.assemble_optimize_prompt(code_to_be_tested)
+            elif os.getenv("SCAN_MODE","COMMON_VUL")=="CHECKLIST":
+                print("📋Generating checklist...")
+                prompt = PromptAssembler.assemble_checklists_prompt(code_to_be_tested)
+                response_checklist = cut_reasoning_content(ask_deepseek(prompt))
+                print("[DEBUG🐞]📋response_checklist length: ",len(response_checklist))
+                print(f"[DEBUG🐞]📋response_checklist: {response_checklist[:50]}...")
+                prompt = PromptAssembler.assemble_checklists_prompt_for_scan(code_to_be_tested,response_checklist)
+            elif os.getenv("SCAN_MODE","COMMON_VUL")=="CHECKLIST_PIPELINE":
+                checklist = task.description
+                print(f"[DEBUG🐞]📋Using checklist from task description: {checklist[:50]}...")
+                prompt = PromptAssembler.assemble_prompt_for_checklist_pipeline(code_to_be_tested, checklist)
+            elif os.getenv("SCAN_MODE","COMMON_VUL")=="COMMON_PROJECT":
+                prompt = PromptAssembler.assemble_prompt_common(code_to_be_tested)
+            elif os.getenv("SCAN_MODE","COMMON_VUL")=="COMMON_PROJECT_FINE_GRAINED":
+                current_index = self.current_prompt_index
+                print(f"[DEBUG🐞]📋Using prompt index {current_index} for fine-grained scan")
+                prompt = PromptAssembler.assemble_prompt_common_fine_grained(code_to_be_tested, current_index)
                 
-                if os.getenv("SCAN_MODE","COMMON_VUL")=="OPTIMIZE":  
-                    prompt=PromptAssembler.assemble_optimize_prompt(code_to_be_tested)
-                elif os.getenv("SCAN_MODE","COMMON_VUL")=="CHECKLIST":
-                    print("📋Generating checklist...")
-                    prompt=PromptAssembler.assemble_checklists_prompt(code_to_be_tested)
-                    response_checklist=cut_reasoning_content(ask_deepseek(prompt))
-                    print("[DEBUG🐞]📋response_checklist length: ",len(response_checklist))
-                    print(f"[DEBUG🐞]📋response_checklist: {response_checklist[:50]}...")
-                    prompt=PromptAssembler.assemble_checklists_prompt_for_scan(code_to_be_tested,response_checklist)
-                elif os.getenv("SCAN_MODE","COMMON_VUL")=="CHECKLIST_PIPELINE":
-                    # 从task的description字段获取checklist
-                    checklist = task.description
-                    print(f"[DEBUG🐞]📋Using checklist from task description: {checklist[:50]}...")
-                    prompt = PromptAssembler.assemble_prompt_for_checklist_pipeline(code_to_be_tested, checklist)
-                elif os.getenv("SCAN_MODE","COMMON_VUL")=="COMMON_PROJECT":
-                    prompt=PromptAssembler.assemble_prompt_common(code_to_be_tested)
-                elif os.getenv("SCAN_MODE","COMMON_VUL")=="PURE_SCAN":
-                    prompt=PromptAssembler.assemble_prompt_pure(code_to_be_tested)
-                elif os.getenv("SCAN_MODE","COMMON_VUL")=="SPECIFIC_PROJECT":
-                    # 构建提示来判断业务类型
-                    business_type=task.recommendation
-                    # print(f"[DEBUG] business_type: {business_type}")
-                    # 数据库中保存的形式是xxxx,xxxxx,xxxx... 转成assemble_prompt_for_specific_project可以接收的数组形式
-                    business_type_list=business_type.split(',')
-                    # print(f"[DEBUG] business_type_list: {business_type_list}")
-                    # prompt = PromptAssembler.assemble_prompt_for_specific_project_directly_ask(code_to_be_tested, business_type_list)
-                    prompt = PromptAssembler.assemble_prompt_for_specific_project(code_to_be_tested, business_type_list)
-                    # print(f"[DEBUG] Generated prompt: {prompt}")
-                response_vul=ask_claude(prompt)
-                print(f"[DEBUG] Claude response: {response_vul}")
-                response_vul = response_vul if response_vul is not None else "no"                
-                self.project_taskmgr.update_result(task.id, response_vul, "","")
+                checklist_dict = VulPromptCommon.vul_prompt_common_new(current_index)
+                if checklist_dict:
+                    checklist_key = list(checklist_dict.keys())[0]
+                    print(f"[DEBUG🐞]📋Updating recommendation with checklist key: {checklist_key}")
+                    self.project_taskmgr.update_recommendation(task.id, checklist_key)
+                
+                self.current_prompt_index = (current_index + 1) % self.total_prompt_count
+            elif os.getenv("SCAN_MODE","COMMON_VUL")=="PURE_SCAN":
+                prompt = PromptAssembler.assemble_prompt_pure(code_to_be_tested)
+            elif os.getenv("SCAN_MODE","COMMON_VUL")=="SPECIFIC_PROJECT":
+                business_type = task.recommendation
+                business_type_list = business_type.split(',')
+                prompt = PromptAssembler.assemble_prompt_for_specific_project(code_to_be_tested, business_type_list)
+            
+            response_vul = ask_claude(prompt)
+            print(f"[DEBUG] Claude response: {response_vul[:50]}")
+            response_vul = response_vul if response_vul is not None else "no"                
+            self.project_taskmgr.update_result(task.id, response_vul, "","")
     def do_scan(self, is_gpt4=False, filter_func=None):
-        # self.llm.init_conversation()
-
+        # 获取任务列表
         tasks = self.project_taskmgr.get_task_list()
         if len(tasks) == 0:
             return
 
-        # 定义线程池中的线程数量
+        # 原始的多线程扫描方式
         max_threads = int(os.getenv("MAX_THREADS_OF_SCAN", 5))
-
         with ThreadPoolExecutor(max_workers=max_threads) as executor:
             futures = [executor.submit(self.process_task_do_scan, task, filter_func, is_gpt4) for task in tasks]
             
             with tqdm(total=len(tasks), desc="Processing tasks") as pbar:
                 for future in as_completed(futures):
-                    future.result()  # 等待每个任务完成
-                    pbar.update(1)  # 更新进度条
+                    future.result()
+                    pbar.update(1)
 
         return tasks
     def process_task_check_vul(self, task:Project_Task):
@@ -326,16 +335,6 @@ class AiEngine(object):
         print(len(round_json_response))
         
         try:
-            # # 清理响应
-            # cleaned_response = round_json_response.strip()
-            # cleaned_response = cleaned_response.replace("```json", "").replace("```", "")
-            # print("**********",cleaned_response)
-            
-            # # 确保响应是有效的 JSON 格式
-            # # if not cleaned_response.startswith("{"):
-            # #     cleaned_response = "{" + cleaned_response
-            # # if not cleaned_response.endswith("}"):
-            # #     cleaned_response = cleaned_response + "}"
             cleaned_response = round_json_response
             print(f"\n🔍 清理后的响应: {cleaned_response}")
             

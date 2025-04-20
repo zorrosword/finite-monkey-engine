@@ -3,7 +3,7 @@ from prompt_factory.core_prompt import CorePrompt
 from prompt_factory.periphery_prompt import PeripheryPrompt
 from prompt_factory.vul_prompt import VulPrompt
 from prompt_factory.vul_check_prompt import VulCheckPrompt
-
+from prompt_factory.vul_prompt_common import VulPromptCommon
 import os
 import pandas as pd
 
@@ -14,6 +14,17 @@ class PromptAssembler:
                     +PeripheryPrompt.task_set_blockchain_common()+"\n"\
                     +CorePrompt.core_prompt_assembled()+"\n"\
                     +VulPrompt.vul_prompt_common_new()+"\n"\
+                    +PeripheryPrompt.guidelines()+"\n"\
+                    +PeripheryPrompt.jailbreak_prompt()
+
+                    
+        return ret_prompt
+    def assemble_prompt_common_fine_grained(code, prompt_index=None):
+        ret_prompt=code+"\n"\
+                    +PeripheryPrompt.role_set_solidity_common()+"\n"\
+                    +PeripheryPrompt.task_set_blockchain_common()+"\n"\
+                    +CorePrompt.core_prompt_assembled()+"\n"\
+                    +str(VulPromptCommon.vul_prompt_common_new(prompt_index))+"\n"\
                     +PeripheryPrompt.guidelines()+"\n"\
                     +PeripheryPrompt.jailbreak_prompt()
 

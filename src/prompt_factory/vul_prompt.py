@@ -122,7 +122,7 @@ class VulPrompt:
         return """
 # Smart Contract Security Checklist
 
-1. **Parameter Validation and Input Verification Deficiencies**  
+1. **Parameter Validation and Input Verification Deficiencies and token standard**  
    - Checks for parameter order or type errors (e.g., "zero share" issues, incorrect parameter sequencing).  
    - Insufficient validation of input length, indices, format, and encoding.  
    - Redundant or improper parameter checks that may allow unexpected values into the system.  
@@ -133,6 +133,10 @@ class VulPrompt:
    - Failure to validate transaction parameters in cross-chain communications.
    - Failure to check codehash against keccak256("") for non-existent contracts.
    - ETH value parameters not properly validated in payable functions.
+   - Missing necessary ERC20/ERC721 token approvals. Ignoring non-standard ERC20 transfer return values. 
+   - Errors in specifying target addresses, debit accounts, or token transfer parameters during contract calls.  
+   - When updating critical contract addresses (such as routers) or swapping dependencies, failure to revoke old unlimited approvals leaves tokens vulnerable to unauthorized transfers.
+   - Ignoring non-standard ERC20 transfer return values.
 
 2. **Arithmetic Calculation and Precision Issues**  
    - Use of incorrect constants, ratio calculation errors, and imprecise mathematical formulas.  
@@ -194,20 +198,7 @@ class VulPrompt:
    - Errors in deployment state determination and improper handling of special edge cases or empty orders.  
    - Insufficient protection measures in critical processes such as liquidation, lending, auction, redemption, and withdrawal--leading to inadequate collateral protection or weak lending buffers.  
    - Inconsistencies in multi‑stage processes (including cancellation, settlement, or locking mechanisms) and flawed internal synchronization.  
-   - Specific DAO governance flaws include:  
-     • Flash loans used to temporarily inflate voting power, enabling rapid proposal approval and lock‑in within a single transaction.  
-     • Inconsistent NFT voting power calculation functions that can be exploited to set vote weight to zero or artificially reduce the total voting power (thus amplifying individual influence).  
-     • Unsynchronized vote snapshots, duplicate voting via token transfers, bypass of direct voting restrictions via delegation, and proposals that either remain open indefinitely or get approved before tokens exist.  
-     • Decimal conversion issues in token sales and circumvention of per‑user purchase limits by splitting transactions.  
    - In lending protocols:  
-     • Liquidation may be triggered prematurely (for example, using an accepted timestamp instead of the last repayment timestamp) or might fail to liquidate a borrower due to errors in managing collateral records.  
-     • Debt closures without real repayments, misdirected repayments (even to the zero address), and infinite loan rollovers can all lead to systemic risk.  
-     • Repayments might be applied only to the current outstanding loan, causing misallocations.  
-   - In liquidation processes:  
-     • Lack of sufficient liquidation incentives (especially for small positions) can let bad debt accumulate.  
-     • Users might over‑withdraw collateral, leaving too little to cover adverse movements.  
-     • Partial liquidations can bypass bad debt handling if certain thresholds (like remaining margin) are not re‑evaluated correctly.  
-     • Other issues include disrupted collateral priority, repayment misallocation when borrower identities change, an overly narrow gap between borrow LTV and liquidation thresholds, and improper handling of accrued yield and positive PnL.
    - Bad debt incorrectly preserved in the system.
    - Liquidation debt removal values exceeding actual user collateral value.
    - First deposit/donation attack vulnerabilities where initial small deposits establish manipulated exchange rates.
@@ -256,34 +247,16 @@ class VulPrompt:
    - Inaccurate weight processing affecting distributions.
    - addCollateral function not properly validating parameters, enabling unlimited borrowing and user fund theft.
 
-10. **Token Approval and Contract Call Errors**  
-    - Missing necessary ERC20/ERC721 token approvals.  
-    - Errors in specifying target addresses, debit accounts, or token transfer parameters during contract calls.  
-    - When updating critical contract addresses (such as routers) or swapping dependencies, failure to revoke old unlimited approvals leaves tokens vulnerable to unauthorized transfers.
-    - Ignoring non-standard ERC20 transfer return values.
-
-11. **External Dependency, Network Configuration, and Security Issues**  
+10. **External Dependency, Network Configuration, and Security Issues**  
     - Incorrect assumptions about third‑party contract interfaces, external oracle dependencies, or price data (for example, returning empty or stale data, or employing incorrect price values in calculations).  
     - Insufficient validation in external interface calls, which can lead to dangerous reliance on inaccurate data.  
     - In cross‑chain bridges and cross‑domain calls, misconfigured fee or gas parameters--and even overly exposed node ports--can lead to security vulnerabilities.  
     - Underlying data structures (such as MerkleDB) may have inherent security issues.  
-    - For external oracles like Chainlink, specific concerns include:  
-      • Not checking for stale prices by overlooking the updatedAt timestamp.  
-      • Failing to verify L2 sequencer status on L2 chains.  
-      • Assuming a uniform heartbeat across different feeds instead of using feed‑specific data.  
-      • Not validating that price feeds update frequently or correctly handle decimal precision.  
-      • Inadequate request confirmations vis‑à‑vis chain re‑org depths, use of incorrect oracle addresses, potential for front‑running oracle updates, and unhandled oracle call reverts or depegging events.  
-      • For randomness oracles, allowing bets after the randomness request or permitting re‑requests can undermine fairness.
     - Ignoring oracle update timestamps leading to using stale data.
     - Relying on Curve pool instant prices which are easily manipulable.
     - Using single-sided valuations, allowing cached value manipulation for excessive borrowing or unfair liquidations.
 
-12. **Language‑specific and Low‑level Implementation Vulnerabilities**  
-    - Issues unique to Solidity inline assembly and low‑level EVM code.  
-    - Memory corruption caused by not updating the Free Memory Pointer (FMPA) promptly, or by using incorrect memory offsets (as seen in buffer initialization problems).  
-    - Using assembly instructions (e.g., add, sub, mul) without proper overflow/underflow detection; also, using 256‑bit arithmetic to perform operations intended for smaller types (such as uint128) may bypass expected safety checks.
-
-13. **Trade Execution and Slippage Vulnerabilities**  
+11. **Trade Execution and Slippage Vulnerabilities**  
     - Swap functions that do not allow users to specify a minimum acceptable output (minTokensOut) or that hard‑code the slippage parameter (e.g., 0), leaving trades vulnerable to sandwich attacks and adverse execution.  
     - Not providing a user‑defined deadline, which can result in trades executing under unfavorable conditions if delayed.  
     - Incorrect slippage calculations--for example, computing slippage based on internal LP token values instead of the actual user‑provided amounts--or applying slippage protection only to intermediate steps while leaving the final output unprotected.  
@@ -291,7 +264,9 @@ class VulPrompt:
     - In minting operations, calculating synthetic token amounts from asset reserves without allowing users to set an acceptable slippage range exposes users to infinite slippage risk.  
     - On‑chain slippage calculations (e.g., using on‑chain estimations) can be manipulated by adversaries, so user‑calculated values (often performed off‑chain) should be used in transactions.  
     - Hard‑coded fee tiers in systems like Uniswap V3 or zero slippage requirements (demanding exact outputs) can lead to transaction reversions, DoS conditions, or severe losses under volatile market conditions.
-    - Accepting high slippage, allowing attackers to manipulate pool imbalances and cause losses for all depositors.        """
+    - Accepting high slippage, allowing attackers to manipulate pool imbalances and cause losses for all depositors.        
+    
+    """
     def vul_prompt_inline_assembly():
         return """
         1. **Memory Corruption from External Calls**  
@@ -352,7 +327,13 @@ class VulPrompt:
 
         13. **Re-requesting Randomness**  
         Permitting re-requesting of randomness opens the door for VRF providers to delay or alter the initial unfavorable result (by rejecting the first and returning a favorable random number later), thereby compromising fairness; contracts must restrict re-requests in line with Chainlink VRF’s security best practices.
-
+ - For external oracles like Chainlink, specific concerns include:  
+      • Not checking for stale prices by overlooking the updatedAt timestamp.  
+      • Failing to verify L2 sequencer status on L2 chains.  
+      • Assuming a uniform heartbeat across different feeds instead of using feed‑specific data.  
+      • Not validating that price feeds update frequently or correctly handle decimal precision.  
+      • Inadequate request confirmations vis‑à‑vis chain re‑org depths, use of incorrect oracle addresses, potential for front‑running oracle updates, and unhandled oracle call reverts or depegging events.  
+      • For randomness oracles, allowing bets after the randomness request or permitting re‑requests can undermine fairness.
         """
     def vul_prompt_dao():
         return """
@@ -394,7 +375,16 @@ class VulPrompt:
 
 13. **Heuristic Issues in Identifying Vulnerabilities**  
    Auditors should consider whether cumulative effects of multiple small transactions equate to a single large one, inspect for subtle differences in conditional checks (such as "<" versus "<="), verify that the total stored value always matches the sum of individual contributions, and test edge cases like non-existent identifiers or minimal value operations to identify rounding or overflow errors; comprehensive testing and cross-checks of inter-contract interactions are advised to ensure no inconsistencies remain.
-        """
+       - Missing necessary ERC20/ERC721 token approvals.  
+    - Errors in specifying target addresses, debit accounts, or token transfer parameters during contract calls.  
+    - When updating critical contract addresses (such as routers) or swapping dependencies, failure to revoke old unlimited approvals leaves tokens vulnerable to unauthorized transfers.
+    - Ignoring non-standard ERC20 transfer return values.
+         • Flash loans used to temporarily inflate voting power, enabling rapid proposal approval and lock‑in within a single transaction.  
+     • Inconsistent NFT voting power calculation functions that can be exploited to set vote weight to zero or artificially reduce the total voting power (thus amplifying individual influence).  
+     • Unsynchronized vote snapshots, duplicate voting via token transfers, bypass of direct voting restrictions via delegation, and proposals that either remain open indefinitely or get approved before tokens exist.  
+     • Decimal conversion issues in token sales and circumvention of per‑user purchase limits by splitting transactions.  
+
+       """
     def vul_prompt_lending():
         return """
 1. **Liquidation Before Default:** Liquidation should only occur after a genuine default (e.g., overdue repayment or insufficient collateral), yet in cases like Sherlock’s TellerV2—where the function returns the loan’s accepted timestamp instead of the last repayment timestamp—and Hats Finance Tempus Raft—where an unchecked collateralToken parameter permits price miscalculation—the conditions enable premature liquidation before the due repayment date.  
@@ -422,7 +412,10 @@ class VulPrompt:
 12. **No Incentive To Liquidate Small Positions:** With rising gas fees, liquidation fees for small underwater positions may be economically unattractive; consequently, liquidators might avoid these positions, allowing them to accumulate risk and threaten the platform’s overall solvency.  
 
 13. **Liquidation Leaves Traders Unhealthier:** Certain liquidation algorithms may inadvertently worsen a borrower’s health by prioritizing the removal of lower-risk collateral, thereby leaving behind riskier positions and potentially setting the stage for subsequent, compounding liquidations.
-        """
+       • Liquidation may be triggered prematurely (for example, using an accepted timestamp instead of the last repayment timestamp) or might fail to liquidate a borrower due to errors in managing collateral records.  
+     • Debt closures without real repayments, misdirected repayments (even to the zero address), and infinite loan rollovers can all lead to systemic risk.  
+     • Repayments might be applied only to the current outstanding loan, causing misallocations.  
+         """
     def vul_prompt_liquidation():
         return """
 Below is an extremely compressed list of the 35 liquidation code vulnerabilities in English—each described in 1–2 sentences without losing any original information (including descriptions and examples):
@@ -531,6 +524,11 @@ Below is an extremely compressed list of the 35 liquidation code vulnerabilities
 
 35. **Lack of Slippage Controls in Liquidation Swaps**  
    Without allowing liquidators to set minimum expected return amounts, market swings or MEV attacks during internal swaps may result in considerably lower rewards than anticipated, thus configurable slippage settings are needed during such exchanges.
+         - In liquidation processes:  
+     • Lack of sufficient liquidation incentives (especially for small positions) can let bad debt accumulate.  
+     • Users might over‑withdraw collateral, leaving too little to cover adverse movements.  
+     • Partial liquidations can bypass bad debt handling if certain thresholds (like remaining margin) are not re‑evaluated correctly.  
+     • Other issues include disrupted collateral priority, repayment misallocation when borrower identities change, an overly narrow gap between borrow LTV and liquidation thresholds, and improper handling of accrued yield and positive PnL.
         """
     def vul_prompt_liquidity_manager():
         return """

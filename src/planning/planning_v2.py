@@ -12,6 +12,7 @@ from openai_api.openai import *
 from prompt_factory.core_prompt import CorePrompt
 import re
 from checklist_pipeline.checklist_generator import ChecklistGenerator
+from prompt_factory.vul_prompt_common import VulPromptCommon
 
 '''
 根据每个function 的 functionality embbeding 匹配结果 
@@ -395,6 +396,22 @@ class PlanningV2(object):
         tasks = self.taskmgr.get_task_list_by_id(self.project.project_id)
         if len(tasks) > 0:
             return 
+
+        # 获取扫描模式
+        scan_mode = os.getenv('SCAN_MODE', '')
+        
+        # 获取所有checklist的数量
+        total_checklist_count = 0
+        if scan_mode == "COMMON_PROJECT_FINE_GRAINED":
+            vul_checklists = VulPromptCommon.vul_prompt_common_new()
+            total_checklist_count = len(vul_checklists)
+        
+        # 获取基础循环次数
+        base_iteration_count = int(os.environ.get('BUSINESS_FLOW_COUNT', 1))
+        
+        # 计算实际循环次数
+        actual_iteration_count = base_iteration_count * total_checklist_count if scan_mode == "COMMON_PROJECT_FINE_GRAINED" else base_iteration_count
+
         # filter all "test" function
         for function in self.project.functions_to_check:
             name=function['name']
@@ -416,10 +433,12 @@ class PlanningV2(object):
             #     continue
             task_count = 0
             print(f"————————Processing function: {name}————————")
-            # business_task_item_id = 
             checklist = ""    
             if switch_business_code:
                 business_flow_code,line_info_list,other_contract_context=self.search_business_flow(all_business_flow, all_business_flow_line,all_business_flow_context, name.split(".")[1], contract_name)
+                print(f"[DEBUG] 获取到的业务流代码长度: {len(business_flow_code) if business_flow_code else 0}")
+                print(f"[DEBUG] 获取到的其他合约上下文长度: {len(other_contract_context) if other_contract_context else 0}")
+                business_type_str=""
                 if self.enable_checklist:
                     print(f"\n📋 为业务流程生成检查清单...")
                     # 使用业务流程代码 + 原始函数代码
@@ -438,52 +457,51 @@ class PlanningV2(object):
 
                     print(f"✅ Checklist written to {csv_file_path}")
                     print("✅ 检查清单生成完成")
-                print(f"[DEBUG] 获取到的业务流代码长度: {len(business_flow_code) if business_flow_code else 0}")
-                print(f"[DEBUG] 获取到的其他合约上下文长度: {len(other_contract_context) if other_contract_context else 0}")
                 
-                core_prompt = CorePrompt()  # 创建实例
-                type_check_prompt = core_prompt.type_check_prompt()  # 正确调用实例方法
-                    
-                try:
-                    # 使用format方法而不是.format()
-                    formatted_prompt = type_check_prompt.format(business_flow_code+"\n"+other_contract_context+"\n"+content)
-                    type_response = common_ask_for_json(formatted_prompt)
-                    print(f"[DEBUG] Claude返回的响应: {type_response}")
-                    
-                    cleaned_response = type_response    
-                    print(f"[DEBUG] 清理后的响应: {cleaned_response}")
-                    
-                    type_data = json.loads(cleaned_response)
-                    business_type = type_data.get('business_types', ['other'])
-                    print(f"[DEBUG] 解析出的业务类型: {business_type}")
-                    
-                    # 防御性逻辑：确保business_type是列表类型
-                    if not isinstance(business_type, list):
-                        business_type = [str(business_type)]
-                    
-                    # 处理 other 的情况
-                    if 'other' in business_type and len(business_type) > 1:
-                        business_type.remove('other')
+                
+                    core_prompt = CorePrompt()  # 创建实例
+                    type_check_prompt = core_prompt.type_check_prompt()  # 正确调用实例方法
                         
-                    # 确保列表不为空
-                    if not business_type:
+                    try:
+                        # 使用format方法而不是.format()
+                        formatted_prompt = type_check_prompt.format(business_flow_code+"\n"+other_contract_context+"\n"+content)
+                        type_response = common_ask_for_json(formatted_prompt)
+                        print(f"[DEBUG] Claude返回的响应: {type_response}")
+                        
+                        cleaned_response = type_response    
+                        print(f"[DEBUG] 清理后的响应: {cleaned_response}")
+                        
+                        type_data = json.loads(cleaned_response)
+                        business_type = type_data.get('business_types', ['other'])
+                        print(f"[DEBUG] 解析出的业务类型: {business_type}")
+                        
+                        # 防御性逻辑：确保business_type是列表类型
+                        if not isinstance(business_type, list):
+                            business_type = [str(business_type)]
+                        
+                        # 处理 other 的情况
+                        if 'other' in business_type and len(business_type) > 1:
+                            business_type.remove('other')
+                            
+                        # 确保列表不为空
+                        if not business_type:
+                            business_type = ['other']
+                            
+                        business_type_str = ','.join(str(bt) for bt in business_type)
+                        print(f"[DEBUG] 最终的业务类型字符串: {business_type_str}")
+                        
+                    except json.JSONDecodeError as e:
+                        print(f"[ERROR] JSON解析失败: {str(e)}")
+                        print(f"[ERROR] 原始响应: {type_response}")
                         business_type = ['other']
-                        
-                    business_type_str = ','.join(str(bt) for bt in business_type)
-                    print(f"[DEBUG] 最终的业务类型字符串: {business_type_str}")
-                    
-                except json.JSONDecodeError as e:
-                    print(f"[ERROR] JSON解析失败: {str(e)}")
-                    print(f"[ERROR] 原始响应: {type_response}")
-                    business_type = ['other']
-                    business_type_str = 'other'
-                except Exception as e:
-                    print(f"[ERROR] 处理业务类型时发生错误: {str(e)}")
-                    business_type = ['other']
-                    business_type_str = 'other'
+                        business_type_str = 'other'
+                    except Exception as e:
+                        print(f"[ERROR] 处理业务类型时发生错误: {str(e)}")
+                        business_type = ['other']
+                        business_type_str = 'other'
 
                 if business_flow_code != "not found":
-                    for i in range(int(os.environ.get('BUSINESS_FLOW_COUNT', 1))):
+                    for i in range(actual_iteration_count):  # 使用新的循环次数
                         task = Project_Task(
                             project_id=self.project.project_id,
                             name=name,
@@ -532,7 +550,7 @@ class PlanningV2(object):
                         csv_writer.writerow([contract_name, "", content, business_description, checklist])
                     print(f"✅ Checklist written to {csv_file_path}")
                     print("✅ 检查清单生成完成")
-                for i in range(int(os.environ.get('BUSINESS_FLOW_COUNT', 1))):
+                for i in range(actual_iteration_count):  # 使用新的循环次数
                     task = Project_Task(
                         project_id=self.project.project_id,
                         name=name,
