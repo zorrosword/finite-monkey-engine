@@ -63,82 +63,72 @@ As of May 2024, this tool has helped discover over $60,000 worth of bug bounties
 4. Configure `.env`:
 ```env
 # 数据库连接URL，使用PostgreSQL数据库
-# Database connection URL using PostgreSQL
 DATABASE_URL=postgresql://postgres:1234@127.0.0.1:5432/postgres
 
 # 所有llm的基础URL（llm中转平台），用于API请求
-# Base URL for all LLM requests (LLM proxy platform) used for API requests
-OPENAI_API_BASE="4.0.wokaai.com"
+OPENAI_API_BASE="api.openai-proxy.org"
 
 # 用于文本嵌入的模型名称
-# Model name used for text embeddings
 EMBEDDING_MODEL="text-embedding-3-large"
 
 # llm中转平台的API密钥
-# API key for LLM proxy platform
-OPENAI_API_KEY=your-api-key（通常建议从openrouter和wokaai获取，一次性多个模型）
+OPENAI_API_KEY=your-api-key
 
 # 确认模型的选择，使用DeepSeek模型
-# Confirmation model selection, using DeepSeek model
 CONFIRMATION_MODEL="DEEPSEEK"
 
 # OpenAI模型的选择，使用GPT-4 Turbo
-# OpenAI model selection, using GPT-4 Turbo
 OPENAI_MODEL=gpt-4-turbo
 
 # Claude模型的选择，使用Claude 3.5 Sonnet版本
-# Claude model selection, using Claude 3.5 Sonnet version
 CLAUDE_MODEL=claude-3-5-sonnet-20241022
 
-# 扫描模式设置，当前为纯扫描模式
-# Scan mode setting, currently set to pure scan mode
-# 可选值：SPECIFIC_PROJECT(特定项目CHECKLIST) / OPTIMIZE(代码建议模式) / COMMON_PROJECT(通用项目CHECKLIST) / PURE_SCAN(纯扫描) 
+# 扫描模式设置
+# 可选值：SPECIFIC_PROJECT(特定项目CHECKLIST) / OPTIMIZE(代码建议模式) 
+# / COMMON_PROJECT(通用项目CHECKLIST一次性提问) / PURE_SCAN(纯扫描) 
 # / CHECKLIST(检查清单自动生成) / CHECKLIST_PIPELINE(检查清单自动生成+pipeline)
-# Available options: SPECIFIC_PROJECT / OPTIMIZE / COMMON_PROJECT / PURE_SCAN 
-# / CHECKLIST / CHECKLIST_PIPELINE  
-SCAN_MODE=CHECKLIST_PIPELINE 
+# / COMMON_PROJECT_FINE_GRAINED(通用项目CHECKLIST逐个提问，成本会提升10倍，效果当前最好)
+SCAN_MODE=COMMON_PROJECT_FINE_GRAINED
 
 # API服务提供商选择
-# API service provider selection
 # 可选值：OPENAI / AZURE / CLAUDE / DEEPSEEK
-# Available options: OPENAI / AZURE / CLAUDE / DEEPSEEK
-AZURE_OR_OPENAI="OPENAI" 
+AZURE_OR_OPENAI="OPENAI"
 
 # 确认阶段的最大线程数
-# Maximum number of threads for confirmation phase
-MAX_THREADS_OF_CONFIRMATION=10
+MAX_THREADS_OF_CONFIRMATION=50
 
 # 扫描阶段的最大线程数
-# Maximum number of threads for scanning phase
-MAX_THREADS_OF_SCAN=20
+MAX_THREADS_OF_SCAN=10
 
-# 业务流程重复数量（触发幻觉的数量，数字越大幻觉越多，输出越多，时间越长）
-# Business flow repeat count (number of hallucinations triggered, higher number means more hallucinations, more output, longer time)
+# 业务流程重复数量
 BUSINESS_FLOW_COUNT=10
 
 # 是否启用函数代码扫描
-# Whether to enable function code scanning
 SWITCH_FUNCTION_CODE=False
 
 # 是否启用业务代码扫描
-# Whether to enable business code scanning
 SWITCH_BUSINESS_CODE=True
 
 # 最大确认轮数
-# Maximum number of confirmation rounds
 MAX_CONFIRMATION_ROUNDS=2
 
+# 每轮询问次数
+REQUESTS_PER_CONFIRMATION_ROUND=3
+
 # JSON模型ID
-# JSON model ID
 JSON_MODEL_ID="gpt-4-turbo"
 
 # 是否启用网络搜索
-# Whether to enable internet search
 ENABLE_INTERNET_SEARCH=False
 
+# 设置项目清单生成迭代轮数
+PROJECT_TYPE_ITERATION_ROUNDS=3
+
 # 设置检查清单生成迭代轮数
-# Set the number of iterations for checklist generation
 CHECKLIST_ITERATION_ROUNDS=3
+
+# 是否启用对话模式
+ENABLE_DIALOGUE_MODE=True
 
 ```
 
@@ -173,12 +163,14 @@ CHECKLIST_ITERATION_ROUNDS=3
 - Current false positive rate: 30-65% (depends on project size)
 
 ## 🔍 Technical Notes
-
-1. claude 3.5 sonnet in scanning provides better results with acceptable time cost, GPT-3 not fully tested
-2. Deceptive prompt theory adaptable to any language with minor modifications
+1. Claude 3.5 Sonnet provides better scanning results while maintaining acceptable time costs
+2. Deceptive prompt theory can be adapted to any language with minor modifications
 3. ANTLR AST parsing recommended for better code slicing results
-4. Currently supports Solidity, plans to expand language support
-5. DeepSeek-R1 is recommended for better confirmation results
+4. Currently supports multiple languages with plans for expansion
+5. DeepSeek recommended for better confirmation results
+6. New dialogue mode support enables more flexible interaction
+7. Supports multi-round iteration for project types and checklist generation
+
 ## 🛡️ Scanning Features
 
 - Excels at code understanding and logic vulnerability detection
@@ -187,11 +179,14 @@ CHECKLIST_ITERATION_ROUNDS=3
 
 ## 💡 Implementation Tips
 
-- Progress automatically saved per scan
-- claude-3.5-sonnet offers best performance in scanning compared to other models
-- deepseek-R1 offers best performance in confirmation compared to other models
-- 10 iterations for medium projects take about 4 hours
+- Progress automatically saved for each scan
+- Claude-3.5-Sonnet provides best performance for scanning compared to other models
+- DeepSeek provides best performance for confirmation compared to other models
+- 10 iterations for medium-sized projects takes about 4 hours
 - Results include detailed categorization
+- Supports fine-grained common project checklist with individual questioning mode
+- Configurable confirmation rounds and queries per round
+- Flexible thread control with separate settings for scanning and confirmation phases
 
 ## 📝 License
 
