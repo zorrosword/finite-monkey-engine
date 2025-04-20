@@ -11,12 +11,110 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import warnings
 import urllib3
+import os
 warnings.filterwarnings('ignore', category=urllib3.exceptions.NotOpenSSLWarning)
 from dao.entity import Project_Task
 from prompt_factory.prompt_assembler import PromptAssembler
 from prompt_factory.core_prompt import CorePrompt
 from openai_api.openai import *
 from prompt_factory.vul_prompt_common import VulPromptCommon
+
+class DialogueHistory:
+    def __init__(self, project_id: str):
+        self._history = {}  # 格式: {task_name: {prompt_index: [responses]}}
+        self._lock = threading.Lock()
+        self.project_id = project_id
+        self.base_dir = os.path.join("src", "chat_history", project_id)
+        
+    def _get_task_dir(self, task_name: str) -> str:
+        """获取任务的目录路径"""
+        return os.path.join(self.base_dir, task_name)
+        
+    def _get_history_file(self, task_name: str, prompt_index: int = None) -> str:
+        """获取历史记录文件的路径"""
+        task_dir = self._get_task_dir(task_name)
+        if prompt_index is not None:
+            # 对于 COMMON_PROJECT_FINE_GRAINED 模式
+            return os.path.join(task_dir, str(prompt_index), "chat_history")
+        return os.path.join(task_dir, "chat_history")
+        
+    def _ensure_dir_exists(self, directory: str):
+        """确保目录存在"""
+        os.makedirs(directory, exist_ok=True)
+        
+    def _load_history_from_file(self, task_name: str, prompt_index: int = None):
+        """从文件加载历史记录"""
+        history_file = self._get_history_file(task_name, prompt_index)
+        if os.path.exists(history_file):
+            try:
+                with open(history_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except json.JSONDecodeError:
+                print(f"⚠️ 警告：历史记录文件 {history_file} 格式错误")
+                return []
+            except Exception as e:
+                print(f"⚠️ 警告：读取历史记录文件 {history_file} 时出错: {str(e)}")
+                return []
+        return []
+        
+    def _save_history_to_file(self, task_name: str, responses: list, prompt_index: int = None):
+        """保存历史记录到文件"""
+        history_file = self._get_history_file(task_name, prompt_index)
+        self._ensure_dir_exists(os.path.dirname(history_file))
+        try:
+            with open(history_file, 'w', encoding='utf-8') as f:
+                json.dump(responses, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"⚠️ 警告：保存历史记录到文件 {history_file} 时出错: {str(e)}")
+
+    def add_response(self, task_name: str, prompt_index: int, response: str):
+        """添加新的响应"""
+        with self._lock:
+            if task_name not in self._history:
+                self._history[task_name] = {}
+            if prompt_index not in self._history[task_name]:
+                # 从文件加载已有历史
+                self._history[task_name][prompt_index] = self._load_history_from_file(task_name, prompt_index)
+            
+            self._history[task_name][prompt_index].append(response)
+            # 保存到文件
+            self._save_history_to_file(task_name, self._history[task_name][prompt_index], prompt_index)
+
+    def get_history(self, task_name: str, prompt_index: int = None) -> list:
+        """获取历史记录"""
+        with self._lock:
+            if task_name not in self._history:
+                self._history[task_name] = {}
+            
+            if prompt_index is not None:
+                if prompt_index not in self._history[task_name]:
+                    # 从文件加载历史
+                    self._history[task_name][prompt_index] = self._load_history_from_file(task_name, prompt_index)
+                return self._history[task_name].get(prompt_index, [])
+            
+            # 如果没有指定 prompt_index，加载所有历史
+            all_responses = []
+            history_dir = self._get_task_dir(task_name)
+            if os.path.exists(history_dir):
+                if os.path.exists(self._get_history_file(task_name)):
+                    # 非 COMMON_PROJECT_FINE_GRAINED 模式
+                    all_responses.extend(self._load_history_from_file(task_name))
+                else:
+                    # COMMON_PROJECT_FINE_GRAINED 模式
+                    for index_dir in os.listdir(history_dir):
+                        if os.path.isdir(os.path.join(history_dir, index_dir)):
+                            responses = self._load_history_from_file(task_name, int(index_dir))
+                            all_responses.extend(responses)
+            return all_responses
+
+    def clear(self):
+        """清除所有历史记录"""
+        with self._lock:
+            self._history.clear()
+            if os.path.exists(self.base_dir):
+                import shutil
+                shutil.rmtree(self.base_dir)
+
 class AiEngine(object):
 
     # 添加类变量来跟踪当前的 prompt index
@@ -34,6 +132,9 @@ class AiEngine(object):
         # 实例级别的 prompt index 追踪
         self.current_prompt_index = 0
         self.total_prompt_count = len(VulPromptCommon.vul_prompt_common_new().keys())
+        # 对话历史管理 - 添加 project_id
+        self.dialogue_history = DialogueHistory(project_audit.project_id)
+
     def do_planning(self):
         self.planning.do_planning()
     def process_task_do_scan(self, task, filter_func=None, is_gpt4=False):
@@ -100,17 +201,53 @@ class AiEngine(object):
         if len(tasks) == 0:
             return
 
-        # 原始的多线程扫描方式
-        max_threads = int(os.getenv("MAX_THREADS_OF_SCAN", 5))
-        with ThreadPoolExecutor(max_workers=max_threads) as executor:
-            futures = [executor.submit(self.process_task_do_scan, task, filter_func, is_gpt4) for task in tasks]
+        # 检查是否启用对话模式
+        dialogue_mode = os.getenv("ENABLE_DIALOGUE_MODE", "False").lower() == "true"
+        
+        if dialogue_mode:
+            print("🗣️ 对话模式已启用")
+            # 按task.name分组任务
+            task_groups = {}
+            for task in tasks:
+                task_groups.setdefault(task.name, []).append(task)
             
-            with tqdm(total=len(tasks), desc="Processing tasks") as pbar:
-                for future in as_completed(futures):
-                    future.result()
-                    pbar.update(1)
+            # 清除历史对话记录
+            self.dialogue_history.clear()
+            
+            # 对每组任务进行处理
+            max_threads = int(os.getenv("MAX_THREADS_OF_SCAN", 5))
+            with ThreadPoolExecutor(max_workers=max_threads) as executor:
+                # 创建每组任务的future
+                futures = []
+                for task_name, group_tasks in task_groups.items():
+                    # 提交组任务
+                    future = executor.submit(self._process_task_group, group_tasks, filter_func, is_gpt4)
+                    futures.append(future)
+                
+                # 使用tqdm显示进度
+                with tqdm(total=len(task_groups), desc="Processing task groups") as pbar:
+                    for future in as_completed(futures):
+                        future.result()
+                        pbar.update(1)
+        else:
+            print("🔄 标准模式运行中")
+            # 原始的多线程扫描方式
+            max_threads = int(os.getenv("MAX_THREADS_OF_SCAN", 5))
+            with ThreadPoolExecutor(max_workers=max_threads) as executor:
+                futures = [executor.submit(self.process_task_do_scan, task, filter_func, is_gpt4) for task in tasks]
+                
+                with tqdm(total=len(tasks), desc="Processing tasks") as pbar:
+                    for future in as_completed(futures):
+                        future.result()
+                        pbar.update(1)
 
         return tasks
+
+    def _process_task_group(self, tasks, filter_func, is_gpt4):
+        """处理同一组（相同task.name）的任务"""
+        for task in tasks:
+            self.process_task_do_scan_dialog(task, filter_func, is_gpt4)
+
     def process_task_check_vul(self, task:Project_Task):
         print("\n" + "="*80)
         print(f"🔍 开始处理任务 ID: {task.id}")
@@ -648,6 +785,99 @@ class AiEngine(object):
         except json.JSONDecodeError:
             print("\n⚠️ JSON 解析错误 - 跳过网络搜索")
             return ""
+
+    def process_task_do_scan_dialog(self, task, filter_func=None, is_gpt4=False):
+        """对话模式下的任务扫描处理"""
+        response_final = ""
+        response_vul = ""
+
+        result = task.get_result(is_gpt4)
+        business_flow_code = task.business_flow_code
+        if_business_flow_scan = task.if_business_flow_scan
+        function_code = task.content
+        
+        # 要进行检测的代码粒度
+        code_to_be_tested = business_flow_code if if_business_flow_scan=="1" else function_code
+        
+        if result is not None and len(result) > 0 and str(result).strip() != "NOT A VUL IN RES no":
+            print("\t skipped (scanned)")
+            return
+            
+        to_scan = filter_func is None or filter_func(task)
+        if not to_scan:
+            print("\t skipped (filtered)")
+            return
+            
+        print("\t to scan")
+
+        # 获取当前prompt_index（对于COMMON_PROJECT_FINE_GRAINED模式）
+        current_index = self.current_prompt_index if os.getenv("SCAN_MODE","COMMON_VUL")=="COMMON_PROJECT_FINE_GRAINED" else None
+
+        # 获取历史对话
+        dialogue_history = self.dialogue_history.get_history(task.name, current_index)
+        
+        print(f"\n🔄 Task: {task.name}")
+        print(f"📊 历史对话数量: {len(dialogue_history)}")
+        
+        # 打印历史对话长度统计
+        if dialogue_history:
+            print("\n📈 历史对话长度统计:")
+            for i, hist in enumerate(dialogue_history, 1):
+                print(f"  第{i}轮对话长度: {len(hist)} 字符")
+        
+        # 生成基础prompt
+        if os.getenv("SCAN_MODE","COMMON_VUL")=="OPTIMIZE":  
+            prompt = PromptAssembler.assemble_optimize_prompt(code_to_be_tested)
+        elif os.getenv("SCAN_MODE","COMMON_VUL")=="CHECKLIST":
+            print("📋Generating checklist...")
+            prompt = PromptAssembler.assemble_checklists_prompt(code_to_be_tested)
+            response_checklist = cut_reasoning_content(ask_deepseek(prompt))
+            print("[DEBUG🐞]📋response_checklist length: ",len(response_checklist))
+            print(f"[DEBUG🐞]📋response_checklist: {response_checklist[:50]}...")
+            prompt = PromptAssembler.assemble_checklists_prompt_for_scan(code_to_be_tested,response_checklist)
+        elif os.getenv("SCAN_MODE","COMMON_VUL")=="CHECKLIST_PIPELINE":
+            checklist = task.description
+            print(f"[DEBUG🐞]📋Using checklist from task description: {checklist[:50]}...")
+            prompt = PromptAssembler.assemble_prompt_for_checklist_pipeline(code_to_be_tested, checklist)
+        elif os.getenv("SCAN_MODE","COMMON_VUL")=="COMMON_PROJECT":
+            prompt = PromptAssembler.assemble_prompt_common(code_to_be_tested)
+        elif os.getenv("SCAN_MODE","COMMON_VUL")=="COMMON_PROJECT_FINE_GRAINED":
+            print(f"[DEBUG🐞]📋Using prompt index {current_index} for fine-grained scan")
+            prompt = PromptAssembler.assemble_prompt_common_fine_grained(code_to_be_tested, current_index)
+            
+            checklist_dict = VulPromptCommon.vul_prompt_common_new(current_index)
+            if checklist_dict:
+                checklist_key = list(checklist_dict.keys())[0]
+                print(f"[DEBUG🐞]📋Updating recommendation with checklist key: {checklist_key}")
+                self.project_taskmgr.update_recommendation(task.id, checklist_key)
+            
+            self.current_prompt_index = (current_index + 1) % self.total_prompt_count
+        elif os.getenv("SCAN_MODE","COMMON_VUL")=="PURE_SCAN":
+            prompt = PromptAssembler.assemble_prompt_pure(code_to_be_tested)
+        elif os.getenv("SCAN_MODE","COMMON_VUL")=="SPECIFIC_PROJECT":
+            business_type = task.recommendation
+            business_type_list = business_type.split(',')
+            prompt = PromptAssembler.assemble_prompt_for_specific_project(code_to_be_tested, business_type_list)
+
+        # 如果有历史对话，添加到prompt中
+        if dialogue_history:
+            history_text = "\n\nPreviously Found Vulnerabilities:\n" + "\n".join(dialogue_history)
+            prompt += history_text + "\n\nExcluding these vulnerabilities, please continue searching for other potential vulnerabilities."
+        
+        print(f"\n📝 基础提示词长度: {len(prompt)} 字符")
+        
+        # 发送请求并获取响应
+        response_vul = ask_claude(prompt)
+        print(f"\n✨ 本轮响应长度: {len(response_vul)} 字符")
+        
+        # 保存对话历史
+        if response_vul:
+            self.dialogue_history.add_response(task.name, current_index, response_vul)
+            print(f"✅ 已保存对话历史，当前历史总数: {len(self.dialogue_history.get_history(task.name, current_index))}")
+        
+        response_vul = response_vul if response_vul is not None else "no"                
+        self.project_taskmgr.update_result(task.id, response_vul, "","")
+        print("\n" + "="*50 + "\n")
 
 if __name__ == "__main__":
     pass

@@ -18,3 +18,4 @@ src/dataset/agent-v1-c4/datasets.json
 src/.DS_Store
 .env
 tests/*
+src/chat_history/*
