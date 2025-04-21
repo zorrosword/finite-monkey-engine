@@ -62,72 +62,72 @@ As of May 2024, this tool has helped discover over $60,000 worth of bug bounties
 
 4. Configure `.env`:
 ```env
-# 数据库连接URL，使用PostgreSQL数据库
+# Database connection URL, using PostgreSQL database
 DATABASE_URL=postgresql://postgres:1234@127.0.0.1:5432/postgres
 
-# 所有llm的基础URL（llm中转平台），用于API请求
+# Base URL for all LLMs (LLM proxy platform), used for API requests
 OPENAI_API_BASE="api.openai-proxy.org"
 
-# 用于文本嵌入的模型名称
+# Model name used for text embeddings
 EMBEDDING_MODEL="text-embedding-3-large"
 
-# llm中转平台的API密钥
+# API key for LLM proxy platform
 OPENAI_API_KEY=your-api-key
 
-# 确认模型的选择，使用DeepSeek模型
+# Confirmation model selection, using DeepSeek model
 CONFIRMATION_MODEL="DEEPSEEK"
 
-# OpenAI模型的选择，使用GPT-4 Turbo
+# OpenAI model selection, using GPT-4 Turbo
 OPENAI_MODEL=gpt-4-turbo
 
-# Claude模型的选择，使用Claude 3.5 Sonnet版本
+# Claude model selection, using Claude 3.5 Sonnet version
 CLAUDE_MODEL=claude-3-5-sonnet-20241022
 
-# 扫描模式设置
-# 可选值：SPECIFIC_PROJECT(特定项目CHECKLIST) / OPTIMIZE(代码建议模式) 
-# / COMMON_PROJECT(通用项目CHECKLIST一次性提问) / PURE_SCAN(纯扫描) 
-# / CHECKLIST(检查清单自动生成) / CHECKLIST_PIPELINE(检查清单自动生成+pipeline)
-# / COMMON_PROJECT_FINE_GRAINED(通用项目CHECKLIST逐个提问，成本会提升10倍，效果当前最好)
+# Scan mode settings
+# Available values: SPECIFIC_PROJECT (specific project checklist) / OPTIMIZE (code suggestion mode)
+# / COMMON_PROJECT (common project checklist single query) / PURE_SCAN (pure scanning)
+# / CHECKLIST (automatic checklist generation) / CHECKLIST_PIPELINE (checklist generation + pipeline)
+# / COMMON_PROJECT_FINE_GRAINED (common project checklist individual queries, 10x cost increase, currently best results)
 SCAN_MODE=COMMON_PROJECT_FINE_GRAINED
 
-# API服务提供商选择
-# 可选值：OPENAI / AZURE / CLAUDE / DEEPSEEK
+# API service provider selection
+# Available values: OPENAI / AZURE / CLAUDE / DEEPSEEK
 AZURE_OR_OPENAI="OPENAI"
 
-# 确认阶段的最大线程数
+# Maximum threads for confirmation phase
 MAX_THREADS_OF_CONFIRMATION=50
 
-# 扫描阶段的最大线程数
+# Maximum threads for scanning phase
 MAX_THREADS_OF_SCAN=10
 
-# 业务流程重复数量
+# Business flow repeat count
 BUSINESS_FLOW_COUNT=10
 
-# 是否启用函数代码扫描
+# Enable function code scanning
 SWITCH_FUNCTION_CODE=False
 
-# 是否启用业务代码扫描
+# Enable business code scanning
 SWITCH_BUSINESS_CODE=True
 
-# 最大确认轮数
+# Maximum confirmation rounds
 MAX_CONFIRMATION_ROUNDS=2
 
-# 每轮询问次数
+# Requests per confirmation round
 REQUESTS_PER_CONFIRMATION_ROUND=3
 
-# JSON模型ID
+# JSON model ID
 JSON_MODEL_ID="gpt-4-turbo"
 
-# 是否启用网络搜索
+# Enable internet search
 ENABLE_INTERNET_SEARCH=False
 
-# 设置项目清单生成迭代轮数
+# Set project type generation iteration rounds
 PROJECT_TYPE_ITERATION_ROUNDS=3
 
-# 设置检查清单生成迭代轮数
+# Set checklist generation iteration rounds
 CHECKLIST_ITERATION_ROUNDS=3
 
-# 是否启用对话模式
+# Enable dialogue mode
 ENABLE_DIALOGUE_MODE=True
 
 ```
