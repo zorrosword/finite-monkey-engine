@@ -281,11 +281,33 @@ class PlanningV2(object):
             print("all_public_external_function_names count:",len(all_public_external_function_names))
             # if len(self.scan_list_for_larget_context)>0 and contract_name not in self.scan_list_for_larget_context:
             #     continue
-            # 有了函数名列表，有了contract_code_without_comments，可以进行业务流的GPT提问了
+
+            # With the function name list and contract_code_without_comments, we can now query GPT for business flows
+            # There are 6 steps:
+            # 1. Check length, skip if less than threshold
+            # 2. Get business flows
+            # 3. Get line information
+            # 4. Get cross-contract context info and combine into complete code for scanning
+            # 5. Save results to all_business_flow and all_business_flow_line
             print("-----------------asking openai for business flow-----------------")
             for public_external_function_name in all_public_external_function_names:
-                # time.sleep(10)
+                
                 print("***public_external_function_name***:",public_external_function_name)
+                
+                # 获取具体函数代码,判断长度，小于threshold则跳过
+                function_code = ""
+                for func in functions:
+                    if func['name'].split(".")[1] == public_external_function_name:
+                        function_code = func['content']
+                        break
+                threshold=int(os.getenv("THRESHOLD_OF_PLANNING"))
+                if "getPositionInfo" in public_external_function_name:
+                    print("getPositionInfo")
+                if len(function_code)<threshold:
+                    print(f"Function code for {public_external_function_name} is too short for <{threshold}, skipping...")
+                    continue
+                
+                #获取业务流
                 if "_python" in str(contract_name) and len(all_public_external_function_names)==1:
                     key = all_public_external_function_names[0]
                     data = {key: all_public_external_function_names}
@@ -297,6 +319,7 @@ class PlanningV2(object):
                         business_flow_list=[]
                 if (not business_flow_list) or (len(business_flow_list)==0):
                     continue
+
                 # 返回一个list，这个list中包含着多条从public_external_function_name开始的业务流函数名
                 try:
                     function_lists = self.extract_filtered_functions(business_flow_list)
@@ -306,9 +329,9 @@ class PlanningV2(object):
                 except Exception as e:
                     print(e)  
                 print("business_flow_list:",function_lists)
+                
                 # 从functions_to_check中提取start_line和end_line行数
                 # 然后将start_line和end_line行数对应的代码提取出来，放入all_business_flow_line
-                
                 def get_function_structure(functions, function_name):
                     for func in functions:
                         if func['name'] == function_name:
@@ -331,8 +354,6 @@ class PlanningV2(object):
 
                 # 获取拼接后的业务流代码
                 ask_business_flow_code = self.extract_and_concatenate_functions_content(function_lists, contract_info)
-                if contract_name=="A":
-                    print("aaa")
                 related_functions=[]
                 if os.getenv("CROSS_CONTRACT_SCAN")=="True":
                     # 获取相关函数的【跨合约】扩展代码
@@ -389,13 +410,13 @@ class PlanningV2(object):
             contract_flows_context=all_business_flow_context[contract_name]
             if function_name in contract_flows:
                 # Return the business flow code for the function
-                return contract_flows[function_name],contract_flows_line[function_name],contract_flows_context[function_name]
+                return contract_flows[function_name],contract_flows_line[function_name]
             else:
                 # Function name not found within the contract's business flows
-                return "not found","",""
+                return "not found",""
         else:
             # Contract name not found in the all_business_flow dictionary
-            return "not found","",""
+            return "not found",""
     def do_planning(self):
         tasks = []
         print("Begin do planning...")
@@ -436,6 +457,10 @@ class PlanningV2(object):
             name = function['name']
             content = function['content']
             contract_code = function['contract_code']
+            threshold=int(os.getenv("THRESHOLD_OF_PLANNING"))
+            if len(content)<threshold:
+                print(f"Function code for {name} is too short for <{threshold}, skipping...")
+                continue
             contract_name = function['contract_name']
             # if len(self.scan_list_for_larget_context)>0 and contract_name not in self.scan_list_for_larget_context:
             #     continue
@@ -443,9 +468,8 @@ class PlanningV2(object):
             print(f"————————Processing function: {name}————————")
             checklist = ""    
             if switch_business_code:
-                business_flow_code,line_info_list,other_contract_context=self.search_business_flow(all_business_flow, all_business_flow_line,all_business_flow_context, name.split(".")[1], contract_name)
+                business_flow_code,line_info_list=self.search_business_flow(all_business_flow, all_business_flow_line,all_business_flow_context, name.split(".")[1], contract_name)
                 print(f"[DEBUG] 获取到的业务流代码长度: {len(business_flow_code) if business_flow_code else 0}")
-                print(f"[DEBUG] 获取到的其他合约上下文长度: {len(other_contract_context) if other_contract_context else 0}")
                 business_type_str=""
                 if self.enable_checklist:
                     print(f"\n📋 为业务流程生成检查清单...")
@@ -472,7 +496,7 @@ class PlanningV2(object):
                         
                     try:
                         # 使用format方法而不是.format()
-                        formatted_prompt = type_check_prompt.format(business_flow_code+"\n"+other_contract_context+"\n"+content)
+                        formatted_prompt = type_check_prompt.format(business_flow_code+"\n"+content)
                         type_response = common_ask_for_json(formatted_prompt)
                         print(f"[DEBUG] Claude返回的响应: {type_response}")
                         
@@ -535,7 +559,7 @@ class PlanningV2(object):
                             title='',
                             business_flow_code=str(business_flow_code)+"\n"+str(content),
                             business_flow_lines=line_info_list,
-                            business_flow_context=other_contract_context,
+                            business_flow_context='',
                             if_business_flow_scan=1  # Indicating scanned using business flow code
                         )
                         self.taskmgr.add_task_in_one(task)
