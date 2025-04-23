@@ -218,11 +218,14 @@ class PlanningV2(object):
 
 
     def get_all_business_flow(self,functions_to_check):
+
         """
         Extracts all business flows for a list of functions.
         :param functions_to_check: A list of function names to extract business flows for.
         :return: A dictionary containing all business flows for each contract.
         The keys of the dictionary are the contract names, and the values are dictionaries containing the business flows for each public/external function.
+        整体思路
+        按函数抽取业务流=>按同一个函数提取跨合约上下文并组合成完整的待扫描代码
         """
         from library.sgp.utilities.contract_extractor import group_functions_by_contract
         from library.sgp.utilities.contract_extractor import check_function_if_public_or_external
@@ -298,7 +301,7 @@ class PlanningV2(object):
                 try:
                     function_lists = self.extract_filtered_functions(business_flow_list)
                     # 判断function_lists中是否包含public_external_function_name，如果包含，则去掉
-                    if public_external_function_name in function_lists:
+                    if public_external_function_name in function_lists and len(function_lists)>1:
                         function_lists.remove(public_external_function_name)
                 except Exception as e:
                     print(e)  
@@ -328,10 +331,12 @@ class PlanningV2(object):
 
                 # 获取拼接后的业务流代码
                 ask_business_flow_code = self.extract_and_concatenate_functions_content(function_lists, contract_info)
-
+                if contract_name=="A":
+                    print("aaa")
                 related_functions=[]
                 if os.getenv("CROSS_CONTRACT_SCAN")=="True":
                     # 获取相关函数的【跨合约】扩展代码
+                    # 只要入口函数的，否则对应代码会太长，效果变差
                     extended_flow_code_text, related_functions = self.extract_related_functions_by_level([public_external_function_name], 2)
 
                     # 去重：移除function_lists中已有的函数
@@ -345,20 +350,21 @@ class PlanningV2(object):
                     if cross_contract_code:
                         ask_business_flow_code += "\n" + cross_contract_code
 
-                # 在 contexts 中获取扩展后的业务流内容
-                extended_flow_code = ""
-                for function in function_lists:
-                    # 获取每个函数的上下文信息
-                    context = contexts.get(contract_name + "." + function, {})
-                    # 获取父调用和子调用
-                    parent_calls = context.get("parent_calls", [])
-                    sub_calls = context.get("sub_calls", [])
-                    # 拼接所有调用的代码内容
-                    for call in parent_calls + sub_calls:
-                        extended_flow_code += call["content"] + "\n"
 
-                # 保存扩展后的业务流上下文
-                all_business_flow_context[contract_name][public_external_function_name] = extended_flow_code.strip()
+                # 在 contexts 中获取扩展后的业务流内容，即本合约的上下文内容，仅用于误报确认
+                # extended_flow_code = ""
+                # for function in function_lists:
+                #     # 获取每个函数的上下文信息
+                #     context = contexts.get(contract_name + "." + function, {})
+                #     # 获取父调用和子调用
+                #     parent_calls = context.get("parent_calls", [])
+                #     sub_calls = context.get("sub_calls", [])
+                #     # 拼接所有调用的代码内容
+                #     for call in parent_calls + sub_calls:
+                #         extended_flow_code += call["content"] + "\n"
+
+                # # 保存扩展后的业务流上下文
+                # all_business_flow_context[contract_name][public_external_function_name] = extended_flow_code.strip()
 
                 # 将结果存储为键值对
                 all_business_flow[contract_name][public_external_function_name] = ask_business_flow_code
