@@ -155,7 +155,8 @@ class AiEngine(object):
             if not to_scan:
                 print("\t skipped (filtered)")
             else:
-                print("\t to scan")
+                # print("\t to scan")
+                pass
 
             if os.getenv("SCAN_MODE","COMMON_VUL")=="OPTIMIZE":  
                 prompt = PromptAssembler.assemble_optimize_prompt(code_to_be_tested)

@@ -329,19 +329,21 @@ class PlanningV2(object):
                 # 获取拼接后的业务流代码
                 ask_business_flow_code = self.extract_and_concatenate_functions_content(function_lists, contract_info)
 
-                # 获取相关函数的【跨合约】扩展代码
-                extended_flow_code_text, related_functions = self.extract_related_functions_by_level([public_external_function_name], 2)
+                related_functions=[]
+                if os.getenv("CROSS_CONTRACT_SCAN")=="True":
+                    # 获取相关函数的【跨合约】扩展代码
+                    extended_flow_code_text, related_functions = self.extract_related_functions_by_level([public_external_function_name], 2)
 
-                # 去重：移除function_lists中已有的函数
-                filtered_related_functions = []
-                for func_name, func_content in related_functions:
-                    if func_name not in function_lists:
-                        filtered_related_functions.append(func_content)
+                    # 去重：移除function_lists中已有的函数
+                    filtered_related_functions = []
+                    for func_name, func_content in related_functions:
+                        if func_name not in function_lists:
+                            filtered_related_functions.append(func_content)
 
-                # 拼接去重后的函数内容到ask_business_flow_code
-                cross_contract_code = "\n".join(filtered_related_functions)
-                if cross_contract_code:
-                    ask_business_flow_code += "\n" + cross_contract_code
+                    # 拼接去重后的函数内容到ask_business_flow_code
+                    cross_contract_code = "\n".join(filtered_related_functions)
+                    if cross_contract_code:
+                        ask_business_flow_code += "\n" + cross_contract_code
 
                 # 在 contexts 中获取扩展后的业务流内容
                 extended_flow_code = ""
