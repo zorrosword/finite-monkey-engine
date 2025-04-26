@@ -8,6 +8,7 @@ import os, sys
 from tqdm import tqdm
 import pickle
 import csv
+from library.sgp.utilities.contract_extractor import extract_state_variables_from_code
 from openai_api.openai import *
 from prompt_factory.core_prompt import CorePrompt
 import re
@@ -358,7 +359,7 @@ class PlanningV2(object):
                 if os.getenv("CROSS_CONTRACT_SCAN")=="True":
                     # 获取相关函数的【跨合约】扩展代码
                     # 只要入口函数的，否则对应代码会太长，效果变差
-                    extended_flow_code_text, related_functions = self.extract_related_functions_by_level([public_external_function_name], 2)
+                    extended_flow_code_text, related_functions = self.extract_related_functions_by_level([public_external_function_name], 1)
 
                     # 去重：移除function_lists中已有的函数
                     filtered_related_functions = []
@@ -386,6 +387,12 @@ class PlanningV2(object):
 
                 # # 保存扩展后的业务流上下文
                 # all_business_flow_context[contract_name][public_external_function_name] = extended_flow_code.strip()
+
+                # 修复 新增合约state var的提取
+                contract_code=contract_info['contract_code_without_comment']
+                state_vars=extract_state_variables_from_code(contract_code)
+                state_vars_text = '\n'.join(state_vars) if state_vars else ''
+                ask_business_flow_code += "\n" + state_vars_text
 
                 # 将结果存储为键值对
                 all_business_flow[contract_name][public_external_function_name] = ask_business_flow_code
@@ -557,7 +564,7 @@ class PlanningV2(object):
                             absolute_file_path=function['absolute_file_path'],
                             recommendation=business_type_str,  # 保存转换后的字符串
                             title='',
-                            business_flow_code=str(business_flow_code)+"\n"+str(content),
+                            business_flow_code=str(business_flow_code),
                             business_flow_lines=line_info_list,
                             business_flow_context='',
                             if_business_flow_scan=1  # Indicating scanned using business flow code
