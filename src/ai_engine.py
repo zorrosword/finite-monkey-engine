@@ -639,9 +639,29 @@ class AiEngine(object):
                 code_to_be_tested=task.business_flow_code
             else:
                 code_to_be_tested=task.content
-            related_functions=self.get_related_functions(code_to_be_tested,5)
-            related_functions_names=[func['name'].split('.')[-1] for func in related_functions]
-            combined_text=self.extract_related_functions_by_level(related_functions_names,6)
+
+            # 添加重试逻辑
+            max_retries = 3
+            retry_count = 0
+            combined_text = ""
+
+            while retry_count < max_retries:
+                related_functions=self.get_related_functions(code_to_be_tested,5)
+                related_functions_names=[func['name'].split('.')[-1] for func in related_functions]
+                combined_text=self.extract_related_functions_by_level(related_functions_names,2)
+                print(len(str(combined_text).strip()))
+                
+                if len(str(combined_text).strip()) >= 10:
+                    break  # 如果获取到有效上下文，就跳出循环
+                
+                retry_count += 1
+                print(f"❌ 提取的上下文长度不足10字符，正在重试 ({retry_count}/{max_retries})...")
+            
+            # 重试后仍未获取有效上下文
+            if len(str(combined_text).strip()) < 10:
+                print(f"❌ 经过{max_retries}次重试后，仍未能获取有效上下文，跳过该任务")
+                continue
+                
             # 更新task对应的business_flow_context
             self.project_taskmgr.update_business_flow_context(task.id,combined_text)
             self.project_taskmgr.update_score(task.id,"1")
