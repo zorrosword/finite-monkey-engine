@@ -92,7 +92,6 @@ class CallGraph:
         self.call_data = {}
 
         self.__parse_all_files()
-        self.__run_jar()
 
         self.__clean()
     
@@ -136,13 +135,6 @@ class CallGraph:
                     if re.search("BEP\\d{2,}.*\\.sol", file):
                         continue
                     self.files[os.path.abspath(os.path.join(root, file))] = parseString(open(os.path.join(root, file), "r", encoding="utf-8", errors="ignore").read())
-
-    def __run_jar(self):
-        dir_name = os.path.abspath(os.path.dirname(__file__))
-        jar_file = os.path.join(dir_name, "jars/SolidityCallgraph-1.0-SNAPSHOT-standalone.jar")
-        subprocess.run(["java", "-jar", jar_file, self.root, "callgraph.json"], stdout=subprocess.DEVNULL)
-        self.call_data = json.load(open("callgraph.json", "r"))
-
 
     def __clean(self):
         # clean parse result first

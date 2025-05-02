@@ -13,23 +13,6 @@ class Function(dict):
         self.update(func)
 
 
-def parse_project_cg(project_path):
-    cg = CallGraph(project_path)
-    
-    function_list = []
-    for file, contract, func in cg.functions_iterator():
-        func_text = cg.get_function_src(file, func)
-        # print(file, contract['name'], func['name'], func_text)
-
-        f = Function(file, contract, func)
-        f['name'] = contract['name'] + '.' + func['name']
-        f['content'] = func_text
-        function_list.append(f)
-
-    function_list = [result for result in function_list if result['kind'] == 'function']
-
-    return function_list
-
 def is_path_in_white_list(haystack, white_list, partial):
     if partial:
         for item in white_list:
