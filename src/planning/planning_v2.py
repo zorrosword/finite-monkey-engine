@@ -302,8 +302,6 @@ class PlanningV2(object):
                         function_code = func['content']
                         break
                 threshold=int(os.getenv("THRESHOLD_OF_PLANNING"))
-                if "getPositionInfo" in public_external_function_name:
-                    print("getPositionInfo")
                 if len(function_code)<threshold:
                     print(f"Function code for {public_external_function_name} is too short for <{threshold}, skipping...")
                     continue
@@ -424,6 +422,52 @@ class PlanningV2(object):
         else:
             # Contract name not found in the all_business_flow dictionary
             return "not found",""
+    def should_exclude_in_planning(self, relative_file_path):
+        """
+        判断一个文件路径是否应该在planning过程中被排除
+        
+        Args:
+            relative_file_path: 相对文件路径
+            
+        Returns:
+            bool: 如果应该排除返回True，否则返回False
+        """
+        try:
+            # 读取datasets.json文件
+            datasets_path = "src/dataset/agent-v1-c4/datasets.json"
+            if not os.path.exists(datasets_path):
+                print(f"数据集配置文件不存在: {datasets_path}")
+                return False
+                
+            with open(datasets_path, 'r', encoding='utf-8') as f:
+                datasets = json.load(f)
+                
+            # 在datasets中查找与project_id匹配的配置
+            project_id = self.project.project_id
+            if project_id not in datasets:
+                return False
+                
+            project_config = datasets[project_id]
+            
+            # 检查是否开启了exclude_in_planning选项
+            exclude_in_planning = project_config.get('exclude_in_planning', 'false')
+            if isinstance(exclude_in_planning, str):
+                exclude_in_planning = exclude_in_planning.lower() == 'true'
+            if not exclude_in_planning:
+                return False
+                
+            # 检查文件路径是否包含任何排除目录 
+            # 注意这里配置是 exclude_directory (单数)
+            exclude_directories = project_config.get('exclude_directory', [])
+            for directory in exclude_directories:
+                if directory in relative_file_path:
+                    print(f"排除目录 '{directory}' 匹配到文件: {relative_file_path}")
+                    return True
+                    
+            return False
+        except Exception as e:
+            print(f"检查排除设置时出错: {str(e)}")
+            return False
     def do_planning(self):
         tasks = []
         print("Begin do planning...")
@@ -467,6 +511,11 @@ class PlanningV2(object):
             threshold=int(os.getenv("THRESHOLD_OF_PLANNING"))
             if len(content)<threshold:
                 print(f"Function code for {name} is too short for <{threshold}, skipping...")
+                continue
+            # Exclude planning process for configured directories, focus on logical business contracts
+            # Check if this function should be excluded
+            if self.should_exclude_in_planning(function['relative_file_path']):
+                print(f"Excluding function {name} in planning process based on configuration")
                 continue
             contract_name = function['contract_name']
             # if len(self.scan_list_for_larget_context)>0 and contract_name not in self.scan_list_for_larget_context:

@@ -208,15 +208,17 @@
         "files":[],
         "functions":[]
     },
-    "cookcity2":{
+    "cookcity4":{
         "path":"cookcity",
         "files":[],
         "functions":[]
     },
-    "airdrop3":{
-        "path":"airdrop",
+    "alchemixv35":{
+        "path":"alchemixv3",
         "files":[],
-        "functions":[]
+        "functions":[],
+        "exclude_in_planning":"true",
+        "exclude_directory":["libraries","utils","adpaters"]
     }
     
     
