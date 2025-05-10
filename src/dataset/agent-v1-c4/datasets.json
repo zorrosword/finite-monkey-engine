@@ -219,6 +219,13 @@
         "functions":[],
         "exclude_in_planning":"true",
         "exclude_directory":["libraries","utils","adpaters"]
+    },
+    "tee2":{
+        "path":"tee",
+        "files":[],
+        "functions":[],
+        "exclude_in_planning":"true",
+        "exclude_directory":["crypto"]
     }
     
     

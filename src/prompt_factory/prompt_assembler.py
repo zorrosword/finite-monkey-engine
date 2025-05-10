@@ -33,7 +33,7 @@ class PromptAssembler:
     def assemble_prompt_pure(code):
         ret_prompt=code+"\n"\
                     +PeripheryPrompt.optimized_head_prompt_reasoning()+"\n"\
-                    +PeripheryPrompt.role_set_solidity_common()+"\n"\
+                    +PeripheryPrompt.role_set_go_common()+"\n"\
                     +PeripheryPrompt.task_set_blockchain_common()+"\n"\
                     +CorePrompt.core_prompt_pure()+"\n"\
                     +PeripheryPrompt.guidelines()+"\n"\

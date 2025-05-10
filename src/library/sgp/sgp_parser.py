@@ -588,8 +588,14 @@ def find_move_functions(text, filename, hash):
 
     return functions
 def find_go_functions(text, filename, hash):
-    regex = r"func\s+.*\{"
-    matches = re.finditer(regex, text)
+    # 匹配函数名，忽略接收器和参数列表的具体内容
+    regex = r"""
+        func\s*                            # func关键字和空白
+        (?:\([^)]*\)\s+)?                 # 忽略接收器部分
+        ([A-Za-z_][A-Za-z0-9_]*)         # 函数名
+        \s*\(                             # 函数参数开始
+    """
+    matches = re.finditer(regex, text, re.VERBOSE)
 
     functions = []
     lines = text.split('\n')
@@ -599,10 +605,21 @@ def find_go_functions(text, filename, hash):
         function_body_start = match.start()
         start_line_number = next(i for i, pos in line_starts.items() if pos > function_body_start) - 1
         
+        # 提取函数名
+        func_name = match.group(1)
+        
         # Find the end of the function body
         brace_count = 1
         function_body_end = function_body_start
+        
+        # 找到函数体的开始 '{'
         for i in range(match.end(), len(text)):
+            if text[i] == '{':
+                function_body_end = i + 1
+                break
+        
+        # 找到匹配的结束大括号
+        for i in range(function_body_end, len(text)):
             if text[i] == '{':
                 brace_count += 1
             elif text[i] == '}':
@@ -614,10 +631,9 @@ def find_go_functions(text, filename, hash):
         end_line_number = next(i for i, pos in line_starts.items() if pos > function_body_end) - 1
         function_body = text[function_body_start:function_body_end]
         function_body_lines = function_body.count('\n') + 1
-
         functions.append({
             'type': 'FunctionDefinition',
-            'name': 'special_func',
+            'name': 'special_'+func_name,  # 使用提取的函数名
             'start_line': start_line_number + 1,
             'end_line': end_line_number,
             'offset_start': 0,
@@ -884,6 +900,9 @@ def get_antlr_parsing(path):
     if ".java" in str(path):
         java_functions = find_java_functions(code, filename,hash_value)
         return java_functions
+    if ".go" in str(path):
+        go_functions = find_go_functions(code, filename,hash_value)
+        return go_functions
     else:
         input_stream = ANTLRInputStream(code)
         lexer = SolidityLexer(input_stream)

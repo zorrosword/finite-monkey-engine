@@ -15,6 +15,9 @@ class PeripheryPrompt:
         return """You are the best move auditor in the world"""
     def role_set_cairo_common():
         return """You are the best cairo auditor in the world"""
+    
+    def role_set_go_common():
+        return """You are the best go auditor and tee(Trusted execution environment) developer in the world"""
     def role_set_tact_common():
         return """You are the best tact and TON blockchian auditor in the world"""
     def task_set_blockchain_common():

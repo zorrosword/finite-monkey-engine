@@ -35,7 +35,7 @@ class BaseProjectFilter(object):
 
     def filter_file(self, path, filename):
         # 检查文件后缀
-        valid_extensions = ('.sol', '.rs', '.py', '.move', '.cairo', '.tact', '.fc', '.fr','.java')
+        valid_extensions = ('.sol', '.rs', '.py', '.move', '.cairo', '.tact', '.fc', '.fr','.java','.go')
         if not any(filename.endswith(ext) for ext in valid_extensions) or filename.endswith('.t.sol'):
             return True
 
@@ -93,6 +93,9 @@ class BaseProjectFilter(object):
         if "test" in str(function["name"]).lower():
             print("function ", function['name'], " skipped for test function")
             return True
+        # if len(function["content"])*1<=200:
+        #     print("function ", function['name'], " skipped for content length")
+        #     return True
         # if str(function["name"].split('.')[1]) in OPENZEPPELIN_FUNCTIONS:
         #     print("function ", function['name'], " skipped for OZ functions")
         #     return True

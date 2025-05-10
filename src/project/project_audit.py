@@ -2,6 +2,7 @@ import csv
 from .project_parser import parse_project, BaseProjectFilter
 import re
 from library.sgp.utilities.contract_extractor import extract_state_variables_from_code, extract_state_variables_from_code_move
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 class ProjectAudit(object):
     def analyze_function_relationships(self, functions_to_check):
@@ -106,39 +107,51 @@ class ProjectAudit(object):
         self.tasks = []
         self.taskkeys = set()
 
+    def process_single_function(self, func, relationships, func_map):
+        func_name = func['name'].split('.')[-1]
+        upstream_tree = self.build_call_tree(func_name, relationships, 'upstream', func_map)
+        downstream_tree = self.build_call_tree(func_name, relationships, 'downstream', func_map)
+        state_variables = []
+        if func['relative_file_path'].endswith('.move'):
+            state_variables = extract_state_variables_from_code_move(func['contract_code'],func['relative_file_path'])
+        if func['relative_file_path'].endswith('.sol') or func['relative_file_path'].endswith('.fr'):
+            state_variables = extract_state_variables_from_code(func['contract_code'])
+        state_variables_text = '\n'.join(state_variables) if state_variables else ''
+        
+        return {
+            'function': func_name,
+            'upstream_tree': upstream_tree,
+            'downstream_tree': downstream_tree,
+            'state_variables': state_variables_text
+        }
+
     def parse(self, white_files, white_functions):
         parser_filter = BaseProjectFilter(white_files, white_functions)
         functions, functions_to_check = parse_project(self.project_path, parser_filter)
         self.functions = functions
         self.functions_to_check = functions_to_check
         
-
         # 分析函数关系
         relationships, func_map = self.analyze_function_relationships(functions_to_check)
         
-        # 为每个函数构建并打印调用树
+        # 使用线程池处理函数分析
         call_trees = []
-        for func in functions_to_check:
-            func_name = func['name'].split('.')[-1]
-            # print(f"\nAnalyzing function: {func_name}")
+        from tqdm import tqdm
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            # 创建future到函数的映射
+            future_to_func = {
+                executor.submit(self.process_single_function, func, relationships, func_map): func
+                for func in functions_to_check
+            }
             
-            # # 构建并打印上游调用树
-            # print("\nUpstream call tree (functions that call this function):")
-            upstream_tree = self.build_call_tree(func_name, relationships, 'upstream', func_map)
-            downstream_tree = self.build_call_tree(func_name, relationships, 'downstream', func_map)
-            # print(func['contract_code'])
-            state_variables = []
-            if func['relative_file_path'].endswith('.move'):
-                state_variables = extract_state_variables_from_code_move(func['contract_code'],func['relative_file_path'])
-            if func['relative_file_path'].endswith('.sol') or func['relative_file_path'].endswith('.fr'):
-                state_variables = extract_state_variables_from_code(func['contract_code'])
-            state_variables_text = '\n'.join(state_variables) if state_variables else ''
-            call_trees.append({
-                'function': func_name,
-                'upstream_tree': upstream_tree,
-                'downstream_tree': downstream_tree,
-                'state_variables': state_variables_text
-            })
+            # 使用tqdm显示进度
+            for future in tqdm(as_completed(future_to_func), total=len(functions_to_check), desc="分析函数调用关系"):
+                try:
+                    call_tree = future.result()
+                    call_trees.append(call_tree)
+                except Exception as e:
+                    func = future_to_func[future]
+                    tqdm.write(f"处理函数 {func['name']} 时发生错误: {str(e)}")
         
         self.call_trees = call_trees
 

@@ -260,7 +260,8 @@ class PlanningV2(object):
                 '.java': lambda f: f['visibility'] in ['public', 'protected'],
                 '.cairo': lambda f: f['visibility'] == 'public',
                 '.tact': lambda f: f['visibility'] == 'public',
-                '.func': lambda f: f['visibility'] == 'public'
+                '.func': lambda f: f['visibility'] == 'public',
+                '.go': lambda f: True
             }
 
             def get_file_extension(funcs):
@@ -672,6 +673,7 @@ class PlanningV2(object):
 
             
         # return tasks    
+
 
 
 
