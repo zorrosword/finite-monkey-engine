@@ -435,6 +435,8 @@ class AiEngine(object):
             
             final_response = "\n".join([f"Round {i+1} Analysis:\n{resp}" for i, resp in enumerate(confirmation_results)])
         
+        # 针对那些response_final为yes的，检查是否可能为intend design
+
         # 添加最终结论
         analysis_collection.append("=== 最终结论 ===")
         analysis_collection.append(f"结果: {response_final}")
@@ -651,7 +653,7 @@ class AiEngine(object):
             while retry_count < max_retries:
                 related_functions=self.get_related_functions(code_to_be_tested,5)
                 related_functions_names=[func['name'].split('.')[-1] for func in related_functions]
-                combined_text=self.extract_related_functions_by_level(related_functions_names,2)
+                combined_text=self.extract_related_functions_by_level(related_functions_names,3)
                 print(len(str(combined_text).strip()))
                 
                 if len(str(combined_text).strip()) >= 10:
@@ -727,7 +729,7 @@ class AiEngine(object):
         if related_functions:
             function_names = [func['name'].split('.')[-1] for func in related_functions]
             print(f"📑 正在提取 {len(function_names)} 个函数的上下文...")
-            return self.extract_related_functions_by_level(function_names, 2)
+            return self.extract_related_functions_by_level(function_names, 3)
         
         print("❌ 未找到任何相关函数")
         return ""

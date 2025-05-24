@@ -206,7 +206,7 @@ def common_ask_for_json(prompt):
     else:
         return ask_openai_for_json(prompt)
 def ask_claude(prompt):
-    model = os.environ.get('CLAUDE_MODEL', 'claude-3-5-sonnet-20241022')
+    model = os.environ.get('CLAUDE_MODEL', 'claude-opus-4-20250514')
     api_key = os.environ.get('OPENAI_API_KEY','sk-0fzQWrcTc0DASaFT7Q0V0e7c24ZyHMKYgIDpXWrry8XHQAcj')
     api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
     
@@ -386,6 +386,41 @@ def ask_grok3_deepsearch(prompt):
     except requests.exceptions.RequestException as e:
         print(f"wokaai deepseek API调用失败。错误: {str(e)}")
         return ""
+def ask_o4_mini(prompt):
+    model = 'o4-mini'
+    # print("prompt:",prompt)
+    api_key = os.environ.get('OPENAI_API_KEY')
+    api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
+    # print("api_base:",api_base)
+    # print("api_key:",api_key)
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
+
+    data = {
+        'model': model,
+        'messages': [
+            {
+                'role': 'user',
+                'content': prompt
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(f'https://{api_base}/v1/chat/completions', 
+                               headers=headers, 
+                               json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            return response_data['choices'][0]['message']['content']
+        else:
+            return ""
+    except requests.exceptions.RequestException as e:
+        print(f"wokaai deepseek API调用失败。错误: {str(e)}")
+        return ""
 def ask_o3_mini(prompt):
     model = 'o3-mini'
     # print("prompt:",prompt)
@@ -466,7 +501,7 @@ def common_get_embedding(text: str):
         return list(np.zeros(3072))  # 返回长度为3072的全0数组
 
 def common_ask_confirmation(prompt):
-    model_type = os.environ.get('CONFIRMATION_MODEL', 'DEEPSEEK')
+    model_type = os.environ.get('CONFIRMATION_MODEL', 'DEEPSEEK'，'O4')
     if model_type == 'CLAUDE':
         return ask_claude(prompt)
     elif model_type == 'DEEPSEEK':

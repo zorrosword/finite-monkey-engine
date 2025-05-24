@@ -23,7 +23,7 @@ dotenv.load_dotenv()
 def scan_project(project, db_engine):
     # 1. parsing projects  
     project_audit = ProjectAudit(project.id, project.path, db_engine)
-    # project_audit.parse(project.white_files, project.white_functions)
+    project_audit.parse(project.white_files, project.white_functions)
     
     #1.5 build rag
     rag_processor=RAGProcessor(project_audit.functions_to_check, "./src/codebaseQA/lancedb",project.id)
