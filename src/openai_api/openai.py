@@ -501,7 +501,7 @@ def common_get_embedding(text: str):
         return list(np.zeros(3072))  # 返回长度为3072的全0数组
 
 def common_ask_confirmation(prompt):
-    model_type = os.environ.get('CONFIRMATION_MODEL', 'DEEPSEEK'，'O4')
+    model_type = os.environ.get('CONFIRMATION_MODEL')
     if model_type == 'CLAUDE':
         return ask_claude(prompt)
     elif model_type == 'DEEPSEEK':

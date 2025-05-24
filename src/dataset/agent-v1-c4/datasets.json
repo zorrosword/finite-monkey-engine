@@ -226,6 +226,13 @@
         "functions":[],
         "exclude_in_planning":"true",
         "exclude_directory":["crypto"]
+    },
+    "upside":{
+        "path":"upside",
+        "files":[],
+        "functions":[],
+        "exclude_in_planning":"true",
+        "exclude_directory":["utils"]
     }
     
     
