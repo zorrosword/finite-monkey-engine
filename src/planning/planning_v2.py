@@ -8,7 +8,7 @@ import os, sys
 from tqdm import tqdm
 import pickle
 import csv
-from library.sgp.utilities.contract_extractor import extract_state_variables_from_code
+from library.sgp.utilities.contract_extractor import extract_modifiers_from_code, extract_state_variables_from_code
 from openai_api.openai import *
 from prompt_factory.core_prompt import CorePrompt
 import re
@@ -391,7 +391,9 @@ class PlanningV2(object):
                 contract_code=contract_info['contract_code_without_comment']
                 state_vars=extract_state_variables_from_code(contract_code)
                 state_vars_text = '\n'.join(state_vars) if state_vars else ''
-                ask_business_flow_code += "\n" + state_vars_text
+                modifiers=extract_modifiers_from_code(contract_code)
+                modifiers_text = '\n'.join(modifiers) if modifiers else ''
+                ask_business_flow_code += "\n" + state_vars_text + "\n" + modifiers_text
 
                 # 将结果存储为键值对
                 all_business_flow[contract_name][public_external_function_name] = ask_business_flow_code

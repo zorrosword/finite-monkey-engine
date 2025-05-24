@@ -235,7 +235,12 @@ def extract_modifier_names(solidity_file_path, contract_name=None):
     else:
         return []
 
+def extract_modifiers_from_code(contract_code):
+    modifier_pattern = re.compile(r'modifier\s+\w+\s*\((.*?)\)\s*{(.*?)}', re.DOTALL)
 
+    modifiers = modifier_pattern.findall(contract_code)
+
+    return modifiers
 def extract_modifiers(solidity_file_path, contract_name=None):
     with open(solidity_file_path, 'r') as file:
         solidity_code = file.read()
