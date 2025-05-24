@@ -227,7 +227,7 @@
         "exclude_in_planning":"true",
         "exclude_directory":["crypto"]
     },
-    "upside":{
+    "upside2":{
         "path":"upside",
         "files":[],
         "functions":[],

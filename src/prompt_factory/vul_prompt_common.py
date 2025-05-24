@@ -16,6 +16,7 @@ class VulPromptCommon:
             "Errors in specifying target addresses, debit accounts, or token transfer parameters",
             "When updating critical contract addresses, failure to revoke old unlimited approvals",
             "Ignoring non-standard ERC20 transfer return values"
+            "Missing length consistency check when input consists of two arrays"
         ]
 
         arithmetic_calculation_list = [
@@ -166,7 +167,7 @@ class VulPromptCommon:
             "module_call": module_call_list,
             "fund_management": fund_management_list,
             "external_dependency": external_dependency_list,
-            "trade_execution": trade_execution_list
+            "trade_execution": trade_execution_list,
         }
 
         # 如果提供了 prompt_index，返回特定的检查列表

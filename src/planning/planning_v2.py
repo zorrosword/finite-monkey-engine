@@ -302,7 +302,7 @@ class PlanningV2(object):
                     if func['name'].split(".")[1] == public_external_function_name:
                         function_code = func['content']
                         break
-                threshold=int(os.getenv("THRESHOLD_OF_PLANNING"))
+                threshold=int(os.getenv("THRESHOLD_OF_PLANNING",200))
                 if len(function_code)<threshold:
                     print(f"Function code for {public_external_function_name} is too short for <{threshold}, skipping...")
                     continue
@@ -509,7 +509,7 @@ class PlanningV2(object):
             name = function['name']
             content = function['content']
             contract_code = function['contract_code']
-            threshold=int(os.getenv("THRESHOLD_OF_PLANNING"))
+            threshold=int(os.getenv("THRESHOLD_OF_PLANNING",200))
             if len(content)<threshold:
                 print(f"Function code for {name} is too short for <{threshold}, skipping...")
                 continue
