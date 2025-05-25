@@ -205,6 +205,39 @@ def common_ask_for_json(prompt):
         return azure_openai_json(prompt)
     else:
         return ask_openai_for_json(prompt)
+def ask_vul(prompt):
+    model = os.environ.get('VUL_MODEL', 'o4-mini')
+    api_key = os.environ.get('OPENAI_API_KEY')
+    api_base = os.environ.get('OPENAI_API_BASE')
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
+
+    data = {
+        'model': model,
+        'messages': [
+            {
+                'role': 'user',
+                'content': prompt
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(f'https://{api_base}/v1/chat/completions', 
+                               headers=headers, 
+                               json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            return response_data['choices'][0]['message']['content']
+        else:
+            return ""
+    except requests.exceptions.RequestException as e:
+        print(f"vul API调用失败。错误: {str(e)}")
+        return ""
 def ask_claude(prompt):
     model = os.environ.get('CLAUDE_MODEL', 'claude-opus-4-20250514')
     api_key = os.environ.get('OPENAI_API_KEY','sk-0fzQWrcTc0DASaFT7Q0V0e7c24ZyHMKYgIDpXWrry8XHQAcj')

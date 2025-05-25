@@ -195,7 +195,7 @@ class AiEngine(object):
                 business_type_list = business_type.split(',')
                 prompt = PromptAssembler.assemble_prompt_for_specific_project(code_to_be_tested, business_type_list)
             
-            response_vul = ask_claude(prompt)
+            response_vul = ask_vul(prompt)
             print(f"[DEBUG] Claude response: {response_vul[:50]}")
             response_vul = response_vul if response_vul is not None else "no"                
             self.project_taskmgr.update_result(task.id, response_vul, "","")
