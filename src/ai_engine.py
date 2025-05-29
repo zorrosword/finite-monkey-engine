@@ -270,7 +270,7 @@ class AiEngine(object):
             return
             
         print("\n🔍 开始漏洞确认流程...")
-        print(f"📝 原始扫描结果长度: {len(result)}")
+        # print(f"📝 原始扫描结果长度: {len(result)}")
         
         function_code = task.content
         if_business_flow_scan = task.if_business_flow_scan

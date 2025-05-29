@@ -227,13 +227,28 @@
         "exclude_in_planning":"true",
         "exclude_directory":["crypto"]
     },
-    "upside2":{
-        "path":"upside",
+    "termax2":{
+        "path":"termax",
         "files":[],
         "functions":[],
         "exclude_in_planning":"true",
-        "exclude_directory":["utils"]
+        "exclude_directory":["access","errors","events","lib","storage"]
+    },
+    "cudis_airdrop":{
+        "path":"cudis_airdrop",
+        "files":[],
+        "functions":[],
+        "exclude_in_planning":"false",
+        "exclude_directory":[]
+    },
+    "cudis_token_staking1":{
+        "path":"cudis_token_staking",
+        "files":[],
+        "functions":[],
+        "exclude_in_planning":"false",
+        "exclude_directory":[]
     }
+
     
     
 }
