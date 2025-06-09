@@ -241,8 +241,8 @@
         "exclude_in_planning":"false",
         "exclude_directory":[]
     },
-    "cudis_token_staking1":{
-        "path":"cudis_token_staking",
+    "liwei03":{
+        "path":"liwei",
         "files":[],
         "functions":[],
         "exclude_in_planning":"false",
