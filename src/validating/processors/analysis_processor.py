@@ -165,6 +165,28 @@ class AnalysisProcessor:
             if current_round_results:  # 只有当轮次有结果时才添加
                 round_results.append(current_round_results)
                 print(f"\n📋 第 {round_num + 1} 轮完成，收集到 {len(current_round_results)} 个结果")
+                
+                # 【新增】检查当前轮次是否满足强确认条件（3个yes）
+                yes_count = sum(1 for r in current_round_results if "yes" in r or "confirmed" in r)
+                no_count = sum(1 for r in current_round_results if "no" in r and "vulnerability" in r)
+                
+                if yes_count >= 3:
+                    print(f"\n🎯 第 {round_num + 1} 轮收到 {yes_count} 个yes，满足强确认条件，直接判断漏洞存在!")
+                    print("🚀 提前终止后续分析，节省资源")
+                    
+                    # 直接返回确认结果
+                    decision_reason = f"第{round_num + 1}轮强确认: {yes_count}个yes"
+                    final_response = f"=== 提前确认 ===\n第{round_num + 1}轮: {yes_count}个yes, {no_count}个no\n判断依据: {decision_reason}\n最终结果: yes"
+                    
+                    # 添加最终结论到分析集合
+                    analysis_collection.extend([
+                        "=== 最终结论 (提前确认) ===",
+                        "结果: yes",
+                        f"判断依据: {decision_reason}",
+                        "提前终止原因: 单轮满足强确认条件"
+                    ])
+                    
+                    return "yes", final_response
             
             # 如果本轮内出现no，记录但不立即退出（让新逻辑判断）
             if round_has_early_exit:

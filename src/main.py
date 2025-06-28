@@ -55,7 +55,7 @@ def generate_excel(output_path, project_id):
     # 创建一个空的DataFrame来存储所有实体的数据
     data = []
     for entity in entities:
-        if ("not sure" in str(entity.result_gpt4).lower() 
+        if ("yes" in str(entity.result_gpt4).lower() 
             # or "not sure" in str(entity.result_gpt4).lower()
             ) and len(entity.business_flow_code)>0:
             data.append({
@@ -86,7 +86,7 @@ def generate_excel(output_path, project_id):
     
     try:
         # 对df进行漏洞归集处理
-        res_processor = ResProcessor(df)
+        res_processor = ResProcessor(df,max_group_size=10,iteration_rounds=5,enable_chinese_translation=False)
         processed_df = res_processor.process()
         
         # 确保所有必需的列都存在
@@ -142,22 +142,22 @@ if __name__ == '__main__':
         
         dataset_base = "./src/dataset/agent-v1-c4"
         projects = load_dataset(dataset_base)
-
-        project_id = 'liwei06281'
+ 
+        project_id = 'liwei0629'
         project_path = ''
         project = Project(project_id, projects[project_id])
         
         cmd = 'detect_vul'
         if cmd == 'detect_vul':
             lancedb,lance_table_name,project_audit=scan_project(project, engine) # scan
-            if os.getenv("SCAN_MODE","SPECIFIC_PROJECT") in [
-                "SPECIFIC_PROJECT",
-                "COMMON_PROJECT",
-                "PURE_SCAN",
-                "CHECKLIST",
-                "CHECKLIST_PIPELINE",
-                "COMMON_PROJECT_FINE_GRAINED"]:
-                check_function_vul(engine,lancedb,lance_table_name,project_audit) # confirm
+            # if os.getenv("SCAN_MODE","SPECIFIC_PROJECT") in [
+            #     "SPECIFIC_PROJECT",
+            #     "COMMON_PROJECT",
+            #     "PURE_SCAN",
+            #     "CHECKLIST",
+            #     "CHECKLIST_PIPELINE",
+            #     "COMMON_PROJECT_FINE_GRAINED"]:
+            #     check_function_vul(engine,lancedb,lance_table_name,project_audit) # confirm
 
 
 
