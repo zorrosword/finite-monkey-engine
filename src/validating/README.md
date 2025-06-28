@@ -7,7 +7,7 @@
 ## 文件结构
 
 ```
-src/vulnerability_checking/
+src/validating/
 ├── __init__.py                  # 模块初始化文件
 ├── checker.py                   # 核心入口类（已简化，仅27行）
 ├── processors/                  # 处理器层
@@ -126,7 +126,7 @@ src/vulnerability_checking/
 
 ### 基本使用（与之前完全兼容）
 ```python
-from vulnerability_checking import VulnerabilityChecker
+from validating import VulnerabilityChecker
 
 # 使用核心检查类（API不变）
 checker = VulnerabilityChecker(project_audit, lancedb, lance_table_name)
@@ -135,7 +135,7 @@ checker.check_function_vul(task_manager)
 
 ### 高级使用（使用具体的处理器）
 ```python
-from vulnerability_checking import (
+from validating import (
     VulnerabilityChecker, 
     ContextUpdateProcessor, 
     ConfirmationProcessor,

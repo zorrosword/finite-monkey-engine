@@ -1,8 +1,8 @@
 import os
 from typing import List
 
-from vulnerability_scanning import VulnerabilityScanner
-from vulnerability_checking import VulnerabilityChecker
+from reasoning import VulnerabilityScanner
+from validating import VulnerabilityChecker
 
 
 class AiEngine(object):

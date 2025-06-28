@@ -103,7 +103,7 @@ def test_context_update_flow():
     print("\n🔍 测试上下文更新流程...")
     
     try:
-        from vulnerability_checking import VulnerabilityChecker
+        from validating import VulnerabilityChecker
         
         # 创建模拟对象
         mock_project_audit = create_mock_project_audit()
@@ -119,7 +119,7 @@ def test_context_update_flow():
         task_manager, tasks = create_mock_task_manager()
         
         # 模拟embedding API调用
-        with patch('vulnerability_checking.utils.context_manager.common_get_embedding') as mock_embedding:
+        with patch('validating.utils.context_manager.common_get_embedding') as mock_embedding:
             mock_embedding.return_value = [0.1, 0.2, 0.3]  # 模拟embedding向量
             
             # 创建VulnerabilityChecker
@@ -143,7 +143,7 @@ def test_complete_vulnerability_check_flow():
     print("\n🔍 测试完整的漏洞检查流程...")
     
     try:
-        from vulnerability_checking import VulnerabilityChecker
+        from validating import VulnerabilityChecker
         
         # 创建模拟对象
         mock_project_audit = create_mock_project_audit()
@@ -159,10 +159,10 @@ def test_complete_vulnerability_check_flow():
         task_manager, tasks = create_mock_task_manager()
         
         # 模拟embedding API调用和其他API调用
-        with patch('vulnerability_checking.utils.context_manager.common_get_embedding') as mock_embedding:
-            with patch('vulnerability_checking.processors.analysis_processor.common_ask_confirmation') as mock_ask:
-                with patch('vulnerability_checking.utils.check_utils.common_ask_for_json') as mock_ask_json:
-                    with patch('vulnerability_checking.utils.check_utils.common_ask_confirmation') as mock_ask_confirm:
+        with patch('validating.utils.context_manager.common_get_embedding') as mock_embedding:
+            with patch('validating.processors.analysis_processor.common_ask_confirmation') as mock_ask:
+                with patch('validating.utils.check_utils.common_ask_for_json') as mock_ask_json:
+                    with patch('validating.utils.check_utils.common_ask_confirmation') as mock_ask_confirm:
                         # 模拟embedding向量
                         mock_embedding.return_value = [0.1, 0.2, 0.3]
                         
@@ -191,12 +191,12 @@ def test_processor_isolation():
     print("\n🔍 测试处理器隔离性...")
     
     try:
-        from vulnerability_checking.processors import (
+        from validating.processors import (
             ContextUpdateProcessor,
             ConfirmationProcessor,
             AnalysisProcessor
         )
-        from vulnerability_checking.utils import ContextManager
+        from validating.utils import ContextManager
         
         # 创建独立的处理器实例
         mock_project_audit = create_mock_project_audit()
@@ -224,7 +224,7 @@ def test_api_backward_compatibility():
     print("\n🔍 测试API向后兼容性...")
     
     try:
-        from vulnerability_checking import VulnerabilityChecker
+        from validating import VulnerabilityChecker
         
         # 测试原有API接口
         mock_project_audit = create_mock_project_audit()
@@ -255,7 +255,7 @@ def test_error_handling():
     print("\n🔍 测试错误处理...")
     
     try:
-        from vulnerability_checking import VulnerabilityChecker
+        from validating import VulnerabilityChecker
         
         # 测试各种异常情况
         mock_project_audit = Mock()
@@ -284,7 +284,7 @@ def test_new_confirmation_logic():
     print("\n🔍 测试新的按轮次确认逻辑...")
     
     try:
-        from vulnerability_checking.utils import CheckUtils
+        from validating.utils import CheckUtils
         
         # 测试场景1: 第1轮有3个yes，第2轮有no，应该输出yes
         round_results_1 = [
