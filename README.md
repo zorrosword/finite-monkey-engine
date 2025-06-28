@@ -23,114 +23,205 @@ FiniteMonkey is an intelligent vulnerability mining engine based on large langua
 
 As of May 2024, this tool has helped discover over $60,000 worth of bug bounties.
 
-## 🚀 Latest Updates
+## 📋 Prerequisites
 
-**2024.11.19**: Released version 1.0 - Validated LLM-based auditing and productization feasibility
-
-**Earlier Updates:**
-- 2024.08.02: Project renamed to finite-monkey-engine
-- 2024.08.01: Added Func, Tact language support
-- 2024.07.23: Added Cairo, Move language support
-- 2024.07.01: Updated license
-- 2024.06.01: Added Python language support
-- 2024.05.18: Improved false positive rate (~20%)
-- 2024.05.16: Added cross-contract vulnerability confirmation
-- 2024.04.29: Added basic Rust language support
-
-## 📋 Requirements
-
-- PostgreSQL database
-- OpenAI API access
-- Python environment
-
-## 🛠️ Installation & Configuration
-
-1. Place project in `src/dataset/agent-v1-c4` directory
-
-2. Configure project in `datasets.json`:
-```json
-{
-    "StEverVault2": {
-        "path": "StEverVault",
-        "files": [],
-        "functions": []
-    }
-}
+### Python Environment
+- Python 3.11 (recommended, as Python 3.12 has package compatibility issues)
+- Use conda for environment management:
+```bash
+conda create -n py311 python=3.11
+conda activate py311
 ```
 
-3. Create database using `src/db.sql`
+### PostgreSQL Database
+1. Install PostgreSQL:
+```bash
+# Install and start PostgreSQL (macOS)
+brew install postgresql
+brew services start postgresql
+initdb /usr/local/var/postgres -E utf8
 
-4. Configure `.env`:
+# Connect to database
+psql postgres
+
+# Check databases
+\l
+
+# Set password for database user
+\password [your_username]
+
+# Exit connection
+exit
+```
+
+2. Install pgAdmin from [https://www.pgadmin.org/download/](https://www.pgadmin.org/download/) for database management
+   - Host: 127.0.0.1
+   - Port: 5432
+   - Username: your database owner username
+   - Password: as set above
+
+### AI API Configuration
+Purchase AI API access from [https://platform.closeai-asia.com/account/billing](https://platform.closeai-asia.com/account/billing)
+Get your API key from Developer Mode -> Key Management
+
+## 🛠️ Installation & Setup
+
+### 1. Get the Code
+```bash
+git clone https://github.com/BradMoonUESTC/finite-monkey-engine.git
+cd finite-monkey-engine
+pip install -r requirements.txt
+```
+
+### 2. Database Setup
+Execute the SQL file `src/db.sql` in pgAdmin to create the required tables. If you encounter ownership errors, modify `OWNER TO "postgres"` to use your actual database username.
+
+### 3. Sample Data (Optional)
+Download the `concise_project_code` directory from [Google Drive](https://drive.google.com/drive/folders/1M3Fn3FOBX2EFAvBkXG4GVOT0ZlCmJgjQ) and place the files in `finite-monkey-engine/src/dataset/agent-v1-c4/`
+
+### 4. Environment Configuration
+Create `src/.env` file with the following configuration:
+
 ```env
-# Database connection URL, using PostgreSQL database
+# Database connection URL using PostgreSQL
 DATABASE_URL=postgresql://postgres:1234@127.0.0.1:5432/postgres
 
-# Base URL for all LLMs (LLM proxy platform), used for API requests
-OPENAI_API_BASE="api.openai-proxy.org"
+# Base URL for all LLM requests (LLM proxy platform) used for API requests
+OPENAI_API_BASE="localhost:3010"
 
 # Model name used for text embeddings
 EMBEDDING_MODEL="text-embedding-3-large"
+EMBEDDING_API_BASE="api.openai-proxy.org"
+EMBEDDING_API_KEY="your-embedding-api-key"
+
+# JSON model configuration
+JSON_MODEL_API_BASE="api.openai-proxy.org"
+JSON_MODEL_API_KEY="your-json-model-api-key"
 
 # API key for LLM proxy platform
-OPENAI_API_KEY=your-api-key
+OPENAI_API_KEY="your-openai-api-key"
 
 # Confirmation model selection, using DeepSeek model
 CONFIRMATION_MODEL="DEEPSEEK"
 
-# OpenAI model selection, using GPT-4 Turbo
-OPENAI_MODEL=gpt-4-turbo
+# OpenAI model selection, using GPT-4.1
+OPENAI_MODEL="gpt-4.1"
 
-# Claude model selection, using Claude 3.5 Sonnet version
-CLAUDE_MODEL=claude-3-5-sonnet-20241022
+# Claude model selection, using Claude 4 Sonnet version
+CLAUDE_MODEL=claude-4-sonnet
+
+# Vulnerability scanning model
+VUL_MODEL=claude-4-sonnet
 
 # Scan mode settings
-# Available values: SPECIFIC_PROJECT (specific project checklist) / OPTIMIZE (code suggestion mode)
-# / COMMON_PROJECT (common project checklist single query) / PURE_SCAN (pure scanning)
-# / CHECKLIST (automatic checklist generation) / CHECKLIST_PIPELINE (checklist generation + pipeline)
-# / COMMON_PROJECT_FINE_GRAINED (common project checklist individual queries, 10x cost increase, currently best results)
-SCAN_MODE=COMMON_PROJECT_FINE_GRAINED
+# Available options: 
+# - SPECIFIC_PROJECT (specific project checklist)
+# - OPTIMIZE (code suggestion mode)
+# - COMMON_PROJECT (common project checklist single query)
+# - PURE_SCAN (pure scanning)
+# - CHECKLIST (automatic checklist generation)
+# - CHECKLIST_PIPELINE (checklist generation + pipeline)
+# - COMMON_PROJECT_FINE_GRAINED (common project checklist individual queries, 10x cost increase)
+SCAN_MODE=PURE_SCAN
 
 # API service provider selection
-# Available values: OPENAI / AZURE / CLAUDE / DEEPSEEK
+# Available options: OPENAI / AZURE / CLAUDE / DEEPSEEK
 AZURE_OR_OPENAI="OPENAI"
 
-# Maximum threads for confirmation phase
+# Maximum number of threads for confirmation phase
 MAX_THREADS_OF_CONFIRMATION=50
 
-# Maximum threads for scanning phase
+# Maximum number of threads for scanning phase
 MAX_THREADS_OF_SCAN=10
 
-# Business flow repeat count
-BUSINESS_FLOW_COUNT=10
+# Business flow repeat count (number of hallucinations triggered, higher number means more hallucinations, more output, longer time)
+BUSINESS_FLOW_COUNT=1
 
-# Enable function code scanning
+# Whether to enable function code scanning
 SWITCH_FUNCTION_CODE=False
 
-# Enable business code scanning
+# Whether to enable business code scanning
 SWITCH_BUSINESS_CODE=True
 
-# Maximum confirmation rounds
+# Maximum number of confirmation rounds
 MAX_CONFIRMATION_ROUNDS=2
 
-# Requests per confirmation round
+# Number of requests per confirmation round
 REQUESTS_PER_CONFIRMATION_ROUND=3
 
 # JSON model ID
-JSON_MODEL_ID="gpt-4-turbo"
+JSON_MODEL_ID="gpt-4.1"
 
-# Enable internet search
+# Whether to enable internet search
 ENABLE_INTERNET_SEARCH=False
 
-# Set project type generation iteration rounds
+# Set the number of iterations for project types of a specific language generation
 PROJECT_TYPE_ITERATION_ROUNDS=3
 
-# Set checklist generation iteration rounds
+# Set the number of iterations for checklist generation
 CHECKLIST_ITERATION_ROUNDS=3
 
-# Enable dialogue mode
-ENABLE_DIALOGUE_MODE=True
+# Whether to enable dialogue mode
+ENABLE_DIALOGUE_MODE=False
 
+# Whether to enable cross-contract scanning
+CROSS_CONTRACT_SCAN=True
+
+# Length threshold for planning phase
+THRESHOLD_OF_PLANNING=50
 ```
+
+### 5. Project Configuration
+Edit `src/dataset/agent-v1-c4/datasets.json` to configure your projects:
+
+```json
+{
+    "YourProjectName": {
+        "path": "relative_path_to_your_project",
+        "files": [],
+        "functions": [],
+        "exclude_in_planning": "true",
+        "exclude_directory": ["access", "errors", "events", "lib", "storage"]
+    }
+}
+```
+
+**Planning Optimization Notes:**
+- `THRESHOLD_OF_PLANNING`: Functions shorter than this value will be treated as context rather than main scanning targets
+- `exclude_in_planning` and `exclude_directory`: Contracts in specified directories will be treated as context only
+
+## 🚀 Usage
+
+### Running with Sample Data
+1. Choose a project name from `src/dataset/agent-v1-c4/datasets.json`
+2. Edit `src/main.py` line 146 to set the `project_id`:
+```python
+if __name__ == '__main__':
+    switch_production_or_test = 'test'  # prod / test
+    if switch_production_or_test == 'test':
+        start_time = time.time()
+        db_url_from = os.environ.get("DATABASE_URL")
+        engine = create_engine(db_url_from)
+        
+        dataset_base = "./src/dataset/agent-v1-c4"
+        projects = load_dataset(dataset_base)
+        project_id = 'YourProjectName'  # Set your project name here
+        project_path = ''
+        project = Project(project_id, projects[project_id])
+```
+3. Run the scanner:
+```bash
+python src/main.py
+```
+
+### Running with New Projects
+1. Place your code in `finite-monkey-engine/src/dataset/agent-v1-c4/` (recommended to include only files that need auditing)
+2. Add project configuration to `src/dataset/agent-v1-c4/datasets.json`
+3. Update `project_id` in `src/main.py`
+4. Execute `python src/main.py`
+
+### Analyzing Results
+Check the `project_tasks_amazing_prompt` database table for scan results. Each record requires manual analysis to determine if it represents a valid vulnerability.
 
 ## 🌈 Supported Languages
 
@@ -147,46 +238,11 @@ ENABLE_DIALOGUE_MODE=True
 ## 📊 Scan Results Guide
 
 1. If interrupted due to network/API issues, resume scanning using the same project_id in main.py
-3. Results include detailed annotations:
+2. Results include detailed annotations:
    - Focus on entries marked "yes" in result column
    - Filter "dont need In-project other contract" in category column
    - Check specific code in business_flow_code column
    - Find code location in name column
-
-## 🎯 Important Notes
-
-- Best suited for logic vulnerability mining in real projects
-- Not recommended for academic vulnerability testing
-- GPT-4-turbo recommended for best results
-- Average scan time for medium-sized projects: 2-3 hours
-- Estimated cost for 10 iterations on medium projects: $20-30
-- Current false positive rate: 30-65% (depends on project size)
-
-## 🔍 Technical Notes
-1. Claude 3.5 Sonnet provides better scanning results while maintaining acceptable time costs
-2. Deceptive prompt theory can be adapted to any language with minor modifications
-3. ANTLR AST parsing recommended for better code slicing results
-4. Currently supports multiple languages with plans for expansion
-5. DeepSeek recommended for better confirmation results
-6. New dialogue mode support enables more flexible interaction
-7. Supports multi-round iteration for project types and checklist generation
-
-## 🛡️ Scanning Features
-
-- Excels at code understanding and logic vulnerability detection
-- Weaker at control flow vulnerability detection
-- Designed for real projects, not academic test cases
-
-## 💡 Implementation Tips
-
-- Progress automatically saved for each scan
-- Claude-3.5-Sonnet provides best performance for scanning compared to other models
-- DeepSeek provides best performance for confirmation compared to other models
-- 10 iterations for medium-sized projects takes about 4 hours
-- Results include detailed categorization
-- Supports fine-grained common project checklist with individual questioning mode
-- Configurable confirmation rounds and queries per round
-- Flexible thread control with separate settings for scanning and confirmation phases
 
 ## 📝 License
 
@@ -199,5 +255,3 @@ Pull Requests welcome!
 ---
 
 *Note: Project name inspired by [Large Language Monkeys paper](https://arxiv.org/abs/2407.21787v1)*
-
-Would you like me to explain or break down the code?
