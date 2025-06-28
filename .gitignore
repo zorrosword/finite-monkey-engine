@@ -19,3 +19,5 @@ src/.DS_Store
 .env
 tests/*
 src/chat_history/*
+src/.env_new
+src/.env_old

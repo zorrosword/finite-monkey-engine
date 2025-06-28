@@ -113,8 +113,8 @@ def ask_openai_common(prompt):
             return ''
         return response_josn['choices'][0]['message']['content']
 def ask_openai_for_json(prompt):
-    api_base = os.environ.get('JSON_MODEL_API_BASE', 'api.openai.com')  # Replace with your actual OpenAI API base URL
-    api_key = os.environ.get('JSON_MODEL_API_KEY')  # Replace with your actual OpenAI API key
+    api_base = os.environ.get('OPENAI_API_BASE', 'api.openai.com')  # Replace with your actual OpenAI API base URL
+    api_key = os.environ.get('OPENAI_API_KEY')  # Replace with your actual OpenAI API key
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
@@ -226,7 +226,7 @@ def ask_vul(prompt):
     }
 
     try:
-        response = requests.post(f'http://{api_base}/v1/chat/completions', 
+        response = requests.post(f'https://{api_base}/v1/chat/completions', 
                                headers=headers, 
                                json=data)
         response.raise_for_status()
@@ -259,7 +259,7 @@ def ask_claude(prompt):
     }
 
     try:
-        response = requests.post(f'http://{api_base}/v1/chat/completions', 
+        response = requests.post(f'https://{api_base}/v1/chat/completions', 
                                headers=headers, 
                                json=data)
         response.raise_for_status()
@@ -309,8 +309,8 @@ def ask_claude_37(prompt):
 def ask_deepseek(prompt):
     model = 'deepseek-reasoner'
     # print("prompt:",prompt)
-    api_key = os.environ.get('JSON_MODEL_API_KEY')
-    api_base = os.environ.get('JSON_MODEL_API_BASE', '4.0.wokaai.com')
+    api_key = os.environ.get('OPENAI_API_KEY')
+    api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
     # print("api_base:",api_base)
     # print("api_key:",api_key)
     headers = {
@@ -504,11 +504,11 @@ def clean_text(text: str) -> str:
     return str(text).replace(" ", "").replace("\n", "").replace("\r", "")
 
 def common_get_embedding(text: str):
-    api_key = os.getenv('EMBEDDING_API_KEY')
+    api_key = os.getenv('OPENAI_API_KEY')
     if not api_key:
-        raise ValueError("EMBEDDING_API_BASE environment variable is not set")
+        raise ValueError("OPENAI_API_KEY environment variable is not set")
 
-    api_base = os.getenv('EMBEDDING_API_BASE', 'api.openai.com')
+    api_base = os.getenv('OPENAI_API_BASE', 'api.openai.com')
     model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-large")
     
     headers = {

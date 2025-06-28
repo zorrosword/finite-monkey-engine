@@ -234,19 +234,19 @@
         "exclude_in_planning":"true",
         "exclude_directory":["access","errors","events","lib","storage"]
     },
-    "cudis_airdrop":{
-        "path":"cudis_airdrop",
-        "files":[],
-        "functions":[],
-        "exclude_in_planning":"false",
-        "exclude_directory":[]
-    },
-    "liwei03":{
+    "liwei06281":{
         "path":"liwei",
         "files":[],
         "functions":[],
         "exclude_in_planning":"false",
         "exclude_directory":[]
+    },
+    "panoptic1":{
+        "path":"panoptic",
+        "files":[],
+        "functions":[],
+        "exclude_in_planning":"true",
+        "exclude_directory":["v1.1","libraries"]
     }
 
     
