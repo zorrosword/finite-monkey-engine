@@ -21,3 +21,5 @@ tests/*
 src/chat_history/*
 src/.env_new
 src/.env_old
+src/knowledges/finite-monkey checklist.xlsx
+next.md

@@ -9,6 +9,7 @@ from tqdm import tqdm
 from dao.entity import Project_Task
 from openai_api.openai import common_ask_for_json
 from prompt_factory.core_prompt import CorePrompt
+from prompt_factory.vul_prompt_common import VulPromptCommon
 from .business_flow_utils import BusinessFlowUtils
 from .config_utils import ConfigUtils
 from .business_flow_processor import BusinessFlowProcessor
@@ -22,6 +23,8 @@ class PlanningProcessor:
         self.taskmgr = taskmgr
         self.checklist_generator = checklist_generator
         self.business_flow_processor = BusinessFlowProcessor(project)
+        # 为COMMON_PROJECT_FINE_GRAINED模式添加计数器
+        self.fine_grained_counter = 0
     
     def do_planning(self):
         """执行规划的核心逻辑"""
@@ -141,7 +144,7 @@ class PlanningProcessor:
             self._create_planning_task(
                 function, checklist, business_type_str, 
                 str(business_flow_code), line_info_list, 
-                if_business_flow_scan=1
+                if_business_flow_scan=1, config=config
             )
     
     def _handle_function_code_planning(self, function: Dict, config: Dict):
@@ -159,7 +162,7 @@ class PlanningProcessor:
             self._create_planning_task(
                 function, checklist, "", 
                 "", "", 
-                if_business_flow_scan=0
+                if_business_flow_scan=0, config=config
             )
     
     def _generate_checklist_and_analysis(
@@ -261,9 +264,23 @@ class PlanningProcessor:
         business_type_str: str, 
         business_flow_code: str, 
         business_flow_lines, 
-        if_business_flow_scan: int
+        if_business_flow_scan: int,
+        config: Dict = None
     ):
         """创建规划任务"""
+        # 处理recommendation字段
+        recommendation = business_type_str
+        
+        # 如果是COMMON_PROJECT_FINE_GRAINED模式，设置checklist类型到recommendation
+        if config and config['scan_mode'] == "COMMON_PROJECT_FINE_GRAINED":
+            # 获取当前checklist类型
+            checklist_dict = VulPromptCommon.vul_prompt_common_new(self.fine_grained_counter % config['total_checklist_count'])
+            if checklist_dict:
+                checklist_key = list(checklist_dict.keys())[0]
+                recommendation = checklist_key
+                print(f"[DEBUG🐞]📋Setting recommendation to checklist key: {checklist_key} (index: {self.fine_grained_counter % config['total_checklist_count']})")
+            self.fine_grained_counter += 1
+        
         task = Project_Task(
             project_id=self.project.project_id,
             name=function['name'],
@@ -285,7 +302,7 @@ class PlanningProcessor:
             end_line=function['end_line'],
             relative_file_path=function['relative_file_path'],
             absolute_file_path=function['absolute_file_path'],
-            recommendation=business_type_str,
+            recommendation=recommendation,
             title='',
             business_flow_code=business_flow_code,
             business_flow_lines=business_flow_lines,

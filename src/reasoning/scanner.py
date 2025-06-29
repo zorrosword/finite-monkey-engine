@@ -90,14 +90,8 @@ class VulnerabilityScanner:
         # 获取要测试的代码
         code_to_be_tested = ScanUtils.get_code_to_test(task)
         
-        # 生成提示词
-        current_index = None
-        if os.getenv("SCAN_MODE", "COMMON_VUL") == "COMMON_PROJECT_FINE_GRAINED":
-            current_index = self.current_prompt_index
-            ScanUtils.update_recommendation_for_fine_grained(task_manager, task.id, current_index)
-            self.current_prompt_index = (current_index + 1) % self.total_prompt_count
-            
-        prompt = ScanUtils.get_scan_prompt(code_to_be_tested, task, current_index)
+        # 生成提示词 (在COMMON_PROJECT_FINE_GRAINED模式下，直接使用task.recommendation)
+        prompt = ScanUtils.get_scan_prompt(code_to_be_tested, task)
         
         # 发送请求并获取响应
         response_vul = ask_vul(prompt)
@@ -124,12 +118,20 @@ class VulnerabilityScanner:
         # 获取要测试的代码
         code_to_be_tested = ScanUtils.get_code_to_test(task)
 
-        # 获取当前prompt_index（对于COMMON_PROJECT_FINE_GRAINED模式）
+        # 在COMMON_PROJECT_FINE_GRAINED模式下，使用task.recommendation作为checklist类型标识
         current_index = None
         if os.getenv("SCAN_MODE", "COMMON_VUL") == "COMMON_PROJECT_FINE_GRAINED":
-            current_index = self.current_prompt_index
-            ScanUtils.update_recommendation_for_fine_grained(task_manager, task.id, current_index)
-            self.current_prompt_index = (current_index + 1) % self.total_prompt_count
+            # 如果有recommendation，使用它来确定current_index用于对话历史
+            if hasattr(task, 'recommendation') and task.recommendation:
+                all_checklists = VulPromptCommon.vul_prompt_common_new()
+                checklist_keys = list(all_checklists.keys())
+                if task.recommendation in checklist_keys:
+                    current_index = checklist_keys.index(task.recommendation)
+                else:
+                    current_index = 0
+            else:
+                current_index = self.current_prompt_index
+                self.current_prompt_index = (current_index + 1) % self.total_prompt_count
 
         # 获取历史对话
         dialogue_history = self.dialogue_history.get_history(task.name, current_index)
@@ -143,7 +145,7 @@ class VulnerabilityScanner:
             for i, hist in enumerate(dialogue_history, 1):
                 print(f"  第{i}轮对话长度: {len(hist)} 字符")
         
-        # 生成基础prompt
+        # 生成基础prompt (在COMMON_PROJECT_FINE_GRAINED模式下，直接使用task.recommendation)
         prompt = ScanUtils.get_scan_prompt(code_to_be_tested, task, current_index)
 
         # 如果有历史对话，添加到prompt中

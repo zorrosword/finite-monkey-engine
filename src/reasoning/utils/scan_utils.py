@@ -32,11 +32,23 @@ class ScanUtils:
         elif scan_mode == "COMMON_PROJECT":
             return PromptAssembler.assemble_prompt_common(code_to_be_tested)
         elif scan_mode == "COMMON_PROJECT_FINE_GRAINED":
-            if current_index is not None:
-                print(f"[DEBUG🐞]📋Using prompt index {current_index} for fine-grained scan")
+            # 在COMMON_PROJECT_FINE_GRAINED模式下，直接使用task.recommendation中的checklist类型
+            if hasattr(task, 'recommendation') and task.recommendation:
+                print(f"[DEBUG🐞]📋Using pre-set checklist type from recommendation: {task.recommendation}")
+                # 根据checklist类型名称获取对应的索引
+                all_checklists = VulPromptCommon.vul_prompt_common_new()
+                checklist_keys = list(all_checklists.keys())
+                if task.recommendation in checklist_keys:
+                    checklist_index = checklist_keys.index(task.recommendation)
+                    return PromptAssembler.assemble_prompt_common_fine_grained(code_to_be_tested, checklist_index)
+                else:
+                    print(f"[WARNING] Checklist type '{task.recommendation}' not found, using index 0")
+                    return PromptAssembler.assemble_prompt_common_fine_grained(code_to_be_tested, 0)
+            elif current_index is not None:
+                print(f"[DEBUG🐞]📋Using prompt index {current_index} for fine-grained scan (fallback)")
                 return PromptAssembler.assemble_prompt_common_fine_grained(code_to_be_tested, current_index)
             else:
-                raise ValueError("current_index is required for COMMON_PROJECT_FINE_GRAINED mode")
+                raise ValueError("Neither task.recommendation nor current_index is available for COMMON_PROJECT_FINE_GRAINED mode")
         elif scan_mode == "PURE_SCAN":
             return PromptAssembler.assemble_prompt_pure(code_to_be_tested)
         elif scan_mode == "SPECIFIC_PROJECT":
@@ -50,11 +62,10 @@ class ScanUtils:
     @staticmethod
     def update_recommendation_for_fine_grained(task_manager, task_id: int, current_index: int):
         """为细粒度扫描更新推荐信息"""
-        checklist_dict = VulPromptCommon.vul_prompt_common_new(current_index)
-        if checklist_dict:
-            checklist_key = list(checklist_dict.keys())[0]
-            print(f"[DEBUG🐞]📋Updating recommendation with checklist key: {checklist_key}")
-            task_manager.update_recommendation(task_id, checklist_key)
+        # 在新的实现中，recommendation已经在planning阶段设置好了，这里不需要再更新
+        # 但为了兼容性，保留这个方法，只是不执行实际操作
+        print(f"[DEBUG🐞]📋Skipping recommendation update - using pre-set recommendation from planning phase")
+        pass
     
     @staticmethod
     def is_task_already_scanned(task) -> bool:
