@@ -246,7 +246,7 @@
         "files":[],
         "functions":[],
         "exclude_in_planning":"true",
-        "exclude_directory":["v1.1","libraries"]
+        "exclude_directory":["exclude"]
     }
 
     

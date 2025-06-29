@@ -539,5 +539,40 @@ def common_ask_confirmation(prompt):
         return ask_claude(prompt)
     elif model_type == 'DEEPSEEK':
         return ask_deepseek(prompt)
+    elif model_type == 'GEMINI':
+        return ask_gemini(prompt)
     else:
         return ask_openai_common(prompt)
+def ask_gemini(prompt):
+    model = 'gemini-2.5-pro-preview-06-05'
+    api_key = os.environ.get('OPENAI_API_KEY','sk-0fzQWrcTc0DASaFT7Q0V0e7c24ZyHMKYgIDpXWrry8XHQAcj')
+    api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
+
+    data = {
+        'model': model,
+        'messages': [
+            {
+                'role': 'user',
+                'content': prompt
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(f'http://{api_base}/v1/chat/completions', 
+                               headers=headers, 
+                               json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            return response_data['choices'][0]['message']['content']
+        else:
+            return ""
+    except requests.exceptions.RequestException as e:
+        print(f"Claude API调用失败。错误: {str(e)}")
+        return ""
