@@ -150,14 +150,14 @@ if __name__ == '__main__':
         cmd = 'detect_vul'
         if cmd == 'detect_vul':
             lancedb,lance_table_name,project_audit=scan_project(project, engine) # scan
-            # if os.getenv("SCAN_MODE","SPECIFIC_PROJECT") in [
-            #     "SPECIFIC_PROJECT",
-            #     "COMMON_PROJECT",
-            #     "PURE_SCAN",
-            #     "CHECKLIST",
-            #     "CHECKLIST_PIPELINE",
-            #     "COMMON_PROJECT_FINE_GRAINED"]:
-            #     check_function_vul(engine,lancedb,lance_table_name,project_audit) # confirm
+            if os.getenv("SCAN_MODE","SPECIFIC_PROJECT") in [
+                "SPECIFIC_PROJECT",
+                "COMMON_PROJECT",
+                "PURE_SCAN",
+                "CHECKLIST",
+                "CHECKLIST_PIPELINE",
+                "COMMON_PROJECT_FINE_GRAINED"]:
+                check_function_vul(engine,lancedb,lance_table_name,project_audit) # confirm
 
 
 
