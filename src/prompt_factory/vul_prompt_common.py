@@ -157,9 +157,9 @@ class VulPromptCommon:
         ]
 
         # 组合后的检查列表 (3+3+3+2)
-        validation_calculation_state_list = parameter_validation_list + arithmetic_calculation_list + state_updates_list
-        consistency_permission_logic_list = consistency_list + permission_control_list + business_logic_list+external_dependency_list
-        reentrancy_module_fund_list = reentrancy_list + module_call_list + fund_management_list+trade_execution_list
+        permission_reentrancy_list = permission_control_list + reentrancy_list
+        module_call_fund_list = module_call_list + fund_management_list
+        external_dependency_trade_list = external_dependency_list + trade_execution_list
 
         # 将所有检查列表组织成一个有序字典
         all_checklists = {
@@ -167,16 +167,11 @@ class VulPromptCommon:
             "arithmetic_calculation": arithmetic_calculation_list,
             "state_updates": state_updates_list,
             "consistency": consistency_list,
-            "permission_control": permission_control_list,
+            "permission_reentrancy": permission_reentrancy_list,
             "business_logic": business_logic_list,
-            "reentrancy": reentrancy_list,
-            "module_call": module_call_list,
-            "fund_management": fund_management_list,
-            "external_dependency": external_dependency_list,
-            "trade_execution": trade_execution_list,
-            # "validation_calculation_state": validation_calculation_state_list,
-            # "consistency_permission_logic": consistency_permission_logic_list,
-            # "reentrancy_module_fund": reentrancy_module_fund_list,
+            "module_call_fund": module_call_fund_list,
+            "external_dependency_trade": external_dependency_trade_list,
+            
         }
 
         # 如果提供了 prompt_index，返回特定的检查列表

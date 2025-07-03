@@ -86,7 +86,7 @@ def generate_excel(output_path, project_id):
     
     try:
         # 对df进行漏洞归集处理
-        res_processor = ResProcessor(df,max_group_size=10,iteration_rounds=5,enable_chinese_translation=False)
+        res_processor = ResProcessor(df,max_group_size=10,iteration_rounds=5,enable_chinese_translation=True)
         processed_df = res_processor.process()
         
         # 确保所有必需的列都存在
@@ -143,7 +143,7 @@ if __name__ == '__main__':
         dataset_base = "./src/dataset/agent-v1-c4"
         projects = load_dataset(dataset_base)
  
-        project_id = 'christian0629'
+        project_id = 'yield07041'
         project_path = ''
         project = Project(project_id, projects[project_id])
         

@@ -6,6 +6,8 @@ import pyarrow as pa
 from typing import List, Dict, Any
 from datetime import datetime
 from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 from openai_api.openai import common_get_embedding
 
@@ -75,15 +77,30 @@ class RAGProcessor:
         # 创建表
         table = self.db.create_table(self.table_name, schema=self.schema, mode="overwrite")
         
-        # 逐条处理并添加数据
-        for func in tqdm(functions_to_check, desc="Processing functions", unit="function"):
-            try:
-                processed_func = self.process_function(func)
-                # 将单条数据添加到表中
-                table.add([processed_func])
-            except Exception as e:
-                print(f"Error processing function {func.get('name', 'unknown')}: {str(e)}")
-                continue
+        # 用于线程安全的锁
+        table_lock = threading.Lock()
+        
+        # 多线程处理函数
+        max_workers = min(5, len(functions_to_check))  # 限制最大线程数
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 提交所有任务
+            future_to_func = {executor.submit(self.process_function, func): func for func in functions_to_check}
+            
+            # 使用 tqdm 显示进度
+            with tqdm(total=len(functions_to_check), desc="Processing functions", unit="function") as pbar:
+                for future in as_completed(future_to_func):
+                    func = future_to_func[future]
+                    try:
+                        processed_func = future.result()
+                        # 线程安全地将数据添加到表中
+                        with table_lock:
+                            table.add([processed_func])
+                        pbar.update(1)
+                    except Exception as e:
+                        print(f"Error processing function {func.get('name', 'unknown')}: {str(e)}")
+                        pbar.update(1)
+                        continue
 
         print("Database creation completed!")
 

@@ -69,6 +69,12 @@ class PlanningProcessor:
     
     def _get_business_flows_if_needed(self, config: Dict) -> Dict:
         """如果需要的话获取所有业务流"""
+        # 如果开启了文件级别扫描，则不需要业务流数据
+        if config['switch_file_code']:
+            print("🔄 文件级别扫描模式：跳过业务流数据获取")
+            return {}
+        
+        # 只有在非文件级别扫描且开启业务流扫描时才获取业务流数据
         if config['switch_business_code']:
             all_business_flow, all_business_flow_line, all_business_flow_context = self.business_flow_processor.get_all_business_flow(
                 self.project.functions_to_check
@@ -82,8 +88,126 @@ class PlanningProcessor:
     
     def _process_all_functions(self, config: Dict, all_business_flow_data: Dict):
         """处理所有函数"""
-        for function in tqdm(self.project.functions_to_check, desc="Finding project rules"):
-            self._process_single_function(function, config, all_business_flow_data)
+        # 如果开启了文件级别扫描
+        if config['switch_file_code']:
+            self._process_all_files(config)
+        else:
+            for function in tqdm(self.project.functions_to_check, desc="Finding project rules"):
+                self._process_single_function(function, config, all_business_flow_data)
+    
+    def _process_all_files(self, config: Dict):
+        """处理所有文件 - 文件级别扫描"""
+        # 只支持 pure 和 common fine grained 模式
+        if config['scan_mode'] not in ['PURE', 'COMMON_PROJECT_FINE_GRAINED']:
+            print(f"文件级别扫描不支持 {config['scan_mode']} 模式，跳过")
+            return
+        
+        # 按文件路径分组函数
+        files_dict = {}
+        for function in self.project.functions_to_check:
+            file_path = function['relative_file_path']
+            if file_path not in files_dict:
+                files_dict[file_path] = []
+            files_dict[file_path].append(function)
+        
+        # 对每个文件进行处理
+        for file_path, functions in tqdm(files_dict.items(), desc="Processing files"):
+            self._process_single_file(file_path, functions, config)
+    
+    def _process_single_file(self, file_path: str, functions: List[Dict], config: Dict):
+        """处理单个文件"""
+        print(f"————————Processing file: {file_path}————————")
+        
+        # 检查是否应该排除
+        if ConfigUtils.should_exclude_in_planning(self.project, file_path):
+            print(f"Excluding file {file_path} in planning process based on configuration")
+            return
+        
+        # 获取文件内容 (使用第一个函数的contract_code作为文件内容)
+        if not functions:
+            return
+        
+        file_content = functions[0]['contract_code']
+        
+        # 检查文件内容长度
+        if len(file_content) < config['threshold']:
+            print(f"File content for {file_path} is too short for <{config['threshold']}, skipping...")
+            return
+        
+        # 创建文件级别的任务
+        self._handle_file_code_planning(file_path, functions, file_content, config)
+    
+    def _handle_file_code_planning(self, file_path: str, functions: List[Dict], file_content: str, config: Dict):
+        """处理文件代码规划"""
+        # 不需要生成checklist，直接创建任务
+        checklist = ""
+        
+        # 获取代表性函数信息（使用第一个函数的信息作为模板）
+        representative_function = functions[0]
+        
+        # 根据模式决定循环次数
+        if config['scan_mode'] == "COMMON_PROJECT_FINE_GRAINED":
+            iteration_count = config['actual_iteration_count']
+        else:  # PURE模式
+            iteration_count = config['base_iteration_count']
+        
+        # 创建任务
+        for i in range(iteration_count):
+            self._create_file_planning_task(
+                file_path, representative_function, file_content, 
+                checklist, config
+            )
+    
+    def _create_file_planning_task(
+        self, 
+        file_path: str, 
+        representative_function: Dict, 
+        file_content: str, 
+        checklist: str, 
+        config: Dict
+    ):
+        """创建文件级别的规划任务"""
+        # 处理recommendation字段
+        recommendation = ""
+        
+        # 如果是COMMON_PROJECT_FINE_GRAINED模式，设置checklist类型到recommendation
+        if config['scan_mode'] == "COMMON_PROJECT_FINE_GRAINED":
+            checklist_dict = VulPromptCommon.vul_prompt_common_new(self.fine_grained_counter % config['total_checklist_count'])
+            if checklist_dict:
+                checklist_key = list(checklist_dict.keys())[0]
+                recommendation = checklist_key
+                print(f"[DEBUG🐞]📋Setting recommendation to checklist key: {checklist_key} (index: {self.fine_grained_counter % config['total_checklist_count']})")
+            self.fine_grained_counter += 1
+        
+        task = Project_Task(
+            project_id=self.project.project_id,
+            name=f"FILE:{file_path}",  # 文件级别的任务名称
+            content=file_content,  # 使用整个文件内容
+            keyword=str(random.random()),
+            business_type='',
+            sub_business_type='',
+            function_type='',
+            rule='',
+            result='',
+            result_gpt4='',
+            score='',
+            category='',
+            contract_code=file_content,  # 使用文件内容
+            risklevel='',
+            similarity_with_rule='',
+            description=checklist,
+            start_line=representative_function['start_line'],
+            end_line=representative_function['end_line'],
+            relative_file_path=representative_function['relative_file_path'],
+            absolute_file_path=representative_function['absolute_file_path'],
+            recommendation=recommendation,
+            title='',
+            business_flow_code=file_content,
+            business_flow_lines='',
+            business_flow_context='',
+            if_business_flow_scan=0  # 文件级别扫描不是业务流扫描
+        )
+        self.taskmgr.add_task_in_one(task)
     
     def _process_single_function(self, function: Dict, config: Dict, all_business_flow_data: Dict):
         """处理单个函数"""

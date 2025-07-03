@@ -241,8 +241,8 @@
         "exclude_in_planning":"false",
         "exclude_directory":[]
     },
-    "panoptic1":{
-        "path":"panoptic",
+    "yield07041":{
+        "path":"yield",
         "files":[],
         "functions":[],
         "exclude_in_planning":"true",

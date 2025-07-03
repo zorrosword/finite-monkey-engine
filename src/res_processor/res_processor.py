@@ -237,7 +237,7 @@ class ResProcessor:
         print(f"去重统计: 原始 {original_total} 个漏洞 -> 最终 {final_total} 个漏洞，删除了 {removed_total} 个重复项")
         
         # 检查是否需要提前停止
-        if final_total < 25:
+        if final_total < 40:
             print(f"\n🎯 归集结果已少于25个({final_total}个)，提前停止迭代")
             print(f"第 {round_num} 轮为提前结束轮次")
             return deduplicated_results  # 返回字典列表作为最终结果
@@ -708,21 +708,49 @@ class ResProcessor:
 漏洞描述：
 {original_result}"""
 
-        try:
-            print(f"    漏洞 {index+1}: 开始翻译...")
-            translated_description = ask_claude(translate_prompt)
-            
-            # 清理翻译结果
-            cleaned_description = self._clean_text_for_excel(translated_description)
-            
-            # 创建新的结果副本
-            translated_result = result.copy()
-            translated_result['漏洞结果'] = cleaned_description
-            
-            print(f"    漏洞 {index+1}: 翻译成功，原长度 {len(original_result)} -> 新长度 {len(cleaned_description)}")
-            
-            return translated_result
-            
-        except Exception as e:
-            print(f"    漏洞 {index+1}: 翻译失败 - {str(e)}")
-            return result
+        max_retries = 3  # 最大重试次数
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                if retry_count == 0:
+                    print(f"    漏洞 {index+1}: 开始翻译...")
+                else:
+                    print(f"    漏洞 {index+1}: 第 {retry_count+1} 次重试翻译...")
+                
+                translated_description = ask_claude(translate_prompt)
+                
+                # 清理翻译结果
+                cleaned_description = self._clean_text_for_excel(translated_description)
+                
+                # 检查翻译后的长度
+                if len(cleaned_description) == 0:
+                    print(f"    漏洞 {index+1}: ⚠️  翻译后长度为0，原长度 {len(original_result)}")
+                    retry_count += 1
+                    if retry_count < max_retries:
+                        print(f"    漏洞 {index+1}: 准备重新翻译 (第 {retry_count+1} 次尝试)")
+                        continue
+                    else:
+                        print(f"    漏洞 {index+1}: ❌ 重试 {max_retries} 次后仍然失败，保留原结果")
+                        return result
+                
+                # 创建新的结果副本
+                translated_result = result.copy()
+                translated_result['漏洞结果'] = cleaned_description
+                
+                print(f"    漏洞 {index+1}: 翻译成功，原长度 {len(original_result)} -> 新长度 {len(cleaned_description)}")
+                
+                return translated_result
+                
+            except Exception as e:
+                print(f"    漏洞 {index+1}: 翻译失败 - {str(e)}")
+                retry_count += 1
+                if retry_count < max_retries:
+                    print(f"    漏洞 {index+1}: 准备重试 (第 {retry_count+1} 次尝试)")
+                    continue
+                else:
+                    print(f"    漏洞 {index+1}: ❌ 重试 {max_retries} 次后仍然失败，保留原结果")
+                    return result
+        
+        # 如果所有重试都失败，返回原结果
+        return result
