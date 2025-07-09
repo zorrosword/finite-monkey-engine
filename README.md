@@ -83,92 +83,147 @@ Download the `concise_project_code` directory from [Google Drive](https://drive.
 Create `src/.env` file with the following configuration:
 
 ```env
+# =============================================================================
+# 数据库配置 / Database Configuration
+# =============================================================================
+
+# 数据库连接URL，使用PostgreSQL数据库
 # Database connection URL using PostgreSQL
-DATABASE_URL=postgresql://postgres:1234@127.0.0.1:5432/postgres
+DATABASE_URL=postgresql://postgres:your_password@127.0.0.1:5432/your_database
 
-# Base URL for all LLM requests (LLM proxy platform) used for API requests
-OPENAI_API_BASE="localhost:3010"
+# =============================================================================
+# LLM API配置 / LLM API Configuration
+# =============================================================================
 
+# 所有LLM的基础URL（LLM中转平台），用于API请求
+# Base URL for all LLM requests (LLM proxy platform)
+OPENAI_API_BASE="api.openai-proxy.org"
+
+# LLM中转平台的API密钥
+# API key for LLM proxy platform
+OPENAI_API_KEY="sk-your_openai_api_key_here"
+
+# =============================================================================
+# 嵌入模型配置 / Embedding Model Configuration
+# =============================================================================
+
+# 用于文本嵌入的模型名称
 # Model name used for text embeddings
 EMBEDDING_MODEL="text-embedding-3-large"
 EMBEDDING_API_BASE="api.openai-proxy.org"
-EMBEDDING_API_KEY="your-embedding-api-key"
+EMBEDDING_API_KEY="sk-your_embedding_api_key_here"
 
-# JSON model configuration
+# =============================================================================
+# JSON模型配置 / JSON Model Configuration
+# =============================================================================
+
 JSON_MODEL_API_BASE="api.openai-proxy.org"
-JSON_MODEL_API_KEY="your-json-model-api-key"
+JSON_MODEL_API_KEY="sk-your_json_model_api_key_here"
+JSON_MODEL_ID="gpt-4o-mini"
 
-# API key for LLM proxy platform
-OPENAI_API_KEY="your-openai-api-key"
+# =============================================================================
+# 模型选择配置 / Model Selection Configuration
+# =============================================================================
 
-# Confirmation model selection, using DeepSeek model
-CONFIRMATION_MODEL="DEEPSEEK"
+# 确认模型的选择
+# Confirmation model selection
+# 可选值: OPENAI / AZURE / CLAUDE / DEEPSEEK
+CONFIRMATION_MODEL="OPENAI"
 
-# OpenAI model selection, using GPT-4.1
-OPENAI_MODEL="gpt-4.1"
+# OpenAI模型的选择
+# OpenAI model selection
+OPENAI_MODEL="gpt-4o-mini"
 
-# Claude model selection, using Claude 4 Sonnet version
-CLAUDE_MODEL=claude-4-sonnet
+# Claude模型的选择
+# Claude model selection
+CLAUDE_MODEL="claude-3-5-sonnet-20241022"
 
+# 漏洞扫描模型
 # Vulnerability scanning model
-VUL_MODEL=claude-4-sonnet
+VUL_MODEL="gpt-4o-mini"
 
-# Scan mode settings
-# Available options: 
-# - SPECIFIC_PROJECT (specific project checklist)
-# - OPTIMIZE (code suggestion mode)
-# - COMMON_PROJECT (common project checklist single query)
-# - PURE_SCAN (pure scanning)
-# - CHECKLIST (automatic checklist generation)
-# - CHECKLIST_PIPELINE (checklist generation + pipeline)
-# - COMMON_PROJECT_FINE_GRAINED (common project checklist individual queries, 10x cost increase)
-SCAN_MODE=PURE_SCAN
+# =============================================================================
+# 扫描模式配置 / Scan Mode Configuration
+# =============================================================================
 
+# 扫描模式设置
+# Scan mode setting
+# 可选值: SPECIFIC_PROJECT / OPTIMIZE / COMMON_PROJECT / PURE_SCAN 
+# / CHECKLIST / CHECKLIST_PIPELINE / COMMON_PROJECT_FINE_GRAINED
+SCAN_MODE="PURE_SCAN"
+
+# API服务提供商选择
 # API service provider selection
-# Available options: OPENAI / AZURE / CLAUDE / DEEPSEEK
+# 可选值: OPENAI / AZURE / CLAUDE / DEEPSEEK
 AZURE_OR_OPENAI="OPENAI"
 
+# =============================================================================
+# 性能配置 / Performance Configuration
+# =============================================================================
+
+# 确认阶段的最大线程数
 # Maximum number of threads for confirmation phase
-MAX_THREADS_OF_CONFIRMATION=50
+MAX_THREADS_OF_CONFIRMATION=10
 
+# 扫描阶段的最大线程数
 # Maximum number of threads for scanning phase
-MAX_THREADS_OF_SCAN=10
+MAX_THREADS_OF_SCAN=5
 
-# Business flow repeat count (number of hallucinations triggered, higher number means more hallucinations, more output, longer time)
-BUSINESS_FLOW_COUNT=1
+# 业务流程重复数量
+# Business flow repeat count
+BUSINESS_FLOW_COUNT=5
 
-# Whether to enable function code scanning
-SWITCH_FUNCTION_CODE=False
-
-# Whether to enable business code scanning
-SWITCH_BUSINESS_CODE=True
-
+# 最大确认轮数
 # Maximum number of confirmation rounds
 MAX_CONFIRMATION_ROUNDS=2
 
-# Number of requests per confirmation round
+# 每轮询问次数
+# Number of requests per round
 REQUESTS_PER_CONFIRMATION_ROUND=3
 
-# JSON model ID
-JSON_MODEL_ID="gpt-4.1"
+# =============================================================================
+# 功能开关配置 / Feature Switch Configuration
+# =============================================================================
 
+# 是否启用函数代码扫描
+# Whether to enable function code scanning
+SWITCH_FUNCTION_CODE=true
+
+# 是否启用业务代码扫描
+# Whether to enable business code scanning
+SWITCH_BUSINESS_CODE=true
+
+# 是否启用文件代码扫描
+# Whether to enable file code scanning
+SWITCH_FILE_CODE=true
+
+# 是否启用网络搜索
 # Whether to enable internet search
-ENABLE_INTERNET_SEARCH=False
+ENABLE_INTERNET_SEARCH=false
 
-# Set the number of iterations for project types of a specific language generation
+# 是否启用对话模式
+# Whether to enable dialogue mode
+ENABLE_DIALOGUE_MODE=false
+
+# 是否启用跨合约扫描
+# Whether to enable cross-contract scanning
+CROSS_CONTRACT_SCAN=true
+
+# =============================================================================
+# 迭代配置 / Iteration Configuration
+# =============================================================================
+
+# 项目清单生成迭代轮数
+# Number of iterations for project types generation
 PROJECT_TYPE_ITERATION_ROUNDS=3
 
-# Set the number of iterations for checklist generation
+# 检查清单生成迭代轮数
+# Number of iterations for checklist generation
 CHECKLIST_ITERATION_ROUNDS=3
 
-# Whether to enable dialogue mode
-ENABLE_DIALOGUE_MODE=False
-
-# Whether to enable cross-contract scanning
-CROSS_CONTRACT_SCAN=True
-
+# 规划阶段的长度阈值
 # Length threshold for planning phase
-THRESHOLD_OF_PLANNING=50
+THRESHOLD_OF_PLANNING=150
 ```
 
 ### 5. Project Configuration
