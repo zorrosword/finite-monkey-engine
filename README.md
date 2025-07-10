@@ -187,27 +187,27 @@ REQUESTS_PER_CONFIRMATION_ROUND=3
 
 # 是否启用函数代码扫描
 # Whether to enable function code scanning
-SWITCH_FUNCTION_CODE=true
+SWITCH_FUNCTION_CODE=False
 
 # 是否启用业务代码扫描
 # Whether to enable business code scanning
-SWITCH_BUSINESS_CODE=true
+SWITCH_BUSINESS_CODE=True
 
 # 是否启用文件代码扫描
 # Whether to enable file code scanning
-SWITCH_FILE_CODE=true
+SWITCH_FILE_CODE=False
 
 # 是否启用网络搜索
 # Whether to enable internet search
-ENABLE_INTERNET_SEARCH=false
+ENABLE_INTERNET_SEARCH=False
 
 # 是否启用对话模式
 # Whether to enable dialogue mode
-ENABLE_DIALOGUE_MODE=false
+ENABLE_DIALOGUE_MODE=False
 
 # 是否启用跨合约扫描
 # Whether to enable cross-contract scanning
-CROSS_CONTRACT_SCAN=true
+CROSS_CONTRACT_SCAN=True
 
 # =============================================================================
 # 迭代配置 / Iteration Configuration
