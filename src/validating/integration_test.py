@@ -196,21 +196,22 @@ def test_processor_isolation():
             ConfirmationProcessor,
             AnalysisProcessor
         )
-        from validating.utils import ContextManager
+        from context import ContextFactory
         
         # 创建独立的处理器实例
         mock_project_audit = create_mock_project_audit()
         mock_lancedb = Mock()
         
-        context_manager = ContextManager(mock_project_audit, mock_lancedb, "test_table")
-        context_processor = ContextUpdateProcessor(context_manager)
-        analysis_processor = AnalysisProcessor(context_manager)
+        context_factory = ContextFactory(mock_project_audit, mock_lancedb, "test_table")
+        context_processor = ContextUpdateProcessor(context_factory.context_manager)
+        analysis_processor = AnalysisProcessor(context_factory.context_manager)
         confirmation_processor = ConfirmationProcessor(analysis_processor)
         
         # 验证处理器可以独立使用
         assert context_processor.context_manager is not None
         assert analysis_processor.context_manager is not None
         assert confirmation_processor.analysis_processor is not None
+        assert context_factory.context_manager is not None
         
         print("✅ 处理器隔离性测试通过")
         return True

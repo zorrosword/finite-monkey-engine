@@ -14,7 +14,7 @@ import os
 import pandas as pd
 from openpyxl import Workbook,load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
-from codebaseQA.rag_processor import RAGProcessor
+from context import ContextFactory
 from res_processor.res_processor import ResProcessor
 
 import dotenv
@@ -25,19 +25,25 @@ def scan_project(project, db_engine):
     project_audit = ProjectAudit(project.id, project.path, db_engine)
     project_audit.parse(project.white_files, project.white_functions)
     
-    #1.5 build rag
-    rag_processor=RAGProcessor(project_audit.functions_to_check, "./src/codebaseQA/lancedb",project.id)
+    # 1.5 build context factory and initialize rag processor
+    context_factory = ContextFactory(project_audit)
+    context_factory.initialize_rag_processor(
+        project_audit.functions_to_check, 
+        "./src/codebaseQA/lancedb", 
+        project.id
+    )
+    
     # 2. planning & scanning
     project_taskmgr = ProjectTaskMgr(project.id, db_engine) 
     
     planning = PlanningV2(project_audit, project_taskmgr)
     # 
-    engine = AiEngine(planning, project_taskmgr,rag_processor.db,"lancedb_"+project.id,project_audit)
+    engine = AiEngine(planning, project_taskmgr, context_factory.rag_processor.db, "lancedb_"+project.id, project_audit)
     # 1. 扫描 
     engine.do_planning()
     engine.do_scan()
 
-    return rag_processor.db,rag_processor.table_name,project_audit
+    return context_factory.rag_processor.db, context_factory.rag_processor.table_name, project_audit
     
     # 2. gpt4 对结果做rescan 
     # rescan_project_with_gpt4(project.id, db_engine)
@@ -143,7 +149,7 @@ if __name__ == '__main__':
         dataset_base = "./src/dataset/agent-v1-c4"
         projects = load_dataset(dataset_base)
  
-        project_id = 'yield07041'
+        project_id = 'test_crosscontract11'
         project_path = ''
         project = Project(project_id, projects[project_id])
         

@@ -2,7 +2,7 @@ import os
 import time
 from typing import List, Tuple
 
-from ..utils.context_manager import ContextManager
+from context.context_manager import ContextManager
 from ..utils.check_utils import CheckUtils
 from prompt_factory.prompt_assembler import PromptAssembler
 from openai_api.openai import common_ask_confirmation

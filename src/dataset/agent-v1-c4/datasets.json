@@ -241,12 +241,20 @@
         "exclude_in_planning":"false",
         "exclude_directory":[]
     },
-    "yield07041":{
-        "path":"yield",
+    "zklink07121":{
+        "path":"zklink",
         "files":[],
         "functions":[],
         "exclude_in_planning":"true",
         "exclude_directory":["exclude"]
+    },
+    "test_crosscontract11":{
+        "path":"test_crosscontract",
+        "files":[
+        ],
+        "functions":[],
+        "exclude_in_planning":"false",
+        "exclude_directory":[]
     }
 
     

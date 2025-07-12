@@ -174,33 +174,89 @@ def extract_state_variables_from_code_move(contract_code, relative_file_path: st
     
     return []  # 如果不是 .move 文件则返回空列表
 def extract_state_variables_from_code(contract_code):
-    # 1. 首先只保留合约开头到第一个函数定义之前的部分
-    contract_start = contract_code.split('function')[0]
+    # 1. 找到合约定义的开始位置
+    contract_pattern = re.compile(r'contract\s+\w+.*?\{', re.DOTALL)
+    contract_match = contract_pattern.search(contract_code)
+    if not contract_match:
+        return []
     
-    # 2. 移除 event 和 error 定义
-    lines = contract_start.split('\n')
+    # 2. 从合约开始位置到第一个函数定义之前的部分
+    contract_start_pos = contract_match.end()
+    function_pattern = re.compile(r'function\s+\w+\s*\(', re.DOTALL)
+    function_match = function_pattern.search(contract_code, contract_start_pos)
+    
+    if function_match:
+        contract_body = contract_code[contract_start_pos:function_match.start()]
+    else:
+        # 如果没有函数，取整个合约体
+        contract_body = contract_code[contract_start_pos:]
+    
+    # 3. 移除结构体和枚举定义
+    # 移除 struct 定义
+    contract_body = re.sub(r'struct\s+\w+\s*\{[^}]*\}', '', contract_body, flags=re.DOTALL)
+    # 移除 enum 定义
+    contract_body = re.sub(r'enum\s+\w+\s*\{[^}]*\}', '', contract_body, flags=re.DOTALL)
+    # 移除 modifier 定义
+    contract_body = re.sub(r'modifier\s+\w+[^{]*\{[^}]*\}', '', contract_body, flags=re.DOTALL)
+    
+    # 4. 过滤出状态变量声明
+    lines = contract_body.split('\n')
     state_var_lines = []
+    
     for line in lines:
         line = line.strip()
-        if line and not line.startswith('event') and not line.startswith('error') and ';' in line:
+        # 跳过空行、注释、pragma、import、using、event、error等
+        if (line and ';' in line and
+            not line.startswith('//') and 
+            not line.startswith('/*') and
+            not line.startswith('pragma') and
+            not line.startswith('import') and
+            not line.startswith('using') and
+            not line.startswith('event') and
+            not line.startswith('error') and
+            not line.startswith('modifier') and
+            not line.startswith('constructor') and
+            not line.startswith('require') and
+            not line.startswith('assert') and
+            not line.startswith('emit') and
+            not line.startswith('if') and
+            not line.startswith('for') and
+            not line.startswith('while') and
+            not line.startswith('return') and
+            not line.endswith('{') and
+            not line.endswith('}') and
+            not line.endswith(');') and
+            line != '_;'):  # 排除modifier中的占位符
             state_var_lines.append(line)
     
-    print("Filtered lines:")
+    print("Filtered state variable lines:")
     for line in state_var_lines:
         print(line)
     print("=" * 50)
     
-    # 3. 修改正则表达式，捕获完整的声明包括赋值部分
-    state_var_pattern = r'^\s*(mapping[^;]+|uint(?:\d*)|int(?:\d*)|bool|string|address|bytes(?:\d*)|[a-zA-Z_]\w*(?:\[\])?|[a-zA-Z_]\w*)\s+((?:public|private|internal|external|constant|immutable|\s+)*)\s*([a-zA-Z_]\w*)([^;]*);'
-
+    # 5. 使用更精确的正则表达式匹配状态变量
     result = []
+    
+    # 状态变量模式：类型 + 可见性/修饰符 + 变量名 + 可选初始值
+    patterns = [
+        # mapping类型 - 完整匹配
+        r'^\s*mapping\s*\([^)]+\)\s+(public|private|internal|external|constant|immutable)\s+(\w+)\s*(?:=\s*[^;]+)?;',
+        # 数组类型 - 完整匹配
+        r'^\s*(\w+)\[\]\s+(public|private|internal|external|constant|immutable)\s+(\w+)\s*(?:=\s*[^;]+)?;',
+        # 普通类型 - 有显式可见性修饰符
+        r'^\s*(\w+)\s+(public|private|internal|external|constant|immutable)\s+(\w+)\s*(?:=\s*[^;]+)?;',
+        # 私有变量 - 没有显式可见性修饰符，但必须有合理的类型和变量名
+        r'^\s*(uint\d*|int\d*|bool|string|address|bytes\d*|\w+)\s+([a-zA-Z_]\w*)\s*(?:=\s*[^;]+)?;'
+    ]
+    
     for line in state_var_lines:
-        matches = re.findall(state_var_pattern, line)
-        if matches:
-            for type_, modifiers, var, assignment in matches:
-                # 包含赋值部分（如果存在）
-                declaration = f"{type_.strip()} {' '.join(modifiers.split())} {var}{assignment};".replace('  ', ' ').strip()
-                result.append(declaration)
+        found = False
+        for pattern in patterns:
+            match = re.match(pattern, line)
+            if match:
+                result.append(line)
+                found = True
+                break
     
     return result
 

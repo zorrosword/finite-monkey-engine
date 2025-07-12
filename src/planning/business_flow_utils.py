@@ -149,3 +149,52 @@ class BusinessFlowUtils:
             }
 
         return contexts 
+
+    @staticmethod
+    def get_cross_contract_code(project_audit, function_name: str, function_lists: List[str]) -> str:
+        """
+        获取跨合约代码
+        
+        Args:
+            project_audit: 项目审计对象
+            function_name: 当前函数名
+            function_lists: 函数列表
+            
+        Returns:
+            str: 跨合约代码
+        """
+        if not project_audit or not hasattr(project_audit, 'functions_to_check'):
+            return ""
+        
+        cross_contract_code = []
+        current_function = None
+        
+        # 找到当前函数
+        for func in project_audit.functions_to_check:
+            if func['name'].split('.')[-1] == function_name:
+                current_function = func
+                break
+        
+        if not current_function:
+            return ""
+        
+        current_contract = current_function['contract_name']
+        
+        # 查找跨合约调用
+        for other_func in project_audit.functions_to_check:
+            if other_func['contract_name'] != current_contract:
+                other_func_name = other_func['name'].split('.')[-1]
+                
+                # 检查当前函数是否调用了其他合约的函数
+                if other_func_name in current_function['content']:
+                    cross_contract_code.append(f"// From contract {other_func['contract_name']}:")
+                    cross_contract_code.append(other_func['content'])
+                    cross_contract_code.append("")
+                
+                # 检查其他合约的函数是否调用了当前函数
+                if function_name in other_func['content']:
+                    cross_contract_code.append(f"// Caller from contract {other_func['contract_name']}:")
+                    cross_contract_code.append(other_func['content'])
+                    cross_contract_code.append("")
+        
+        return "\n".join(cross_contract_code) 

@@ -1,4 +1,4 @@
-from .utils.context_manager import ContextManager
+from context import ContextFactory
 from .processors import ContextUpdateProcessor, ConfirmationProcessor, AnalysisProcessor
 
 
@@ -8,18 +8,18 @@ class VulnerabilityChecker:
     重构后的精简版本，使用分层架构设计：
     - 入口层：VulnerabilityChecker（本类）
     - 处理器层：ContextUpdateProcessor, ConfirmationProcessor, AnalysisProcessor  
-    - 工具层：ContextManager, CheckUtils
+    - 工具层：ContextFactory（统一接口）
     """
     
     def __init__(self, project_audit, lancedb, lance_table_name):
         self.project_audit = project_audit
         
-        # 初始化上下文管理器
-        self.context_manager = ContextManager(project_audit, lancedb, lance_table_name)
+        # 初始化统一的上下文工厂
+        self.context_factory = ContextFactory(project_audit, lancedb, lance_table_name)
         
         # 初始化各种处理器
-        self.context_update_processor = ContextUpdateProcessor(self.context_manager)
-        self.analysis_processor = AnalysisProcessor(self.context_manager)
+        self.context_update_processor = ContextUpdateProcessor(self.context_factory.context_manager)
+        self.analysis_processor = AnalysisProcessor(self.context_factory.context_manager)
         self.confirmation_processor = ConfirmationProcessor(self.analysis_processor)
     
     def check_function_vul(self, task_manager):

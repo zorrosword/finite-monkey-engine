@@ -12,7 +12,7 @@ from prompt_factory.core_prompt import CorePrompt
 from prompt_factory.vul_prompt_common import VulPromptCommon
 from .business_flow_utils import BusinessFlowUtils
 from .config_utils import ConfigUtils
-from .business_flow_processor import BusinessFlowProcessor
+from context import ContextFactory
 
 
 class PlanningProcessor:
@@ -22,7 +22,7 @@ class PlanningProcessor:
         self.project = project
         self.taskmgr = taskmgr
         self.checklist_generator = checklist_generator
-        self.business_flow_processor = BusinessFlowProcessor(project)
+        self.context_factory = ContextFactory(project)
         # 为COMMON_PROJECT_FINE_GRAINED模式添加计数器
         self.fine_grained_counter = 0
     
@@ -76,14 +76,18 @@ class PlanningProcessor:
         
         # 只有在非文件级别扫描且开启业务流扫描时才获取业务流数据
         if config['switch_business_code']:
-            all_business_flow, all_business_flow_line, all_business_flow_context = self.business_flow_processor.get_all_business_flow(
-                self.project.functions_to_check
-            )
-            return {
-                'all_business_flow': all_business_flow,
-                'all_business_flow_line': all_business_flow_line,
-                'all_business_flow_context': all_business_flow_context
-            }
+            try:
+                all_business_flow, all_business_flow_line, all_business_flow_context = self.context_factory.get_business_flow_context(
+                    self.project.functions_to_check
+                )
+                return {
+                    'all_business_flow': all_business_flow,
+                    'all_business_flow_line': all_business_flow_line,
+                    'all_business_flow_context': all_business_flow_context
+                }
+            except Exception as e:
+                print(f"获取业务流时出错: {str(e)}")
+                return {}
         return {}
     
     def _process_all_functions(self, config: Dict, all_business_flow_data: Dict):
@@ -405,6 +409,18 @@ class PlanningProcessor:
                 print(f"[DEBUG🐞]📋Setting recommendation to checklist key: {checklist_key} (index: {self.fine_grained_counter % config['total_checklist_count']})")
             self.fine_grained_counter += 1
         
+        # 将business_flow_lines序列化为JSON字符串以便存储到数据库
+        business_flow_lines_str = ""
+        if business_flow_lines:
+            try:
+                if isinstance(business_flow_lines, (list, dict)):
+                    business_flow_lines_str = json.dumps(business_flow_lines, ensure_ascii=False)
+                else:
+                    business_flow_lines_str = str(business_flow_lines)
+            except Exception as e:
+                print(f"[WARNING] 序列化business_flow_lines时出错: {e}")
+                business_flow_lines_str = str(business_flow_lines)
+        
         task = Project_Task(
             project_id=self.project.project_id,
             name=function['name'],
@@ -429,7 +445,7 @@ class PlanningProcessor:
             recommendation=recommendation,
             title='',
             business_flow_code=business_flow_code,
-            business_flow_lines=business_flow_lines,
+            business_flow_lines=business_flow_lines_str,
             business_flow_context='',
             if_business_flow_scan=if_business_flow_scan
         )

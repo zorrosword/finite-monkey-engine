@@ -10,7 +10,8 @@
 
 from .checker import VulnerabilityChecker
 from .processors import ContextUpdateProcessor, ConfirmationProcessor, AnalysisProcessor
-from .utils import CheckUtils, ContextManager
+from .utils import CheckUtils
+from context import ContextFactory
 
 __all__ = [
     'VulnerabilityChecker',
@@ -18,5 +19,5 @@ __all__ = [
     'ConfirmationProcessor',
     'AnalysisProcessor',
     'CheckUtils',
-    'ContextManager'
+    'ContextFactory'
 ] 
