@@ -871,6 +871,149 @@ def find_fa_functions(text, filename, hash):
 
     return functions
 
+def find_c_cpp_functions(text, filename, hash):
+    # 匹配C/C++函数定义的正则表达式
+    # 格式: [存储类说明符] [函数说明符] 返回类型 函数名(参数列表) [异常规范] {
+    regex = r"""
+        # 可选的修饰符 (static, extern, inline, constexpr等)
+        (?:(?:static|extern|inline|constexpr|virtual|override|final)\s+)*
+        
+        # 返回类型 (可能包含指针、引用、模板、命名空间等)
+        (?:
+            (?:const\s+|volatile\s+|unsigned\s+|signed\s+|long\s+|short\s+)*  # 类型修饰符
+            (?:[\w_][\w_:]*\s*(?:<[^<>]*(?:<[^<>]*>)*[^<>]*>)?\s*)          # 基本类型名(可能有模板)
+            (?:\s*\*|\s*&|\s*&&)*\s*                                        # 指针/引用修饰符
+        )
+        
+        # 函数名
+        ([\w_][\w_]*)\s*
+        
+        # 参数列表
+        \([^)]*\)\s*
+        
+        # 可选的C++修饰符 (const, noexcept, throw等)
+        (?:const\s+|volatile\s+|noexcept\s*(?:\([^)]*\))?\s*|throw\s*\([^)]*\)\s*)*
+        
+        # 函数体开始
+        \{
+    """
+    
+    matches = re.finditer(regex, text, re.VERBOSE | re.MULTILINE)
+    
+    functions = []
+    lines = text.split('\n')
+    line_starts = {i: sum(len(line) + 1 for line in lines[:i]) for i in range(len(lines))}
+
+    # 先收集所有函数体，构建完整的函数代码
+    function_bodies = []
+    for match in matches:
+        match_text = match.group()
+        
+        # 跳过一些常见的误匹配情况
+        if any([
+            'if' in match_text and '(' in match_text,     # if语句
+            'for' in match_text and '(' in match_text,    # for循环
+            'while' in match_text and '(' in match_text,  # while循环
+            'switch' in match_text and '(' in match_text, # switch语句
+            'sizeof' in match_text,                        # sizeof操作符
+            'typedef' in match_text,                       # typedef声明
+            match_text.strip().startswith('return'),       # return语句
+            '::' in match_text and '->' in match_text,     # 成员访问
+        ]):
+            continue
+            
+        brace_count = 1
+        function_body_start = match.start()
+        inside_braces = True
+
+        for i in range(match.end(), len(text)):
+            if text[i] == '{':
+                brace_count += 1
+            elif text[i] == '}':
+                brace_count -= 1
+
+            if inside_braces and brace_count == 0:
+                function_body_end = i + 1
+                function_bodies.append(text[function_body_start:function_body_end])
+                break
+
+    # 完整的函数代码字符串
+    contract_code = "\n".join(function_bodies).strip()
+
+    # 再次遍历匹配，创建函数定义
+    for match in re.finditer(regex, text, re.VERBOSE | re.MULTILINE):
+        match_text = match.group()
+        
+        # 跳过误匹配情况
+        if any([
+            'if' in match_text and '(' in match_text,
+            'for' in match_text and '(' in match_text,
+            'while' in match_text and '(' in match_text,
+            'switch' in match_text and '(' in match_text,
+            'sizeof' in match_text,
+            'typedef' in match_text,
+            match_text.strip().startswith('return'),
+            '::' in match_text and '->' in match_text,
+        ]):
+            continue
+            
+        # 修复边界情况：如果匹配开始位置超过文件最后一行，使用最后一行
+        start_line_number = next((i for i, pos in line_starts.items() if pos > match.start()), len(lines)) - 1
+        
+        # 获取函数名
+        func_name = match.group(1)
+        
+        brace_count = 1
+        function_body_start = match.start()
+        inside_braces = True
+
+        for i in range(match.end(), len(text)):
+            if text[i] == '{':
+                brace_count += 1
+            elif text[i] == '}':
+                brace_count -= 1
+
+            if inside_braces and brace_count == 0:
+                function_body_end = i + 1
+                # 修复边界情况：如果函数体结束位置超过文件最后一行，使用最后一行
+                end_line_number = next((i for i, pos in line_starts.items() if pos > function_body_end), len(lines)) - 1
+                function_body = text[function_body_start:function_body_end]
+                function_body_lines = function_body.count('\n') + 1
+                break
+
+        # 提取修饰符
+        modifiers = []
+        modifier_list = ['static', 'extern', 'inline', 'constexpr', 'virtual', 'override', 'final']
+        for modifier in modifier_list:
+            if re.search(r'\b' + modifier + r'\b', match_text):
+                modifiers.append(modifier)
+
+        # 确定可见性 (C/C++中没有严格的可见性概念，主要看存储类)
+        visibility = 'public'  # 默认为public
+        if 'static' in modifiers:
+            visibility = 'private'  # static函数通常是内部链接
+        elif 'extern' in modifiers:
+            visibility = 'public'   # extern函数是外部链接
+
+        functions.append({
+            'type': 'FunctionDefinition',
+            'name': 'special_' + func_name,
+            'start_line': start_line_number + 1,
+            'end_line': end_line_number,
+            'offset_start': 0,
+            'offset_end': 0,
+            'content': function_body,
+            'contract_name': filename.replace('.c', '').replace('.cpp', '').replace('.cxx', '').replace('.cc', '').replace('.C', ''),
+            'contract_code': contract_code,
+            'modifiers': modifiers,
+            'stateMutability': None,
+            'returnParameters': None,
+            'visibility': visibility,
+            'node_count': function_body_lines
+        })
+
+    return functions
+
 def get_antlr_parsing(path):
     with open(path, 'r', encoding='utf-8', errors="ignore") as file:
         code = file.read()
@@ -903,6 +1046,9 @@ def get_antlr_parsing(path):
     if ".go" in str(path):
         go_functions = find_go_functions(code, filename,hash_value)
         return go_functions
+    if any(ext in str(path) for ext in [".c", ".cpp", ".cxx", ".cc", ".C"]):  # Add C/C++ file handling
+        c_cpp_functions = find_c_cpp_functions(code, filename,hash_value)
+        return c_cpp_functions
     else:
         input_stream = ANTLRInputStream(code)
         lexer = SolidityLexer(input_stream)

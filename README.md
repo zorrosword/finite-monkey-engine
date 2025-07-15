@@ -288,6 +288,7 @@ Check the `project_tasks_amazing_prompt` database table for scan results. Each r
 - Tact (.tact)
 - Func (.fc)
 - Java (.java)
+- C/C++ (.c, .cpp, .cxx, .cc, .C)
 - Pseudo-Solidity (.fr) - For scanning Solidity pseudocode
 
 ## 📊 Scan Results Guide

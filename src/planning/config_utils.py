@@ -70,7 +70,12 @@ class ConfigUtils:
             '.cairo': lambda f: f['visibility'] == 'public',
             '.tact': lambda f: f['visibility'] == 'public',
             '.func': lambda f: f['visibility'] == 'public',
-            '.go': lambda f: True
+            '.go': lambda f: True,
+            '.c': lambda f: True,  # Include both public and private functions for C
+            '.cpp': lambda f: True,  # Include both public and private functions for C++
+            '.cxx': lambda f: True,  # Include both public and private functions for C++
+            '.cc': lambda f: True,  # Include both public and private functions for C++
+            '.C': lambda f: True   # Include both public and private functions for C++
         }
 
         def get_file_extension(funcs):
