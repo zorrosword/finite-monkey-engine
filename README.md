@@ -1,367 +1,181 @@
-# FiniteMonkey
+# Finite Monkey Engine
 
-<p align="center">
-  <img src="image.jpeg" width="500">
-</p>
+**An AI-Powered Smart Contract Security Analysis Platform**
 
-<p align="center">
-  <img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg">
-  <img src="https://img.shields.io/badge/version-1.0-green.svg">
-  <img src="https://img.shields.io/badge/bounties-$60,000+-yellow.svg">
-</p>
+## 🎯 Overview
 
-FiniteMonkey is an intelligent vulnerability mining engine based on large language models, requiring no pre-trained knowledge base or fine-tuning. Its core feature is using task-driven and prompt engineering approaches to guide models in vulnerability analysis through carefully designed prompts.
+Finite Monkey Engine is an advanced smart contract security analysis platform that leverages AI and cutting-edge analysis techniques to provide comprehensive vulnerability detection and business flow analysis for blockchain projects.
 
-## 🌟 Core Concepts
+## 🚀 Key Features
 
-- **Task-driven rather than problem-driven**
-- **Prompt-driven rather than code-driven**
-- **Focus on prompt design rather than model design**
-- **Leverage "deception" and hallucination as key mechanisms**
+### 🧠 AI-Powered Analysis
+- **Claude-4 Sonnet Integration**: Utilizes advanced language models for intelligent code understanding
+- **Multi-modal Analysis**: Combines static analysis with AI-driven semantic understanding
+- **Context-Aware Detection**: Smart vulnerability detection with business logic understanding
 
-## 🔄 Business Flow Analysis Methodology
+### 📊 Business Flow Visualization
+- **Mermaid Diagram Generation**: Automatic generation of business flow diagrams
+- **Interactive Analysis**: Visual representation of contract interactions and dependencies
+- **Multi-level Granularity**: Project-level, folder-level, and function-level analysis
 
-FiniteMonkey introduces an innovative **Mermaid-based Business Flow Extraction** approach that revolutionizes how smart contracts are analyzed:
+### 🔍 Advanced Security Features
+- **Comprehensive Vulnerability Detection**: Detection of common and complex smart contract vulnerabilities
+- **Business Logic Analysis**: Understanding of DeFi protocols, governance mechanisms, and token economics
+- **Cross-Contract Analysis**: Multi-contract interaction analysis and dependency tracking
 
-### 📊 Core Features
+### 🛠 Modular Architecture
+- **Planning Module**: Intelligent task planning and business flow extraction
+- **Validation Module**: Comprehensive vulnerability checking and validation
+- **Context Module**: Advanced context management with RAG and call tree analysis
+- **Code Summarizer**: Smart code analysis with reinforcement learning capabilities
 
-#### 1. **Intelligent Mermaid Generation**
-- **AI-Powered Analysis**: Leverages Claude-4-Sonnet to generate comprehensive Mermaid diagrams from smart contract code
-- **Multi-Strategy Approach**: Automatically selects between incremental analysis (small projects) and folder-based analysis (large projects)
-- **Reinforcement Analysis**: Multiple rounds of analysis to ensure complete function coverage, especially getter/setter functions
+## 📁 Project Structure
 
-#### 2. **Business Flow Extraction**
-- **JSON-Based Parsing**: Extracts structured business flows from Mermaid sequence diagrams
-- **Semantic Understanding**: Identifies meaningful business processes beyond simple function calls
-- **Context-Aware Grouping**: Groups related functions into coherent business workflows
-
-#### 3. **Smart Context Expansion**
-- **Call Tree Integration**: Expands business flows using function call relationships
-- **RAG Enhancement**: Leverages Retrieval-Augmented Generation for deeper context understanding
-- **Duplicate Prevention**: Intelligent filtering to avoid redundant function analysis
-
-#### 4. **Advanced Task Creation**
-- **Business Flow Level**: Creates tasks at business flow granularity instead of individual functions
-- **Coverage Analysis**: Tracks which functions are covered by business flows vs. requiring individual analysis
-- **Hybrid Approach**: Combines business flow tasks with function-level tasks for comprehensive coverage
-
-### 🎯 Analysis Modes
-
-#### **Pure Mermaid Mode** (`SWITCH_BUSINESS_CODE=True`)
-- Generates Mermaid diagrams for complete project visualization
-- Extracts business flows from Mermaid files stored in `src/codebaseQA/mermaid_output/`
-- Creates business flow-based analysis tasks
-- Provides detailed coverage reporting
-- No fallback to function-level analysis for uncovered code
-
-#### **File-Level Mode** (`SWITCH_FILE_CODE=True`)
-- Analyzes entire files instead of individual functions or business flows
-- Suitable for high-level architectural analysis
-- Processes complete file contents for comprehensive understanding
-
-### 📈 Benefits
-
-- **Higher Efficiency**: Reduces redundant analysis by grouping related functions
-- **Better Context**: Business flows provide richer context than isolated functions
-- **Comprehensive Coverage**: Ensures all functions are analyzed either through business flows or individually
-- **Visual Understanding**: Mermaid diagrams provide clear visualization of contract interactions
-- **Scalable Analysis**: Handles both small contracts and large multi-contract projects
-
-### 🔧 Implementation
-
-The methodology is implemented across multiple modules:
-- **Code Summarizer**: Generates enhanced Mermaid diagrams with reinforcement analysis
-- **Planning Module**: Extracts business flows and creates optimized analysis tasks
-- **Context Manager**: Provides intelligent context expansion using call trees and RAG
-
-## 🏆 Achievements
-
-As of May 2024, this tool has helped discover over $60,000 worth of bug bounties.
-
-## 📋 Prerequisites
-
-### Python Environment
-- Python 3.11 (recommended, as Python 3.12 has package compatibility issues)
-- Use conda for environment management:
-```bash
-conda create -n py311 python=3.11
-conda activate py311
+```
+finite-monkey-engine/
+├── src/
+│   ├── planning/           # Task planning and business flow analysis
+│   ├── validating/         # Vulnerability detection and validation
+│   ├── context/            # Context management and RAG processing
+│   ├── code_summarizer/    # AI-powered code analysis and summarization
+│   ├── reasoning/          # Analysis reasoning and dialogue management
+│   ├── dao/                # Data access objects and entity management
+│   ├── library/            # Parsing libraries and utilities
+│   ├── openai_api/        # AI API integrations
+│   └── prompt_factory/     # Prompt engineering and management
+├── knowledges/             # Domain knowledge base
+├── scripts/                # Utility scripts
+└── docs/                   # Documentation
 ```
 
-### PostgreSQL Database
-1. Install PostgreSQL:
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.9+
+- Node.js 16+ (for certain analysis features)
+- OpenAI API key or compatible AI service
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-org/finite-monkey-engine.git
+   cd finite-monkey-engine
+   ```
+
+2. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Configure environment**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your API keys and configuration
+   ```
+
+4. **Run the analysis**
+   ```bash
+   python src/main.py
+   ```
+
+## 🔧 Configuration
+
+### Analysis Modes
+
+The platform supports multiple analysis modes:
+
+- **Business Flow Mode** (`SWITCH_BUSINESS_CODE=True`): Focus on business logic analysis
+- **File-Level Mode** (`SWITCH_FILE_CODE=True`): Comprehensive file-by-file analysis
+- **Fine-Grained Mode** (`SCAN_MODE=COMMON_PROJECT_FINE_GRAINED`): Detailed vulnerability scanning
+
+### Environment Variables
+
 ```bash
-# Install and start PostgreSQL (macOS)
-brew install postgresql
-brew services start postgresql
-initdb /usr/local/var/postgres -E utf8
-
-# Connect to database
-psql postgres
-
-# Check databases
-\l
-
-# Set password for database user
-\password [your_username]
-
-# Exit connection
-exit
-```
-
-2. Install pgAdmin from [https://www.pgadmin.org/download/](https://www.pgadmin.org/download/) for database management
-   - Host: 127.0.0.1
-   - Port: 5432
-   - Username: your database owner username
-   - Password: as set above
-
-### AI API Configuration
-Purchase AI API access from [https://platform.closeai-asia.com/account/billing](https://platform.closeai-asia.com/account/billing)
-Get your API key from Developer Mode -> Key Management
-
-## 🛠️ Installation & Setup
-
-### 1. Get the Code
-```bash
-git clone https://github.com/BradMoonUESTC/finite-monkey-engine.git
-cd finite-monkey-engine
-pip install -r requirements.txt
-```
-
-### 2. Database Setup
-Execute the SQL file `src/db.sql` in pgAdmin to create the required tables. If you encounter ownership errors, modify `OWNER TO "postgres"` to use your actual database username.
-
-### 3. Sample Data (Optional)
-Download the `concise_project_code` directory from [Google Drive](https://drive.google.com/drive/folders/1M3Fn3FOBX2EFAvBkXG4GVOT0ZlCmJgjQ) and place the files in `finite-monkey-engine/src/dataset/agent-v1-c4/`
-
-### 4. Environment Configuration
-Create `src/.env` file with the following configuration:
-
-```env
-# =============================================================================
-# 数据库配置 / Database Configuration
-# =============================================================================
-
-# 数据库连接URL，使用PostgreSQL数据库
-# Database connection URL using PostgreSQL
-DATABASE_URL=postgresql://postgres:your_password@127.0.0.1:5432/your_database
-
-# =============================================================================
-# LLM API配置 / LLM API Configuration
-# =============================================================================
-
-# 所有LLM的基础URL（LLM中转平台），用于API请求
-# Base URL for all LLM requests (LLM proxy platform)
-OPENAI_API_BASE="api.openai-proxy.org"
-
-# LLM中转平台的API密钥
-# API key for LLM proxy platform
-OPENAI_API_KEY="sk-your_openai_api_key_here"
-
-# =============================================================================
-# 嵌入模型配置 / Embedding Model Configuration
-# =============================================================================
-
-# 用于文本嵌入的模型名称
-# Model name used for text embeddings
-EMBEDDING_MODEL="text-embedding-3-large"
-EMBEDDING_API_BASE="api.openai-proxy.org"
-EMBEDDING_API_KEY="sk-your_embedding_api_key_here"
-
-# =============================================================================
-# JSON模型配置 / JSON Model Configuration
-# =============================================================================
-
-JSON_MODEL_API_BASE="api.openai-proxy.org"
-JSON_MODEL_API_KEY="sk-your_json_model_api_key_here"
-JSON_MODEL_ID="gpt-4o-mini"
-
-# =============================================================================
-# 模型选择配置 / Model Selection Configuration
-# =============================================================================
-
-# 确认模型的选择
-# Confirmation model selection
-# 可选值: OPENAI / AZURE / CLAUDE / DEEPSEEK
-CONFIRMATION_MODEL="OPENAI"
-
-# OpenAI模型的选择
-# OpenAI model selection
-OPENAI_MODEL="gpt-4o-mini"
-
-# Claude模型的选择
-# Claude model selection
-CLAUDE_MODEL="claude-3-5-sonnet-20241022"
-
-# 漏洞扫描模型
-# Vulnerability scanning model
-VUL_MODEL="gpt-4o-mini"
-
-# =============================================================================
-# 扫描模式配置 / Scan Mode Configuration
-# =============================================================================
-
-# 扫描模式设置
-# Scan mode setting
-# 可选值: SPECIFIC_PROJECT / OPTIMIZE / COMMON_PROJECT / PURE_SCAN 
-# / CHECKLIST / CHECKLIST_PIPELINE / COMMON_PROJECT_FINE_GRAINED
-SCAN_MODE="PURE_SCAN"
-
-# API服务提供商选择
-# API service provider selection
-# 可选值: OPENAI / AZURE / CLAUDE / DEEPSEEK
-AZURE_OR_OPENAI="OPENAI"
-
-# =============================================================================
-# 性能配置 / Performance Configuration
-# =============================================================================
-
-# 确认阶段的最大线程数
-# Maximum number of threads for confirmation phase
-MAX_THREADS_OF_CONFIRMATION=10
-
-# 扫描阶段的最大线程数
-# Maximum number of threads for scanning phase
-MAX_THREADS_OF_SCAN=5
-
-# 业务流程重复数量
-# Business flow repeat count
-BUSINESS_FLOW_COUNT=5
-
-# 最大确认轮数
-# Maximum number of confirmation rounds
-MAX_CONFIRMATION_ROUNDS=2
-
-# 每轮询问次数
-# Number of requests per round
-REQUESTS_PER_CONFIRMATION_ROUND=3
-
-# =============================================================================
-# 功能开关配置 / Feature Switch Configuration
-# =============================================================================
-
-# 是否启用函数代码扫描
-# Whether to enable function code scanning
-SWITCH_FUNCTION_CODE=False
-
-# 是否启用业务代码扫描
-# Whether to enable business code scanning
+# Analysis Configuration
 SWITCH_BUSINESS_CODE=True
-
-# 是否启用文件代码扫描
-# Whether to enable file code scanning
 SWITCH_FILE_CODE=False
+SCAN_MODE=COMMON_PROJECT_FINE_GRAINED
 
-# 是否启用网络搜索
-# Whether to enable internet search
-ENABLE_INTERNET_SEARCH=False
+# AI Configuration
+OPENAI_API_KEY=your_api_key_here
+OPENAI_BASE_URL=https://api.openai.com/v1
 
-# 是否启用对话模式
-# Whether to enable dialogue mode
-ENABLE_DIALOGUE_MODE=False
-
-# 是否启用跨合约扫描
-# Whether to enable cross-contract scanning
-CROSS_CONTRACT_SCAN=True
-
-# =============================================================================
-# 迭代配置 / Iteration Configuration
-# =============================================================================
-
-# 项目清单生成迭代轮数
-# Number of iterations for project types generation
-PROJECT_TYPE_ITERATION_ROUNDS=3
-
-# 检查清单生成迭代轮数
-# Number of iterations for checklist generation
-CHECKLIST_ITERATION_ROUNDS=3
-
-# 规划阶段的长度阈值
-# Length threshold for planning phase
-THRESHOLD_OF_PLANNING=150
+# Output Configuration
+OUTPUT_DIR=./output
+MERMAID_OUTPUT_DIR=src/codebaseQA/mermaid_output
 ```
 
-### 5. Project Configuration
-Edit `src/dataset/agent-v1-c4/datasets.json` to configure your projects:
+## 🎯 Use Cases
 
-```json
-{
-    "YourProjectName": {
-        "path": "relative_path_to_your_project",
-        "files": [],
-        "functions": [],
-        "exclude_in_planning": "true",
-        "exclude_directory": ["access", "errors", "events", "lib", "storage"]
-    }
-}
-```
+### DeFi Protocol Analysis
+- **Liquidity Pool Security**: Analysis of AMM and lending protocols
+- **Governance Mechanism Review**: DAO governance and voting system analysis
+- **Token Economics Validation**: Tokenomics and distribution mechanism review
 
-**Planning Optimization Notes:**
-- `THRESHOLD_OF_PLANNING`: Functions shorter than this value will be treated as context rather than main scanning targets
-- `exclude_in_planning` and `exclude_directory`: Contracts in specified directories will be treated as context only
+### NFT Project Security
+- **Minting Logic Analysis**: NFT minting mechanism and access control review
+- **Marketplace Integration**: Secondary market integration security analysis
+- **Royalty Mechanism Review**: Creator royalty and fee distribution analysis
 
-## 🚀 Usage
+### Cross-Chain Protocol Analysis
+- **Bridge Security Assessment**: Cross-chain bridge mechanism analysis
+- **Multi-Chain Deployment**: Consistent security across different chains
+- **Interoperability Review**: Protocol interaction and dependency analysis
 
-### Running with Sample Data
-1. Choose a project name from `src/dataset/agent-v1-c4/datasets.json`
-2. Edit `src/main.py` line 146 to set the `project_id`:
-```python
-if __name__ == '__main__':
-    switch_production_or_test = 'test'  # prod / test
-    if switch_production_or_test == 'test':
-        start_time = time.time()
-        db_url_from = os.environ.get("DATABASE_URL")
-        engine = create_engine(db_url_from)
-        
-        dataset_base = "./src/dataset/agent-v1-c4"
-        projects = load_dataset(dataset_base)
-        project_id = 'YourProjectName'  # Set your project name here
-        project_path = ''
-        project = Project(project_id, projects[project_id])
-```
-3. Run the scanner:
+## 📊 Analysis Reports
+
+The platform generates comprehensive analysis reports including:
+
+- **Security Vulnerability Report**: Detailed vulnerability findings with severity ratings
+- **Business Flow Diagrams**: Visual representation of contract interactions
+- **Gas Optimization Suggestions**: Performance improvement recommendations
+- **Best Practice Compliance**: Adherence to security standards and guidelines
+
+## 🧪 Testing
+
+Run the test suite:
+
 ```bash
-python src/main.py
+# Unit tests
+python -m pytest tests/
+
+# Integration tests
+python -m pytest tests/integration/
+
+# Coverage report
+python -m pytest --cov=src tests/
 ```
-
-### Running with New Projects
-1. Place your code in `finite-monkey-engine/src/dataset/agent-v1-c4/` (recommended to include only files that need auditing)
-2. Add project configuration to `src/dataset/agent-v1-c4/datasets.json`
-3. Update `project_id` in `src/main.py`
-4. Execute `python src/main.py`
-
-### Analyzing Results
-Check the `project_tasks_amazing_prompt` database table for scan results. Each record requires manual analysis to determine if it represents a valid vulnerability.
-
-## 🌈 Supported Languages
-
-- Solidity (.sol)
-- Rust (.rs)
-- Python (.py)
-- Move (.move)
-- Cairo (.cairo)
-- Tact (.tact)
-- Func (.fc)
-- Java (.java)
-- Pseudo-Solidity (.fr) - For scanning Solidity pseudocode
-
-## 📊 Scan Results Guide
-
-1. If interrupted due to network/API issues, resume scanning using the same project_id in main.py
-2. Results include detailed annotations:
-   - Focus on entries marked "yes" in result column
-   - Filter "dont need In-project other contract" in category column
-   - Check specific code in business_flow_code column
-   - Find code location in name column
-
-## 📝 License
-
-Apache License 2.0
 
 ## 🤝 Contributing
 
-Pull Requests welcome!
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **ANTLR4**: For Solidity parsing capabilities
+- **Claude AI**: For advanced code understanding
+- **Mermaid**: For business flow visualization
+- **OpenAI**: For AI-powered analysis capabilities
+
+## 📞 Support
+
+- **Documentation**: [https://finite-monkey-engine.readthedocs.io](https://finite-monkey-engine.readthedocs.io)
+- **Issues**: [GitHub Issues](https://github.com/your-org/finite-monkey-engine/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/your-org/finite-monkey-engine/discussions)
+- **Email**: support@finite-monkey-engine.com
 
 ---
 
-*Note: Project name inspired by [Large Language Monkeys paper](https://arxiv.org/abs/2407.21787v1)*
+**🎉 Finite Monkey Engine - Making Smart Contract Security Analysis Intelligent and Accessible!** 

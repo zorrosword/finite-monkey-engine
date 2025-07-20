@@ -1,124 +1,124 @@
-# 智能代码总结器完整文档
+# Smart Code Summarizer Complete Documentation
 
-## 📋 目录
+## 📋 Table of Contents
 
-- [智能代码总结器 v3.1](#智能代码总结器-v31)
-- [与Planning模块集成功能](#与planning模块集成功能)
-- [更新日志](#更新日志)
+- [Smart Code Summarizer v3.1](#smart-code-summarizer-v31)
+- [Integration with Planning Module](#integration-with-planning-module)
+- [Changelog](#changelog)
 
 ---
 
-# 智能代码总结器 v3.1
+# Smart Code Summarizer v3.1
 
-基于Claude的增量式业务流程分析和Mermaid图生成系统 - **新增强化分析和文件夹级别分析**
+Claude-based incremental business flow analysis and Mermaid diagram generation system - **Enhanced with reinforcement analysis and folder-level analysis**
 
-## 🎯 设计理念
+## 🎯 Design Philosophy
 
-相比传统的复杂AST分析，智能代码总结器采用更高效的AI分析方案：
+Compared to traditional complex AST analysis, the Smart Code Summarizer adopts a more efficient AI analysis approach:
 
-- **🧠 Claude智能理解**：直接使用Claude-4-Sonnet的强大代码理解能力
-- **🔄 强化分析**：多轮分析提升Mermaid图质量和细节程度  
-- **📊 智能策略选择**：自动选择增量或文件夹级别分析
-- **📁 文件夹级别分析**：支持大型多文件夹项目的层次化分析
-- **🎨 多层次图表**：项目级、文件夹级、组件级多种粒度的可视化
-- **🛡️ 防御性逻辑**：通过prompt强化确保不丢失重要信息
+- **🧠 Claude Intelligence**: Directly utilizes Claude-4-Sonnet's powerful code understanding capabilities
+- **🔄 Reinforcement Analysis**: Multi-round analysis to improve Mermaid diagram quality and detail level
+- **📊 Smart Strategy Selection**: Automatically selects incremental or folder-level analysis
+- **📁 Folder-Level Analysis**: Supports hierarchical analysis of large multi-folder projects
+- **🎨 Multi-Level Diagrams**: Visualization at project-level, folder-level, and component-level granularities
+- **🛡️ Defensive Logic**: Ensures no loss of important information through prompt enhancement
 
-## 🚀 新功能亮点
+## 🚀 Key Feature Highlights
 
-### 1. 🔄 强化分析 (Reinforcement Analysis)
-- **多轮优化**：对重要文件进行多轮分析，逐步完善Mermaid图
-- **细节增强**：补充具体的函数参数、返回值和交互细节
-- **防御性逻辑**：确保每轮分析都保留之前的所有信息，只增加不删除
+### 1. 🔄 Reinforcement Analysis
+- **Multi-Round Optimization**: Multiple analysis rounds for important files to progressively improve Mermaid diagrams
+- **Detail Enhancement**: Supplement specific function parameters, return values, and interaction details
+- **Defensive Logic**: Ensure each analysis round preserves all previous information, only adding without deletion
 
-### 2. 📁 文件夹级别分析 (Folder-Based Analysis)  
-- **智能分组**：自动按文件夹结构分组文件
-- **层次化结果**：生成文件夹级别和项目级别的双重视图
-- **大项目友好**：支持30+文件的复杂项目结构
+### 2. 📁 Folder-Level Analysis
+- **Smart Grouping**: Automatically groups files by folder structure
+- **Hierarchical Results**: Generate both folder-level and project-level dual views
+- **Large Project Friendly**: Supports complex project structures with 30+ files
 
-### 3. 🤖 智能策略选择 (Smart Strategy Selection)
-- **自动检测**：根据项目规模和复杂度自动选择分析策略
-- **小项目**：增量分析 + 强化分析
-- **大项目**：文件夹级别分析 + 全局概览
+### 3. 🤖 Smart Strategy Selection
+- **Auto-Detection**: Automatically selects analysis strategy based on project scale and complexity
+- **Small Projects**: Incremental analysis + reinforcement analysis
+- **Large Projects**: Folder-level analysis + global overview
 
-## 🏗️ 系统架构
+## 🏗️ System Architecture
 
 ```mermaid
 flowchart TD
-    A[Smart Analyzer] --> B{项目规模检测}
-    B -->|小型项目<30文件| C[增量分析策略]
-    B -->|大型项目≥30文件| D[文件夹级别策略]
+    A[Smart Analyzer] --> B{Project Scale Detection}
+    B -->|Small Project<30 files| C[Incremental Analysis Strategy]
+    B -->|Large Project≥30 files| D[Folder-Level Strategy]
     
-    C --> E[逐步增量分析]
-    C --> F[强化分析]
-    F --> G[最终优化的Mermaid图]
+    C --> E[Progressive Incremental Analysis]
+    C --> F[Reinforcement Analysis]
+    F --> G[Final Optimized Mermaid Diagram]
     
-    D --> H[文件夹分组]
-    D --> I[并行分析各文件夹]
-    I --> J[生成文件夹级Mermaid图]
-    I --> K[生成全局概览图]
+    D --> H[Folder Grouping]
+    D --> I[Parallel Analysis of Folders]
+    I --> J[Generate Folder-Level Mermaid Diagrams]
+    I --> K[Generate Global Overview Diagram]
     
-    subgraph "强化分析流程"
-        F --> F1[选择低置信度文件]
-        F1 --> F2[多轮细节分析]
-        F2 --> F3[保留原有内容]
-        F3 --> F4[增加具体参数]
+    subgraph "Reinforcement Analysis Process"
+        F --> F1[Select Low-Confidence Files]
+        F1 --> F2[Multi-Round Detail Analysis]
+        F2 --> F3[Preserve Original Content]
+        F3 --> F4[Add Specific Parameters]
     end
 ```
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
 src/code_summarizer/
-├── __init__.py                 # 包初始化和新API导出
-├── business_flow_analyzer.py   # 核心分析器（新增强化和文件夹功能）
-├── token_calculator.py         # Token使用量计算
-└── README.md                   # 本文档
+├── __init__.py                 # Package initialization and new API exports
+├── business_flow_analyzer.py   # Core analyzer (enhanced with reinforcement and folder features)
+├── token_calculator.py         # Token usage calculation
+└── README.md                   # This documentation
 ```
 
-## 🔧 核心API
+## 🔧 Core APIs
 
-### 1. 智能分析API（推荐）
+### 1. Smart Analysis API (Recommended)
 
 ```python
 from code_summarizer import smart_business_flow_analysis
 
-# 智能分析 - 自动选择最佳策略
+# Smart analysis - automatically selects best strategy
 result = smart_business_flow_analysis(
     project_path="./your_project",
     project_name="MyProject",
-    enable_reinforcement=True  # 启用强化分析
+    enable_reinforcement=True  # Enable reinforcement analysis
 )
 
-# 查看分析结果
-print(f"分析策略: {result.analysis_strategy}")  # "incremental" 或 "folder_based"
+# View analysis results
+print(f"Analysis strategy: {result.analysis_strategy}")  # "incremental" or "folder_based"
 
 if result.analysis_strategy == "folder_based":
-    # 大项目的文件夹级别结果
-    print(f"全局架构图:\n{result.global_mermaid_graph}")
+    # Large project folder-level results
+    print(f"Global architecture diagram:\n{result.global_mermaid_graph}")
     
     for folder_path, folder_result in result.folder_analyses.items():
-        print(f"\n=== 文件夹: {folder_path} ===")
-        print(f"文件数: {folder_result.files_count}")
-        print(f"置信度: {folder_result.confidence_score:.2f}")
-        print(f"Mermaid图:\n{folder_result.folder_mermaid_graph}")
+        print(f"\n=== Folder: {folder_path} ===")
+        print(f"File count: {folder_result.files_count}")
+        print(f"Confidence: {folder_result.confidence_score:.2f}")
+        print(f"Mermaid diagram:\n{folder_result.folder_mermaid_graph}")
 else:
-    # 小项目的增量分析结果
-    print(f"完整流程图:\n{result.final_mermaid_graph}")
+    # Small project incremental analysis results
+    print(f"Complete flow diagram:\n{result.final_mermaid_graph}")
     
-    # 查看强化分析步骤
+    # View reinforcement analysis steps
     reinforcement_steps = [s for s in result.analysis_steps if s.is_reinforcement]
-    print(f"强化分析步骤数: {len(reinforcement_steps)}")
+    print(f"Reinforcement analysis steps: {len(reinforcement_steps)}")
 ```
 
-### 2. 从内容分析
+### 2. Content-Based Analysis
 
 ```python
 from code_summarizer import smart_business_flow_analysis_from_content
 
 files_content = {
-    "contracts/Token.sol": "// Solidity代码...",
-    "scripts/deploy.js": "// JavaScript代码...",
-    "tests/test.py": "# Python测试代码..."
+    "contracts/Token.sol": "// Solidity code...",
+    "scripts/deploy.js": "// JavaScript code...",
+    "tests/test.py": "# Python test code..."
 }
 
 result = smart_business_flow_analysis_from_content(
@@ -128,54 +128,54 @@ result = smart_business_flow_analysis_from_content(
 )
 ```
 
-### 3. 专门的强化分析
+### 3. Dedicated Reinforcement Analysis
 
 ```python
 from code_summarizer import reinforced_business_flow_analysis
 
-# 专门启用强化分析（适合关键项目）
+# Dedicated reinforcement analysis (suitable for critical projects)
 result = reinforced_business_flow_analysis("./critical_project", "CriticalProject")
 ```
 
-## 🛡️ 防御性逻辑设计
+## 🛡️ Defensive Logic Design
 
-### 强化分析的防御机制
+### Reinforcement Analysis Defense Mechanisms
 
-1. **内容保护**：每轮强化都明确要求保留所有现有Mermaid内容
-2. **增量原则**：只能新增交互，绝不删除或修改原有部分
-3. **细节增强**：专注添加具体的函数参数和返回值信息
-4. **质量检查**：每轮分析都包含置信度评估
+1. **Content Protection**: Each reinforcement round explicitly requires preserving all existing Mermaid content
+2. **Incremental Principle**: Only add new interactions, never delete or modify existing parts
+3. **Detail Enhancement**: Focus on adding specific function parameters and return value information
+4. **Quality Check**: Each analysis round includes confidence assessment
 
-### 强化分析Prompt示例
+### Reinforcement Analysis Prompt Example
 
 ```
-**强化任务 - 提升图表质量:**
-1. **保留所有现有内容** - 绝对不能删除任何participant或交互
-2. **深度分析文件** - 识别其中所有重要的函数、事件、修饰符
-3. **增加具体细节** - 为每个函数调用添加具体参数和返回值信息
-4. **补充遗漏的交互** - 添加可能被遗漏的重要业务逻辑
+**Reinforcement Task - Improve Diagram Quality:**
+1. **Preserve All Existing Content** - Absolutely must not delete any participants or interactions
+2. **Deep File Analysis** - Identify all important functions, events, and modifiers
+3. **Add Specific Details** - Add specific parameter and return value information for each function call
+4. **Supplement Missing Interactions** - Add potentially missed important business logic
 
-**强化重点:**
-- 函数调用要包含具体参数: `User->>Contract: transfer(to, amount)`
-- 事件触发要明确: `Contract->>System: emit Transfer(from, to, amount)`
-- 状态变更要清楚: `Contract->>Storage: updateBalance(user, newBalance)`
+**Reinforcement Focus:**
+- Function calls should include specific parameters: `User->>Contract: transfer(to, amount)`
+- Event triggers should be clear: `Contract->>System: emit Transfer(from, to, amount)`
+- State changes should be explicit: `Contract->>Storage: updateBalance(user, newBalance)`
 ```
 
-## 📊 分析策略选择逻辑
+## 📊 Analysis Strategy Selection Logic
 
 ```python
-# 智能策略选择
+# Smart strategy selection
 def choose_analysis_strategy(files_content):
     file_count = len(files_content)
     folder_count = count_unique_folders(files_content)
     
     if file_count <= 30 and folder_count < 3:
-        return "incremental"  # 小型项目，使用增量分析
+        return "incremental"  # Small project, use incremental analysis
     else:
-        return "folder_based"  # 大型项目，使用文件夹级别分析
+        return "folder_based"  # Large project, use folder-level analysis
 ```
 
-## 🔄 强化分析流程
+## 🔄 Reinforcement Analysis Process
 
 ```mermaid
 sequenceDiagram
@@ -185,26 +185,26 @@ sequenceDiagram
     participant RA as Reinforcement Analyzer
     
     UA->>SA: analyze_business_flow_smart()
-    SA->>IA: 执行基础增量分析
-    IA->>SA: 返回初始Mermaid图
+    SA->>IA: Execute basic incremental analysis
+    IA->>SA: Return initial Mermaid diagram
     
-    alt 启用强化分析
-        SA->>RA: 启动强化分析
-        RA->>RA: 选择低置信度文件
-        loop 强化分析轮次
-            RA->>RA: 深度分析单个文件
-            RA->>RA: 保留原有内容 + 增加细节
-            RA->>RA: 更新累积Mermaid图
+    alt Enable reinforcement analysis
+        SA->>RA: Start reinforcement analysis
+        RA->>RA: Select low-confidence files
+        loop Reinforcement analysis rounds
+            RA->>RA: Deep analysis of single file
+            RA->>RA: Preserve original content + add details
+            RA->>RA: Update cumulative Mermaid diagram
         end
-        RA->>SA: 返回强化后的Mermaid图
+        RA->>SA: Return reinforced Mermaid diagram
     end
     
-    SA->>UA: 返回最终结果
+    SA->>UA: Return final result
 ```
 
-## 🎨 多层次输出示例
+## 🎨 Multi-Level Output Examples
 
-### 小项目输出（增量 + 强化）
+### Small Project Output (Incremental + Reinforcement)
 ```python
 result.analysis_strategy = "incremental"
 result.final_mermaid_graph = """
@@ -222,15 +222,15 @@ sequenceDiagram
     Utils->>Main: return processed_data
 """
 
-# 强化分析步骤
+# Reinforcement analysis steps
 reinforcement_steps = [step for step in result.analysis_steps if step.is_reinforcement]
 ```
 
-### 大项目输出（文件夹级别）
+### Large Project Output (Folder-Level)
 ```python
 result.analysis_strategy = "folder_based"
 
-# 全局概览图
+# Global overview diagram
 result.global_mermaid_graph = """
 flowchart TD
     A[MyProject] --> B[contracts/]
@@ -241,187 +241,187 @@ flowchart TD
     D --> G[Test Suite]
 """
 
-# 各文件夹的详细图
+# Detailed diagrams for each folder
 result.folder_analyses = {
     "contracts": FolderAnalysisResult(
-        folder_mermaid_graph="详细的合约交互序列图...",
+        folder_mermaid_graph="Detailed contract interaction sequence diagram...",
         files_count=8,
         confidence_score=0.87
     ),
     "scripts": FolderAnalysisResult(
-        folder_mermaid_graph="部署脚本流程图...",
+        folder_mermaid_graph="Deployment script flow diagram...",
         files_count=5,
         confidence_score=0.91
     )
 }
 ```
 
-## ⚙️ 配置与优化
+## ⚙️ Configuration and Optimization
 
-### 分析器配置
+### Analyzer Configuration
 ```python
 analyzer = BusinessFlowAnalyzer()
-analyzer.LARGE_PROJECT_THRESHOLD = 25  # 调整大项目阈值
-analyzer.MAX_FILES_PER_FOLDER = 12     # 调整文件夹分析限制
+analyzer.LARGE_PROJECT_THRESHOLD = 25  # Adjust large project threshold
+analyzer.MAX_FILES_PER_FOLDER = 12     # Adjust folder analysis limit
 ```
 
-### 性能调优建议
+### Performance Tuning Recommendations
 
-| 项目类型 | 推荐配置 | 预期效果 |
-|---------|---------|---------|
-| 小型项目 (<30文件) | `enable_reinforcement=True` | 高质量详细图表 |
-| 中型项目 (30-100文件) | 文件夹级别 + 部分强化 | 平衡质量和效率 |
-| 大型项目 (>100文件) | 文件夹级别 + 概览优化 | 结构清晰，重点突出 |
+| Project Type | Recommended Configuration | Expected Effect |
+|-------------|---------------------------|-----------------|
+| Small projects (<30 files) | `enable_reinforcement=True` | High-quality detailed diagrams |
+| Medium projects (30-100 files) | Folder-level + partial reinforcement | Balance quality and efficiency |
+| Large projects (>100 files) | Folder-level + overview optimization | Clear structure, highlighted focus |
 
-## 🧪 测试验证
+## 🧪 Testing and Validation
 
-运行完整测试：
+Run complete tests:
 ```bash
 cd src
 python test_smart_analyzer.py
 ```
 
-测试覆盖：
-- ✅ 智能策略选择测试
-- ✅ 强化分析功能测试  
-- ✅ 文件夹级别分析测试
-- ✅ API兼容性测试
+Test coverage:
+- ✅ Smart strategy selection testing
+- ✅ Reinforcement analysis functionality testing
+- ✅ Folder-level analysis testing
+- ✅ API compatibility testing
 
-## 🔄 与原版本对比
+## 🔄 Comparison with Previous Versions
 
-| 特性 | v3.0 (原版) | v3.1 (新版) |
-|------|------------|------------|
-| **分析策略** | 单一增量分析 | 智能策略选择 |
-| **质量保证** | 单轮分析 | 多轮强化分析 |
-| **项目规模** | 中小型友好 | 大型项目优化 |
-| **结果层次** | 单一视图 | 多层次视图 |
-| **防御机制** | 基础防护 | 强化防御逻辑 |
+| Feature | v3.0 (Original) | v3.1 (New) |
+|---------|----------------|------------|
+| **Analysis Strategy** | Single incremental analysis | Smart strategy selection |
+| **Quality Assurance** | Single-round analysis | Multi-round reinforcement analysis |
+| **Project Scale** | Small-medium friendly | Large project optimized |
+| **Result Hierarchy** | Single view | Multi-level view |
+| **Defense Mechanism** | Basic protection | Enhanced defensive logic |
 
-## 🎯 最佳实践
+## 🎯 Best Practices
 
-### 1. 项目类型选择
+### 1. Project Type Selection
 ```python
-# 智能合约项目
+# Smart contract projects
 result = smart_business_flow_analysis(
     "./defi-protocol",
-    enable_reinforcement=True,  # 关键业务逻辑需要高精度
+    enable_reinforcement=True,  # Critical business logic needs high precision
     file_extensions=['.sol', '.js']
 )
 
-# Python Web项目  
+# Python Web projects  
 result = smart_business_flow_analysis(
     "./web-app",
-    enable_reinforcement=False,  # 快速概览即可
+    enable_reinforcement=False,  # Quick overview is sufficient
     file_extensions=['.py']
 )
 ```
 
-### 2. 结果解读策略
+### 2. Result Interpretation Strategy
 ```python
-# 检查分析策略
+# Check analysis strategy
 if result.analysis_strategy == "folder_based":
-    print("大项目：关注文件夹级别的结果")
+    print("Large project: Focus on folder-level results")
     for folder, analysis in result.folder_analyses.items():
         if analysis.confidence_score < 0.7:
-            print(f"文件夹 {folder} 需要人工检查")
+            print(f"Folder {folder} needs manual inspection")
 else:
-    print("小项目：关注强化分析的效果")
+    print("Small project: Focus on reinforcement analysis effects")
     if result.overall_confidence > 0.8:
-        print("分析质量较高，可以直接使用")
+        print("Analysis quality is high, can be used directly")
 ```
 
-### 3. 性能优化
+### 3. Performance Optimization
 ```python
-# 对于超大项目，可以分阶段分析
+# For very large projects, can analyze in stages
 folders = ["core", "utils", "api"]
 results = {}
 
 for folder in folders:
     folder_files = get_folder_files(folder)
     if len(folder_files) < 20:
-        # 小文件夹启用强化
+        # Enable reinforcement for small folders
         results[folder] = smart_business_flow_analysis_from_content(
             folder_files, f"Project_{folder}", enable_reinforcement=True)
     else:
-        # 大文件夹快速分析
+        # Quick analysis for large folders
         results[folder] = smart_business_flow_analysis_from_content(
             folder_files, f"Project_{folder}", enable_reinforcement=False)
 ```
 
-## 🔮 未来扩展
+## 🔮 Future Extensions
 
-1. **自适应强化**：根据初始置信度动态调整强化轮次
-2. **交互式优化**：支持用户指定需要强化的特定文件
-3. **增量更新**：支持项目变更时的增量重新分析
-4. **质量评估**：添加Mermaid图质量的量化评估指标
+1. **Adaptive Reinforcement**: Dynamically adjust reinforcement rounds based on initial confidence
+2. **Interactive Optimization**: Support user-specified files for reinforcement
+3. **Incremental Updates**: Support incremental re-analysis when projects change
+4. **Quality Assessment**: Add quantitative evaluation metrics for Mermaid diagram quality
 
-## 🤝 贡献指南
+## 🤝 Contributing Guidelines
 
-1. Fork本项目
-2. 创建特性分支 (`git checkout -b feature/smart-analysis`)
-3. 提交代码变更 (`git commit -am 'Add smart analysis'`)
-4. 发起Pull Request
+1. Fork this project
+2. Create feature branch (`git checkout -b feature/smart-analysis`)
+3. Commit changes (`git commit -am 'Add smart analysis'`)
+4. Open Pull Request
 
-## 📄 许可证
+## 📄 License
 
 Apache License 2.0
 
 ---
 
-# 与Planning模块集成功能
+# Integration with Planning Module
 
-## 🎯 功能概述
+## 🎯 Feature Overview
 
-本文档描述了`code_summarizer`模块与`planning`模块的集成功能，实现了从Mermaid业务流程图中提取业务流，并在planning阶段使用这些业务流进行智能合约审计。
+This document describes the integration functionality between the `code_summarizer` module and the `planning` module, implementing business flow extraction from Mermaid business flow diagrams and using these business flows for smart contract auditing during the planning phase.
 
-## 🚀 核心功能
+## 🚀 Core Features
 
-### 1. 扫描时生成Mermaid文件
-在项目扫描过程中，系统会自动：
-- 收集所有代码文件内容
-- 使用`smart_business_flow_analysis_from_content`生成Mermaid业务流程图
-- 保存一个或多个`.mmd`文件到输出目录
+### 1. Generate Mermaid Files During Scanning
+During project scanning, the system automatically:
+- Collects all code file contents
+- Uses `smart_business_flow_analysis_from_content` to generate Mermaid business flow diagrams
+- Saves one or more `.mmd` files to the output directory
 
-### 2. Planning时从Mermaid提取业务流
-在planning阶段，如果满足以下条件：
-- 使用business flow mode (`SWITCH_BUSINESS_CODE=True`)
-- 文件模式是false (`SWITCH_FILE_CODE=False`)
+### 2. Extract Business Flows from Mermaid During Planning
+During the planning phase, if the following conditions are met:
+- Use business flow mode (`SWITCH_BUSINESS_CODE=True`)
+- File mode is false (`SWITCH_FILE_CODE=False`)
 
-系统会：
-- 从生成的Mermaid文件中提取业务流JSON
-- 匹配业务流中的函数到`functions_to_check`
-- 使用提取的业务流替代传统的业务流提取方式
+The system will:
+- Extract business flow JSON from generated Mermaid files
+- Match functions in business flows to `functions_to_check`
+- Use extracted business flows to replace traditional business flow extraction methods
 
-## 📋 业务流提取Prompt
+## 📋 Business Flow Extraction Prompt
 
-系统使用以下prompt从Mermaid图中提取业务流：
+The system uses the following prompt to extract business flows from Mermaid diagrams:
 
 ```
-基于以上业务流程图，提取出业务流，以JSON格式输出，结构如下：
+Based on the above business flow diagram, extract business flows in JSON format with the following structure:
 {
 "flows": [
 {
-"name": "业务流1",
-"steps": ["文件1.函数", "文件2.函数", "文件3.函数"]
+"name": "Business Flow 1",
+"steps": ["file1.function", "file2.function", "file3.function"]
 },
 {
-"name": "业务流2", 
-"steps": ["文件1.函数", "文件2.函数"]
+"name": "Business Flow 2", 
+"steps": ["file1.function", "file2.function"]
 }
 ]
 }
 ```
 
-## 🔄 完整工作流程
+## 🔄 Complete Workflow
 
-### 步骤1: 扫描阶段 (main.py)
+### Step 1: Scanning Phase (main.py)
 
 ```python
-# 在scan_project函数中
+# In scan_project function
 def scan_project(project, db_engine):
-    # ... 现有代码 ...
+    # ... existing code ...
     
-    # 🆕 生成Mermaid文件
+    # 🆕 Generate Mermaid files
     files_content = {}
     for func in project_audit.functions_to_check:
         file_path = func['relative_file_path']
@@ -434,17 +434,17 @@ def scan_project(project, db_engine):
         enable_reinforcement=True
     )
     
-    # 保存mermaid文件到 src/codebaseQA/mermaid_output/{project_id}/
-    # 将结果保存到project_audit以供后续使用
+    # Save mermaid files to src/codebaseQA/mermaid_output/{project_id}/
+    # Save results to project_audit for subsequent use
     project_audit.mermaid_result = mermaid_result
     project_audit.mermaid_output_dir = output_dir
 ```
 
-### 步骤2: Planning阶段 (planning_processor.py)
+### Step 2: Planning Phase (planning_processor.py)
 
 ```python
 def _get_business_flows_if_needed(self, config: Dict) -> Dict:
-    # 🆕 尝试从mermaid文件中提取业务流
+    # 🆕 Try to extract business flows from mermaid files
     if hasattr(self.project, 'mermaid_output_dir') and self.project.mermaid_output_dir:
         mermaid_business_flows = self._extract_business_flows_from_mermaid()
         
@@ -452,191 +452,191 @@ def _get_business_flows_if_needed(self, config: Dict) -> Dict:
             return {
                 'use_mermaid_flows': True,
                 'mermaid_business_flows': mermaid_business_flows,
-                # ... 其他字段
+                # ... other fields
             }
     
-    # 回退到传统方式
-    # ... 现有逻辑
+    # Fallback to traditional approach
+    # ... existing logic
 ```
 
-### 步骤3: 业务流处理 (business_flow_utils.py)
+### Step 3: Business Flow Processing (business_flow_utils.py)
 
 ```python
-# 新增功能
+# New functionality
 def extract_all_business_flows_from_mermaid_files(mermaid_output_dir, project_id):
-    # 加载所有.mmd文件
-    # 使用prompt提取业务流JSON
-    # 返回业务流列表
+    # Load all .mmd files
+    # Use prompt to extract business flow JSON
+    # Return business flow list
 
 def match_functions_from_business_flows(business_flows, functions_to_check):
-    # 先匹配函数名，再匹配文件/合约名
-    # 返回匹配的业务流和对应的函数
+    # Match function names first, then file/contract names
+    # Return matched business flows and corresponding functions
 ```
 
-## 📁 文件结构
+## 📁 File Structure
 
 ```
 src/codebaseQA/mermaid_output/
 └── {project_id}/
-    ├── {project_id}_business_flow.mmd      # 小项目单一文件
-    ├── {project_id}_{folder_name}.mmd      # 大项目文件夹级别
-    └── {project_id}_global_overview.mmd    # 大项目全局概览
+    ├── {project_id}_business_flow.mmd      # Small project single file
+    ├── {project_id}_{folder_name}.mmd      # Large project folder-level
+    └── {project_id}_global_overview.mmd    # Large project global overview
 ```
 
-## 🎯 函数匹配策略
+## 🎯 Function Matching Strategy
 
-系统使用以下策略匹配业务流中的函数步骤：
+The system uses the following strategy to match function steps in business flows:
 
-1. **精确匹配**: `合约名.函数名` 或 `文件名.函数名`
-2. **函数名匹配**: 如果精确匹配失败，尝试只匹配函数名
-3. **优先级**: 优先匹配更具体的函数标识
+1. **Exact Match**: `ContractName.functionName` or `FileName.functionName`
+2. **Function Name Match**: If exact match fails, try matching only function name
+3. **Priority**: Prioritize matching more specific function identifiers
 
-### 匹配示例
+### Matching Examples
 
 ```javascript
-// 业务流步骤: "Token.transfer"
-// 匹配到: functions_to_check中的 {name: "Token.transfer", ...}
+// Business flow step: "Token.transfer"
+// Matches: {name: "Token.transfer", ...} in functions_to_check
 
-// 业务流步骤: "transfer" 
-// 匹配到: 第一个名为"transfer"的函数
+// Business flow step: "transfer" 
+// Matches: First function named "transfer"
 ```
 
-## 🧪 测试功能
+## 🧪 Testing Functionality
 
-运行集成测试：
+Run integration tests:
 
 ```bash
 cd src
 python test_smart_analyzer.py
 ```
 
-测试包括：
-- Mermaid业务流提取prompt测试
-- 完整集成流程测试
-- 函数匹配验证
+Tests include:
+- Mermaid business flow extraction prompt testing
+- Complete integration workflow testing
+- Function matching verification
 
-## 🔧 配置要求
+## 🔧 Configuration Requirements
 
-确保环境变量正确设置：
+Ensure environment variables are correctly set:
 
 ```bash
-# 启用业务流扫描，禁用文件级别扫描
+# Enable business flow scanning, disable file-level scanning
 export SWITCH_BUSINESS_CODE=True
 export SWITCH_FILE_CODE=False
 
-# 其他相关配置
-export SWITCH_FUNCTION_CODE=True  # 可选
+# Other related configurations
+export SWITCH_FUNCTION_CODE=True  # Optional
 ```
 
-## 📊 优势对比
+## 📊 Advantage Comparison
 
-| 特性 | 传统业务流提取 | 基于Mermaid的提取 |
-|------|---------------|------------------|
-| **数据来源** | AST分析 + AI分析 | Mermaid可视化图 |
-| **准确性** | 依赖代码结构 | 基于整体业务理解 |
-| **可视化** | 无 | 完整的流程图 |
-| **扩展性** | 有限 | 支持复杂业务场景 |
-| **调试性** | 较难 | 可视化，易于理解 |
+| Feature | Traditional Business Flow Extraction | Mermaid-Based Extraction |
+|---------|-------------------------------------|-------------------------|
+| **Data Source** | AST analysis + AI analysis | Mermaid visualization diagrams |
+| **Accuracy** | Depends on code structure | Based on overall business understanding |
+| **Visualization** | None | Complete flow diagrams |
+| **Extensibility** | Limited | Supports complex business scenarios |
+| **Debuggability** | Difficult | Visualized, easy to understand |
 
-## ⚡ 性能考虑
+## ⚡ Performance Considerations
 
-- **Mermaid生成**: 首次扫描时生成，后续复用
-- **业务流提取**: 使用AI分析Mermaid图，比传统AST分析更高效
-- **函数匹配**: 优化的索引策略，支持大型项目
+- **Mermaid Generation**: Generated during first scan, reused subsequently
+- **Business Flow Extraction**: Uses AI to analyze Mermaid diagrams, more efficient than traditional AST analysis
+- **Function Matching**: Optimized indexing strategy supporting large projects
 
-## 🛠️ 故障排除
+## 🛠️ Troubleshooting
 
-### 常见问题
+### Common Issues
 
-1. **Mermaid文件未生成**
-   - 检查`code_summarizer`模块是否正确导入
-   - 验证`functions_to_check`数据是否有效
+1. **Mermaid Files Not Generated**
+   - Check if `code_summarizer` module is correctly imported
+   - Verify if `functions_to_check` data is valid
 
-2. **业务流提取失败**
-   - 检查Mermaid文件内容是否有效
-   - 验证AI API配置是否正确
+2. **Business Flow Extraction Failed**
+   - Check if Mermaid file content is valid
+   - Verify AI API configuration is correct
 
-3. **函数匹配失败**
-   - 检查函数名格式是否一致
-   - 验证`functions_to_check`数据结构
+3. **Function Matching Failed**
+   - Check if function name format is consistent
+   - Verify `functions_to_check` data structure
 
-### 调试模式
+### Debug Mode
 
-启用详细日志：
+Enable detailed logging:
 
 ```python
 import logging
 logging.basicConfig(level=logging.DEBUG)
 ```
 
-## 🔮 未来扩展
+## 🔮 Future Extensions
 
-1. **增量更新**: 支持项目变更时的增量Mermaid更新
-2. **自定义匹配**: 支持用户自定义函数匹配规则
-3. **多格式支持**: 支持其他图表格式（如PlantUML）
-4. **交互式优化**: 支持用户交互式优化业务流提取
+1. **Incremental Updates**: Support incremental Mermaid updates when projects change
+2. **Custom Matching**: Support user-defined function matching rules
+3. **Multi-Format Support**: Support other diagram formats (like PlantUML)
+4. **Interactive Optimization**: Support user interactive optimization of business flow extraction
 
-## 🤝 贡献指南
+## 🤝 Contributing Guidelines
 
-1. 遵循现有代码风格
-2. 添加适当的测试用例
-3. 更新相关文档
-4. 确保向后兼容性
+1. Follow existing code style
+2. Add appropriate test cases
+3. Update relevant documentation
+4. Ensure backward compatibility
 
 ---
 
-# 更新日志
+# Changelog
 
-## v3.1.1 - 原始合约名和函数名保持增强 (2025-07-20)
+## v3.1.1 - Enhanced Original Contract and Function Name Preservation (2025-07-20)
 
-### 🎯 重大改进
+### 🎯 Major Improvements
 
-#### 强化原始命名保持功能
-- **✅ 增量分析增强**: 修改prompt强制要求使用原始合约名和函数名
-- **✅ 强化分析优化**: 强化分析阶段严格保持代码中的真实命名
-- **✅ 最终优化改进**: 最终优化阶段禁止修改任何合约名和函数名
-- **✅ 全局概览增强**: 全局架构图也使用具体的模块名称
+#### Enhanced Original Naming Preservation
+- **✅ Incremental Analysis Enhancement**: Modified prompts to force use of original contract and function names
+- **✅ Reinforcement Analysis Optimization**: Reinforcement analysis phase strictly maintains real naming from code
+- **✅ Final Optimization Improvement**: Final optimization phase prohibits modification of any contract and function names
+- **✅ Global Overview Enhancement**: Global architecture diagrams also use specific module names
 
-#### 具体修改内容
+#### Specific Modification Details
 
-1. **增量分析Prompt增强**
+1. **Incremental Analysis Prompt Enhancement**
    ```diff
-   + **关键格式要求 - 必须严格遵守:**
-   + - **合约名**: 使用文件中的原始合约名 (如: ERC20AssetGateway, PlanFactory)
-   + - **函数名**: 使用代码中的准确函数名 (如: constructor, confirmJoin)
-   + - **参数**: 包含函数的真实参数名和类型 (如: address _user, uint256 _amount)
-   + - **重要提醒**: 绝对不能使用通用名称如 "Contract", "Token"
+   + **Key Format Requirements - Must Be Strictly Followed:**
+   + - **Contract Names**: Use original contract names from files (e.g., ERC20AssetGateway, PlanFactory)
+   + - **Function Names**: Use accurate function names from code (e.g., constructor, confirmJoin)
+   + - **Parameters**: Include real parameter names and types from functions (e.g., address _user, uint256 _amount)
+   + - **Important Reminder**: Absolutely cannot use generic names like "Contract", "Token"
    ```
 
-2. **强化分析Prompt升级**
+2. **Reinforcement Analysis Prompt Upgrade**
    ```diff
-   + **关键格式要求 - 必须严格遵守:**
-   + - **合约名**: 使用原始合约名，不能使用通用名称
-   + - **函数名**: 使用代码中的准确函数名，包含完整的函数签名
-   + - **参数类型**: 包含准确的参数类型 (如: address, uint256, string, bool)
-   + - **绝对不能使用通用名称如 "Contract", "Token", "System"**
+   + **Key Format Requirements - Must Be Strictly Followed:**
+   + - **Contract Names**: Use original contract names, cannot use generic names
+   + - **Function Names**: Use accurate function names from code, include complete function signatures
+   + - **Parameter Types**: Include accurate parameter types (e.g., address, uint256, string, bool)
+   + - **Absolutely cannot use generic names like "Contract", "Token", "System"**
    ```
 
-3. **最终优化Prompt强化**
+3. **Final Optimization Prompt Enhancement**
    ```diff
-   + **关键格式要求:**
-   + - **绝对不能修改合约名** - 保持所有原始合约名
-   + - **绝对不能修改函数名** - 保持所有原始函数名和参数
-   + - **不能使用通用名称** - 禁止将具体合约名改为通用名称
+   + **Key Format Requirements:**
+   + - **Absolutely cannot modify contract names** - Maintain all original contract names
+   + - **Absolutely cannot modify function names** - Maintain all original function names and parameters
+   + - **Cannot use generic names** - Prohibit changing specific contract names to generic names
    ```
 
-### 📊 测试验证结果
+### 📊 Test Verification Results
 
-使用TokenVault和StakingRewards合约进行测试：
+Testing with TokenVault and StakingRewards contracts:
 
-- **✅ 合约名保持率**: 100.0%
-- **✅ 函数名保持率**: 83.3%
-- **✅ 总体得分**: 71.7% (通过70%阈值)
-- **✅ 强化分析**: 2轮强化分析成功执行
+- **✅ Contract Name Retention Rate**: 100.0%
+- **✅ Function Name Retention Rate**: 83.3%
+- **✅ Overall Score**: 71.7% (passes 70% threshold)
+- **✅ Reinforcement Analysis**: 2 rounds of reinforcement analysis successfully executed
 
-### 🎯 使用效果对比
+### 🎯 Usage Effect Comparison
 
-#### 修改前 (v3.1.0)
+#### Before Modification (v3.1.0)
 ```mermaid
 sequenceDiagram
     User->>Contract: deposit(amount)
@@ -644,7 +644,7 @@ sequenceDiagram
     Contract->>System: emit Deposited(amount)
 ```
 
-#### 修改后 (v3.1.1)
+#### After Modification (v3.1.1)
 ```mermaid
 sequenceDiagram
     User->>TokenVault: deposit(uint256 _amount)
@@ -653,63 +653,63 @@ sequenceDiagram
     TokenVault-->>User: emit Deposited(address indexed user, uint256 amount)
 ```
 
-### 💡 核心优势
+### 💡 Core Advantages
 
-1. **📋 技术文档友好**: 生成的Mermaid图可直接用于技术文档
-2. **🔍 代码审查精准**: 准确反映实际的合约结构和函数调用
-3. **🎯 智能合约专用**: 特别适合Solidity等智能合约代码分析
-4. **🔄 防御性设计**: 多层级的命名保护机制
+1. **📋 Technical Documentation Friendly**: Generated Mermaid diagrams can be directly used for technical documentation
+2. **🔍 Code Review Precision**: Accurately reflects actual contract structure and function calls
+3. **🎯 Smart Contract Specialized**: Particularly suitable for Solidity and other smart contract code analysis
+4. **🔄 Defensive Design**: Multi-level naming protection mechanisms
 
-### 🚀 应用场景
+### 🚀 Application Scenarios
 
-- **智能合约审计**: 生成准确的业务流程图用于安全审计
-- **项目文档**: 为DeFi、NFT等项目生成技术文档
-- **代码理解**: 帮助开发者快速理解复杂的智能合约交互
-- **架构设计**: 可视化展示项目的真实架构结构
+- **Smart Contract Auditing**: Generate accurate business flow diagrams for security auditing
+- **Project Documentation**: Generate technical documentation for DeFi, NFT and other projects
+- **Code Understanding**: Help developers quickly understand complex smart contract interactions
+- **Architecture Design**: Visualize real project architecture structure
 
-### 🔧 使用方法
+### 🔧 Usage Method
 
 ```python
 from code_summarizer import smart_business_flow_analysis
 
-# 智能分析 - 自动保持原始命名
+# Smart analysis - automatically preserve original naming
 result = smart_business_flow_analysis(
     project_path="./your_smart_contract_project",
     project_name="MyDeFiProtocol",
-    enable_reinforcement=True  # 启用强化分析
+    enable_reinforcement=True  # Enable reinforcement analysis
 )
 
-# 生成的Mermaid图将包含真实的合约名和函数名
+# Generated Mermaid diagrams will contain real contract and function names
 print(result.final_mermaid_graph)
 ```
 
-### 📈 性能数据
+### 📈 Performance Data
 
-- **Token效率**: 平均每文件2,591 tokens (GoMutual项目测试)
-- **分析精度**: 置信度提升至0.92+
-- **命名准确率**: 合约名100%，函数名83%+
-- **强化效果**: 2轮强化分析显著提升细节程度
-
----
-
-## v3.1.0 - 智能分析策略和强化分析 (2025-07-20)
-
-### 新功能
-- 🤖 智能策略选择 (增量 vs 文件夹级别)
-- 🔄 多轮强化分析功能
-- 📁 文件夹级别分析支持
-- 🛡️ 防御性逻辑设计
+- **Token Efficiency**: Average 2,591 tokens per file (GoMutual project testing)
+- **Analysis Precision**: Confidence improved to 0.92+
+- **Naming Accuracy**: Contract names 100%, function names 83%+
+- **Reinforcement Effect**: 2 rounds of reinforcement analysis significantly improved detail level
 
 ---
 
-## v3.0.0 - 增量式业务流程分析器 (2025-07-19)
+## v3.1.0 - Smart Analysis Strategy and Reinforcement Analysis (2025-07-20)
 
-### 基础功能
-- ⚡ 增量式分析 (A→A+B→A+B+C)
-- 🎨 Mermaid序列图生成
-- 💰 智能Token管理
-- 📊 多种文件格式支持
+### New Features
+- 🤖 Smart strategy selection (incremental vs folder-level)
+- 🔄 Multi-round reinforcement analysis functionality
+- 📁 Folder-level analysis support
+- 🛡️ Defensive logic design
 
 ---
 
-**🎉 通过智能代码总结器，智能合约分析变得更加智能和可视化！智能代码总结器v3.1 - 让复杂项目的架构理解变得简单直观！** 
+## v3.0.0 - Incremental Business Flow Analyzer (2025-07-19)
+
+### Basic Features
+- ⚡ Incremental analysis (A→A+B→A+B+C)
+- 🎨 Mermaid sequence diagram generation
+- 💰 Smart token management
+- 📊 Multiple file format support
+
+---
+
+**🎉 Through the Smart Code Summarizer, smart contract analysis becomes more intelligent and visual! Smart Code Summarizer v3.1 - Making complex project architecture understanding simple and intuitive!** 
