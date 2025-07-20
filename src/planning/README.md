@@ -179,7 +179,7 @@ filtered_functions = JsonUtils.extract_filtered_functions(json_string)
 
 ## 🎯 功能概述
 
-Planning模块新增了基于Mermaid图表的智能业务流提取功能，实现了从传统的函数级分析向业务流级分析的重大升级。这一创新方法论显著提升了分析效率和上下文理解能力。
+Planning模块新增了基于Mermaid图表的智能业务流提取功能，提供了业务流级分析和文件级分析两种主要模式。这一创新方法论显著提升了分析效率和上下文理解能力。
 
 ## 🔄 核心方法论
 
@@ -236,14 +236,14 @@ for business_flow in business_flows:
     create_task(business_flow, expanded_functions)  # M个任务 (M << N)
 ```
 
-#### 优势对比
+#### 模式对比
 
-| 特性 | 传统函数级 | 新业务流级 |
+| 特性 | 文件级模式 | 业务流级模式 |
 |------|------------|------------|
-| **任务数量** | 每函数1个任务 | 每业务流1个任务 |
-| **上下文丰富度** | 单函数上下文 | 完整业务流上下文 |
-| **分析效率** | 重复分析相关函数 | 一次性分析整个流程 |
-| **业务理解** | 碎片化理解 | 完整业务逻辑理解 |
+| **分析粒度** | 每文件1个任务 | 每业务流1个任务 |
+| **上下文丰富度** | 完整文件上下文 | 相关函数业务流上下文 |
+| **分析效率** | 高级架构分析 | 精确业务逻辑分析 |
+| **适用场景** | 架构理解、代码审查 | 漏洞挖掘、业务逻辑分析 |
 
 ### 4. **函数覆盖率分析** (`_log_business_flow_coverage`)
 
@@ -279,26 +279,26 @@ def _log_business_flow_coverage(self, expanded_business_flows, all_functions):
    - calculateFee() [Utils.sol:23-45] (23行) - 工具函数
 ```
 
-## 🔄 处理模式对比
+## 🔄 处理模式说明
 
-### 传统模式 (已移除)
+### **业务流模式** (`SWITCH_BUSINESS_CODE=True`)
 ```python
-# 旧的传统业务流处理逻辑
-def _process_traditional_business_flows(self):
-    for function in functions:
-        business_flow = extract_business_flow_for_function(function)
-        create_task_for_function(function, business_flow)
-```
-
-### 新Mermaid模式
-```python
-# 新的Mermaid业务流处理逻辑  
+# Mermaid业务流处理逻辑  
 def _process_mermaid_business_flows(self):
     business_flows = extract_all_business_flows_from_mermaid()
     for business_flow in business_flows:
         matched_functions = match_functions_to_business_flow(business_flow)
         expanded_functions = expand_context(matched_functions)
         create_task_for_business_flow(business_flow, expanded_functions)
+```
+
+### **文件级模式** (`SWITCH_FILE_CODE=True`)  
+```python
+# 文件级处理逻辑
+def _process_all_files(self):
+    for file_path in project_files:
+        file_content = read_entire_file(file_path)
+        create_task_for_file(file_path, file_content)
 ```
 
 ## 🛠️ 新增模块和方法
@@ -322,7 +322,7 @@ def _process_mermaid_business_flows(self):
 #### `_extract_business_flows_from_mermaid()`
 - **功能**: 从Mermaid文件中提取业务流的主入口
 - **集成**: 与现有的业务流处理逻辑无缝集成
-- **容错**: 提供完善的错误处理和回退机制
+- **容错**: 提供完善的错误处理机制
 
 #### `_expand_business_flow_context(business_flow, matched_functions)`
 - **功能**: 使用call tree和RAG方法扩展业务流上下文
@@ -359,11 +359,10 @@ def _process_mermaid_business_flows(self):
 
 ### 环境变量配置
 ```bash
-# 启用业务流分析（必需）
+# 启用业务流分析（推荐）
 SWITCH_BUSINESS_CODE=True
 
-# 禁用传统函数级分析（可选，提高纯度）
-SWITCH_FUNCTION_CODE=False
+# 启用文件级分析（备选模式）
 SWITCH_FILE_CODE=False
 ```
 
@@ -382,7 +381,7 @@ if business_flows_data.get('use_mermaid_flows'):
     mermaid_flows = business_flows_data['mermaid_business_flows']
     print(f"📊 提取到 {len(mermaid_flows)} 个业务流")
 else:
-    print("⚠️ 回退到传统模式")
+    print("⚠️ 未找到Mermaid业务流，跳过业务流处理")
 ```
 
 ## 🎯 最佳实践

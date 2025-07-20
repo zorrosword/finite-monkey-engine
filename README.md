@@ -52,11 +52,12 @@ FiniteMonkey introduces an innovative **Mermaid-based Business Flow Extraction**
 - Extracts business flows from Mermaid files stored in `src/codebaseQA/mermaid_output/`
 - Creates business flow-based analysis tasks
 - Provides detailed coverage reporting
+- No fallback to function-level analysis for uncovered code
 
-#### **Hybrid Mode**
-- Combines Mermaid-based business flow analysis with traditional function-level scanning
-- Optimizes analysis efficiency while maintaining comprehensive coverage
-- Intelligent fallback to function-level analysis for uncovered code
+#### **File-Level Mode** (`SWITCH_FILE_CODE=True`)
+- Analyzes entire files instead of individual functions or business flows
+- Suitable for high-level architectural analysis
+- Processes complete file contents for comprehensive understanding
 
 ### 📈 Benefits
 

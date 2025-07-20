@@ -108,7 +108,6 @@ class ConfigUtils:
             'total_checklist_count': total_checklist_count,
             'actual_iteration_count': actual_iteration_count,
             'threshold': int(os.getenv("THRESHOLD_OF_PLANNING", 200)),
-            'switch_function_code': eval(os.environ.get('SWITCH_FUNCTION_CODE', 'False')),
             'switch_business_code': eval(os.environ.get('SWITCH_BUSINESS_CODE', 'True')),
             'switch_file_code': eval(os.environ.get('SWITCH_FILE_CODE', 'False')),
             'cross_contract_scan': os.getenv("CROSS_CONTRACT_SCAN") == "True"

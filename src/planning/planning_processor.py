@@ -326,11 +326,7 @@ class PlanningProcessor:
         mermaid_flows = all_business_flow_data.get('mermaid_business_flows', {})
         
         if not mermaid_flows:
-            print("❌ 未找到Mermaid业务流")
-            # 如果没有Mermaid业务流但开启了函数代码处理，则处理所有函数
-            if config['switch_function_code']:
-                print("🔄 回退到函数代码处理模式")
-                self._process_all_functions_code_only(config)
+            print("❌ 未找到Mermaid业务流，跳过业务流处理")
             return
         
         print(f"\n🔄 开始处理 {len(mermaid_flows)} 个Mermaid业务流...")
@@ -369,28 +365,7 @@ class PlanningProcessor:
         # 🆕 添加业务流覆盖度分析日志
         self._log_business_flow_coverage(all_covered_functions, all_expanded_functions)
     
-    def _process_all_functions_code_only(self, config: Dict):
-        """处理所有函数的代码（非业务流模式）"""
-        print(f"\n🔄 开始处理 {len(self.project.functions_to_check)} 个函数的代码...")
-        
-        for function in tqdm(self.project.functions_to_check, desc="Processing function codes"):
-            name = function['name']
-            content = function['content']
-            
-            # 检查函数长度
-            if len(content) < config['threshold']:
-                print(f"Function code for {name} is too short for <{config['threshold']}, skipping...")
-                continue
-            
-            # 检查是否应该排除
-            if ConfigUtils.should_exclude_in_planning(self.project, function['relative_file_path']):
-                print(f"Excluding function {name} in planning process based on configuration")
-                continue
-            
-            print(f"————————Processing function: {name}————————")
-            
-            # 处理函数代码
-            self._handle_function_code_planning(function, config)
+
     
     def _expand_business_flow_context(self, flow_functions: List[Dict], flow_name: str) -> List[Dict]:
         """扩展业务流的上下文，使用call tree和rag进行1层扩展
@@ -876,23 +851,7 @@ class PlanningProcessor:
         
         return line_info_list
     
-    def _handle_function_code_planning(self, function: Dict, config: Dict):
-        """处理函数代码规划"""
-        content = function['content']
-        contract_name = function['contract_name']
-        
-        # 生成检查清单
-        checklist, _ = self._generate_checklist_and_analysis(
-            "", content, contract_name, is_business_flow=False
-        )
-        
-        # 创建任务
-        for i in range(config['actual_iteration_count']):
-            self._create_planning_task(
-                function, checklist, "", 
-                "", "", 
-                if_business_flow_scan=0, config=config
-            ) 
+ 
     
     def _log_business_flow_coverage(self, all_covered_functions: set, all_expanded_functions: List[Dict]):
         """记录业务流覆盖度分析"""
