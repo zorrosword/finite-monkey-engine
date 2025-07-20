@@ -362,6 +362,38 @@ class PlanningProcessor:
                 flow_name, config
             )
         
+        # 🆕 在FINE_GRAINED模式下分析业务流关联性并构造复合业务流
+        if config['scan_mode'] == "COMMON_PROJECT_FINE_GRAINED":
+            print(f"\n🔗 Fine Grained模式：分析业务流关联性...")
+            compound_flows = self._analyze_business_flow_relationships(mermaid_flows, config)
+            
+            if compound_flows:
+                print(f"✅ 构造了 {len(compound_flows)} 个复合业务流")
+                
+                # 为每个复合业务流创建任务
+                for compound_name, compound_functions in compound_flows.items():
+                    print(f"\n🔄 处理复合业务流: '{compound_name}'")
+                    
+                    # 扩展复合业务流上下文
+                    expanded_compound = self._expand_business_flow_context(compound_functions, compound_name)
+                    
+                    # 记录扩展后的函数
+                    all_expanded_functions.extend(expanded_compound)
+                    for func in expanded_compound:
+                        all_covered_functions.add(func['name'])
+                    
+                    # 构建复合业务流代码
+                    compound_code = self._build_business_flow_code_from_functions(expanded_compound)
+                    compound_line_info = self._build_line_info_from_functions(expanded_compound)
+                    
+                    print(f"   复合业务流代码长度: {len(compound_code)} 字符")
+                    
+                    # 为复合业务流创建任务
+                    self._create_tasks_for_business_flow(
+                        expanded_compound, compound_code, compound_line_info,
+                        compound_name, config
+                    )
+        
         # 🆕 添加业务流覆盖度分析日志
         self._log_business_flow_coverage(all_covered_functions, all_expanded_functions)
     
@@ -851,7 +883,199 @@ class PlanningProcessor:
         
         return line_info_list
     
- 
+    def _analyze_business_flow_relationships(self, mermaid_flows: Dict, config: Dict) -> Dict[str, List[Dict]]:
+        """分析业务流之间的关联性，构造复合业务流
+        
+        Args:
+            mermaid_flows: 原始业务流字典
+            config: 扫描配置
+            
+        Returns:
+            Dict[str, List[Dict]]: 复合业务流字典，key为复合业务流名称，value为函数列表
+        """
+        if len(mermaid_flows) < 2:
+            print("   业务流数量少于2个，跳过关联性分析")
+            return {}
+        
+        print(f"   开始分析 {len(mermaid_flows)} 个业务流的关联性...")
+        
+        # 1. 准备业务流信息用于LLM分析
+        flow_summaries = []
+        flow_functions_map = {}  # 保存每个流的函数信息
+        
+        for flow_name, flow_functions in mermaid_flows.items():
+            # 提取业务流的函数名列表
+            function_names = [func['name'] for func in flow_functions]
+            
+            # 构建业务流摘要
+            summary = {
+                'name': flow_name,
+                'functions': function_names,
+                'function_count': len(function_names)
+            }
+            flow_summaries.append(summary)
+            flow_functions_map[flow_name] = flow_functions
+        
+        # 2. 调用LLM分析关联性
+        try:
+            relationship_analysis = self._call_llm_for_flow_relationships(flow_summaries)
+            
+            if not relationship_analysis:
+                print("   ❌ LLM关联性分析失败")
+                return {}
+            
+            # 3. 根据分析结果构造复合业务流
+            compound_flows = self._construct_compound_flows(
+                relationship_analysis, flow_functions_map
+            )
+            
+            return compound_flows
+            
+        except Exception as e:
+            print(f"   ❌ 业务流关联性分析失败: {str(e)}")
+            return {}
+    
+    def _call_llm_for_flow_relationships(self, flow_summaries: List[Dict]) -> Dict:
+        """调用LLM分析业务流关联性
+        
+        Args:
+            flow_summaries: 业务流摘要列表
+            
+        Returns:
+            Dict: LLM分析结果
+        """
+        
+        # 构建prompt
+        prompt = self._build_flow_relationship_prompt(flow_summaries)
+        
+        try:
+            print("   🤖 调用LLM分析业务流关联性...")
+            
+            # 调用LLM
+            response = common_ask_for_json(prompt)
+            
+            if isinstance(response, str):
+                response = json.loads(response)
+            
+            print(f"   ✅ LLM分析完成，识别到 {len(response.get('related_groups', []))} 个相关组")
+            return response
+            
+        except Exception as e:
+            print(f"   ❌ LLM调用失败: {str(e)}")
+            return {}
+    
+    def _build_flow_relationship_prompt(self, flow_summaries: List[Dict]) -> str:
+        """构建业务流关联性分析的prompt
+        
+        Args:
+            flow_summaries: 业务流摘要列表
+            
+        Returns:
+            str: 构建的prompt
+        """
+        
+        # 构建业务流信息字符串
+        flows_info = ""
+        for i, flow in enumerate(flow_summaries, 1):
+            flows_info += f"\n{i}. 业务流: {flow['name']}\n"
+            flows_info += f"   函数列表: {', '.join(flow['functions'])}\n"
+            flows_info += f"   函数数量: {flow['function_count']}\n"
+        
+        prompt = f"""
+你是一个智能合约业务流分析专家。请分析以下 {len(flow_summaries)} 个业务流之间的关联性，识别出哪些业务流是相互影响和相关的。
+
+## 业务流信息:
+{flows_info}
+
+## 分析任务:
+1. 分析每个业务流的功能特征
+2. 识别业务流之间的依赖关系、数据交互、状态影响等关联性
+3. 将相关的业务流分组
+
+## 关联性判断标准:
+- **强关联**: 业务流之间有直接的函数调用关系、共享状态变量、数据依赖
+- **功能关联**: 业务流属于同一业务模块，如都涉及代币转账、权限管理、价格计算等
+- **时序关联**: 业务流在执行时序上有先后依赖关系
+- **状态关联**: 业务流会影响相同的合约状态或存储变量
+
+## 输出要求:
+请以JSON格式输出，包含以下字段：
+
+```json
+{{
+  "analysis_summary": "整体分析总结",
+  "total_flows": {len(flow_summaries)},
+  "related_groups": [
+    {{
+      "group_name": "复合业务流的名称",
+      "description": "该组业务流的关联性描述",
+      "flow_names": ["相关的业务流名称1", "业务流名称2"],
+      "relationship_type": "关联类型：强关联/功能关联/时序关联/状态关联",
+      "priority": "优先级：high/medium/low"
+    }}
+  ],
+  "independent_flows": ["独立的业务流名称列表"]
+}}
+```
+
+## 注意事项:
+1. 只有当业务流之间确实存在有意义的关联时才进行分组
+2. 一个业务流可以同时属于多个相关组
+3. 每个相关组至少包含2个业务流
+4. 为复合业务流起有意义的名称，体现其综合功能
+5. 优先识别高优先级的强关联关系
+
+请开始分析：
+"""
+        
+        return prompt.strip()
+    
+    def _construct_compound_flows(self, relationship_analysis: Dict, flow_functions_map: Dict) -> Dict[str, List[Dict]]:
+        """根据关联性分析结果构造复合业务流
+        
+        Args:
+            relationship_analysis: LLM分析结果
+            flow_functions_map: 业务流到函数的映射
+            
+        Returns:
+            Dict[str, List[Dict]]: 复合业务流字典
+        """
+        compound_flows = {}
+        
+        related_groups = relationship_analysis.get('related_groups', [])
+        
+        for group in related_groups:
+            group_name = group.get('group_name', '')
+            flow_names = group.get('flow_names', [])
+            priority = group.get('priority', 'medium')
+            
+            if len(flow_names) < 2:
+                continue
+            
+            print(f"   🔗 构造复合业务流: '{group_name}' (包含 {len(flow_names)} 个业务流)")
+            print(f"      关联类型: {group.get('relationship_type', 'unknown')}")
+            print(f"      优先级: {priority}")
+            
+            # 合并相关业务流的所有函数
+            compound_functions = []
+            function_names_seen = set()  # 去重
+            
+            for flow_name in flow_names:
+                if flow_name in flow_functions_map:
+                    for func in flow_functions_map[flow_name]:
+                        func_key = f"{func['name']}_{func.get('start_line', 0)}"
+                        if func_key not in function_names_seen:
+                            compound_functions.append(func)
+                            function_names_seen.add(func_key)
+            
+            if compound_functions:
+                # 为复合业务流生成唯一名称
+                compound_name = f"复合业务流_{group_name}_{priority}"
+                compound_flows[compound_name] = compound_functions
+                
+                print(f"      ✅ 复合业务流包含 {len(compound_functions)} 个函数")
+        
+        return compound_flows
     
     def _log_business_flow_coverage(self, all_covered_functions: set, all_expanded_functions: List[Dict]):
         """记录业务流覆盖度分析"""

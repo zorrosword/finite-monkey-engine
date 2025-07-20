@@ -1,4 +1,16 @@
-# Planning 模块重构说明
+# Planning 模块完整文档
+
+## 📋 目录
+
+- [模块重构说明](#模块重构说明)
+- [基于Mermaid的业务流提取方法论](#基于mermaid的业务流提取方法论)
+- [复合业务流功能](#复合业务流功能)
+- [增强业务流处理逻辑](#增强业务流处理逻辑)
+- [English Documentation](#english-documentation)
+
+---
+
+# 模块重构说明
 
 ## 概述
 
@@ -48,7 +60,6 @@ src/planning/
 - `_process_all_functions()` - 处理所有函数
 - `_process_single_function()` - 处理单个函数
 - `_handle_business_flow_planning()` - 处理业务流规划
-- `_handle_function_code_planning()` - 处理函数代码规划
 - `_generate_checklist_and_analysis()` - 生成检查清单和分析
 - `_write_checklist_to_csv()` - 写入CSV文件
 - `_analyze_business_type()` - 分析业务类型
@@ -175,7 +186,7 @@ filtered_functions = JsonUtils.extract_filtered_functions(json_string)
 
 ---
 
-# 🆕 新增功能：基于Mermaid的业务流提取方法论
+# 基于Mermaid的业务流提取方法论
 
 ## 🎯 功能概述
 
@@ -415,4 +426,683 @@ else:
 
 ---
 
-这一方法论的引入标志着FiniteMonkey从传统的静态分析向智能化、上下文感知的业务流分析的重大转变，为智能合约安全分析开辟了新的可能性。 
+# 复合业务流功能
+
+## 🎯 功能概述
+
+在Fine Grained模式下，系统新增了**复合业务流**功能，能够智能分析多个业务流之间的关联性，并构造出新的复合业务流，为相关的业务流创建综合性的分析任务。
+
+## 🚀 核心特性
+
+### 1. **智能关联性分析**
+- 使用大语言模型(LLM)分析业务流之间的关系
+- 识别强关联、功能关联、时序关联、状态关联等多种关系类型
+- 自动判断哪些业务流应该组合在一起分析
+
+### 2. **复合业务流构造**
+- 自动合并相关业务流的函数
+- 智能去重，避免重复分析相同函数
+- 生成有意义的复合业务流名称
+- 保持原有的上下文扩展能力(Call Tree + RAG)
+
+### 3. **Fine Grained模式集成**
+- 完全兼容现有的Fine Grained checklist系统
+- 为复合业务流创建多轮分析任务
+- 保持与原始业务流相同的任务创建逻辑
+
+## 🔄 工作流程
+
+### 步骤1: 业务流提取
+```
+从Mermaid文件中提取所有业务流
+↓
+检查业务流数量(≥2个才进行关联性分析)
+```
+
+### 步骤2: LLM关联性分析
+```
+准备业务流摘要数据
+↓
+构造专门的分析prompt
+↓
+调用LLM分析关联性
+↓
+解析JSON格式的分析结果
+```
+
+### 步骤3: 复合业务流构造
+```
+根据LLM分析结果
+↓
+合并相关业务流的函数
+↓
+智能去重和命名
+↓
+生成复合业务流
+```
+
+### 步骤4: 任务创建
+```
+为原始业务流创建任务
+↓
+为复合业务流创建额外任务
+↓
+使用Fine Grained checklist系统
+```
+
+## 🤖 LLM分析标准
+
+### 关联性判断标准
+
+| 关联类型 | 判断标准 | 优先级 |
+|---------|---------|---------|
+| **强关联** | 直接函数调用关系、共享状态变量、数据依赖 | High |
+| **功能关联** | 属于同一业务模块(如代币转账、权限管理) | Medium |
+| **时序关联** | 执行时序上有先后依赖关系 | Medium |
+| **状态关联** | 影响相同的合约状态或存储变量 | Low |
+
+### LLM输出格式
+```json
+{
+  "analysis_summary": "整体分析总结",
+  "total_flows": 5,
+  "related_groups": [
+    {
+      "group_name": "代币操作核心流程",
+      "description": "包含转账和余额查询的核心功能",
+      "flow_names": ["代币转账流程", "余额查询流程"],
+      "relationship_type": "强关联",
+      "priority": "high"
+    }
+  ],
+  "independent_flows": ["独立业务流名称"]
+}
+```
+
+## ⚙️ 配置和使用
+
+### 环境变量配置
+```bash
+# 启用Fine Grained模式（必需）
+export SCAN_MODE=COMMON_PROJECT_FINE_GRAINED
+
+# 启用业务流分析（必需）
+export SWITCH_BUSINESS_CODE=True
+
+# 禁用文件级分析（推荐）
+export SWITCH_FILE_CODE=False
+```
+
+### 运行命令
+```bash
+python src/main.py
+```
+
+## 📊 示例场景
+
+### 输入：5个业务流
+```
+1. 用户注册流程: [register, validateUser, storeUserData]
+2. 代币转账流程: [transfer, approve, transferFrom]
+3. 余额查询流程: [balanceOf, totalSupply, allowance]
+4. 权限管理流程: [addOwner, removeOwner, changeOwnership]
+5. 价格计算流程: [getPrice, updatePrice, calculateDiscount]
+```
+
+### LLM分析结果
+```json
+{
+  "related_groups": [
+    {
+      "group_name": "代币核心操作",
+      "flow_names": ["代币转账流程", "余额查询流程"],
+      "relationship_type": "强关联",
+      "priority": "high"
+    },
+    {
+      "group_name": "系统管理功能",
+      "flow_names": ["权限管理流程", "价格计算流程"],
+      "relationship_type": "功能关联", 
+      "priority": "medium"
+    }
+  ],
+  "independent_flows": ["用户注册流程"]
+}
+```
+
+### 最终生成的任务
+```
+原始任务: 5个业务流 × N轮checklist = 5N个任务
+复合任务: 2个复合业务流 × N轮checklist = 2N个任务
+总计: 7N个分析任务
+```
+
+## 🎯 预期效果
+
+### 1. **更全面的分析覆盖**
+- 原始业务流分析：单个业务逻辑的深度分析
+- 复合业务流分析：相关业务逻辑的综合分析
+- 交叉验证：从不同角度验证相同的代码逻辑
+
+### 2. **更好的上下文理解**
+- 复合业务流提供更丰富的函数上下文
+- 有助于发现跨业务流的漏洞模式
+- 提高对复杂业务逻辑的理解
+
+### 3. **更高的分析质量**
+- 减少分析盲点
+- 提高漏洞检测的准确性
+- 增强对业务逻辑漏洞的发现能力
+
+## 🔧 技术实现细节
+
+### 核心方法
+
+#### `_analyze_business_flow_relationships()`
+```python
+"""分析业务流关联性的主入口方法"""
+- 准备业务流摘要数据
+- 调用LLM进行关联性分析
+- 构造复合业务流
+- 返回复合业务流字典
+```
+
+#### `_call_llm_for_flow_relationships()`
+```python
+"""调用LLM分析关联性"""
+- 构建专门的分析prompt
+- 调用common_ask_for_json()获取结构化结果
+- 解析和验证LLM返回的JSON数据
+```
+
+#### `_build_flow_relationship_prompt()`
+```python
+"""构建LLM分析prompt"""
+- 包含业务流信息和函数列表
+- 定义关联性判断标准
+- 指定JSON输出格式要求
+```
+
+#### `_construct_compound_flows()`
+```python
+"""构造复合业务流"""
+- 根据LLM分析结果合并函数
+- 智能去重处理
+- 生成有意义的复合流名称
+```
+
+### 集成点
+
+#### 在 `_process_mermaid_business_flows()` 中
+```python
+# 处理完所有原始业务流后
+if config['scan_mode'] == "COMMON_PROJECT_FINE_GRAINED":
+    compound_flows = self._analyze_business_flow_relationships(mermaid_flows, config)
+    # 为复合业务流创建任务
+```
+
+## 🧪 测试和验证
+
+### 单元测试覆盖
+- ✅ Prompt构建测试
+- ✅ 复合业务流构造测试
+- ✅ LLM集成测试
+- ✅ Fine Grained模式集成测试
+- ✅ 完整工作流测试
+
+### 功能验证
+- ✅ 关联性分析准确性
+- ✅ 复合业务流正确构造
+- ✅ 任务创建逻辑正确
+- ✅ 与现有系统兼容性
+
+## ⚠️ 注意事项
+
+### 1. **性能考虑**
+- LLM调用会增加处理时间
+- 建议在业务流数量较多(≥3个)时才启用
+- 可以通过缓存机制优化重复分析
+
+### 2. **质量控制**
+- LLM分析结果依赖于prompt质量
+- 建议定期review和优化prompt
+- 可以设置关联性阈值过滤低质量分组
+
+### 3. **成本控制**
+- 每次分析都会调用LLM API
+- 可以考虑添加开关控制是否启用复合业务流功能
+- 建议在重要项目中使用
+
+## 🔮 未来扩展
+
+1. **多层扩展**：支持超过1层的上下文扩展
+2. **权重机制**：为不同扩展来源的函数分配权重
+3. **智能过滤**：根据相关性自动过滤扩展的函数
+4. **增量更新**：支持业务流的增量更新和扩展
+5. **自适应处理**：根据项目特征智能选择处理模式
+
+---
+
+# 增强业务流处理逻辑
+
+## 🎯 概述
+
+基于需求，我们完全重构了planning模块的业务流处理逻辑，实现了：
+1. **完全基于Mermaid的业务流处理** - 删除所有传统业务流逻辑
+2. 从Mermaid提取业务流后进行整体上下文扩展
+3. 使用call tree和RAG进行1层扩展
+4. 排除重复函数，提高处理效率
+5. 支持文件代码模式作为简化的分析模式
+
+## 🔄 新的处理流程
+
+### 1. **统一处理模式** (`_process_all_functions`)
+
+```python
+# 只有一种模式：基于Mermaid的业务流处理
+print("🎨 使用基于Mermaid的业务流处理模式")
+self._process_mermaid_business_flows(config, all_business_flow_data)
+```
+
+**处理逻辑**：
+- 优先使用Mermaid业务流处理
+- 如果没有Mermaid业务流，系统会跳过处理
+
+### 2. **Mermaid业务流处理** (`_process_mermaid_business_flows`)
+
+```python
+mermaid_flows = all_business_flow_data.get('mermaid_business_flows', {})
+
+if not mermaid_flows:
+    print("❌ 未找到Mermaid业务流，跳过业务流处理")
+    return
+
+# 处理每个Mermaid业务流
+for flow_name, flow_functions in mermaid_flows.items():
+    # 1. 扩展业务流上下文
+    expanded_functions = self._expand_business_flow_context(flow_functions, flow_name)
+    
+    # 2. 构建完整的业务流代码
+    business_flow_code = self._build_business_flow_code_from_functions(expanded_functions)
+    
+    # 3. 为业务流创建任务（整个业务流一个任务）
+    self._create_tasks_for_business_flow(expanded_functions, business_flow_code, ...)
+```
+
+**关键特性**：
+- 以业务流为单位进行处理
+- 每个业务流进行统一的上下文扩展
+- 为每个业务流创建任务，而不是为每个函数创建任务
+- 简化的处理逻辑，专注于Mermaid模式
+
+## 🔧 核心方法详解
+
+### 1. 上下文扩展 (`_expand_business_flow_context`)
+
+```python
+# 存储所有扩展后的函数，使用set去重
+expanded_functions_set = set()
+expanded_functions_list = []
+
+# 1. 添加原始函数
+for func in flow_functions:
+    # 添加到去重集合
+
+# 2. Call Tree扩展（1层）
+call_tree_expanded = self._expand_via_call_tree(flow_functions)
+# 去重添加
+
+# 3. RAG扩展
+rag_expanded = self._expand_via_rag(flow_functions)
+# 去重添加
+```
+
+**扩展策略**：
+- **原始函数**：业务流中直接匹配的函数
+- **Call Tree扩展**：通过调用关系发现的相关函数（1层）
+- **RAG扩展**：通过语义相似性发现的相关函数
+- **去重机制**：使用函数唯一标识符避免重复
+
+### 2. Call Tree扩展 (`_expand_via_call_tree`)
+
+```python
+# 使用FunctionUtils获取相关函数，返回格式为pairs
+related_text, function_pairs = FunctionUtils.extract_related_functions_by_level(
+    self.project, function_names, level=1, return_pairs=True
+)
+
+# 将相关函数转换为函数对象
+for func_name, func_content in function_pairs:
+    # 在functions_to_check中查找对应的函数对象
+    for check_func in self.project.functions_to_check:
+        if check_func['name'].endswith('.' + func_name) and check_func['content'] == func_content:
+            expanded_functions.append(check_func)
+```
+
+**工作原理**：
+- 提取业务流中函数的纯函数名
+- 使用现有的call tree分析获取1层相关函数
+- 将相关函数名匹配回实际的函数对象
+
+### 3. RAG扩展 (`_expand_via_rag`)
+
+```python
+# 为每个函数查找相似函数
+for func in functions:
+    if len(func_content) > 50:  # 只对有足够内容的函数进行RAG查询
+        similar_functions = self.context_factory.search_similar_functions(
+            func['name'], k=3  # 每个函数查找3个相似函数
+        )
+        
+        # 将相似函数转换为函数对象
+        for similar_func_data in similar_functions:
+            # 在functions_to_check中查找对应的函数对象
+```
+
+**工作原理**：
+- 对业务流中每个有足够内容的函数进行RAG查询
+- 查找语义相似的函数（每个函数最多3个）
+- 将相似函数匹配回实际的函数对象
+
+## 📊 架构对比
+
+### ❌ 旧架构（已完全删除）
+```python
+# 复杂的分支逻辑
+if all_business_flow_data.get('use_mermaid_flows', False):
+    # Mermaid模式
+    self._process_mermaid_business_flows(...)
+else:
+    # 传统模式
+    for function in functions_to_check:
+        self._process_single_function(...)
+        self._handle_traditional_business_flow_planning(...)
+```
+
+**问题**：
+- 两套并行的处理逻辑
+- 传统模式逐个函数处理效率低
+- 代码复杂度高，维护困难
+
+### ✅ 新架构（当前实现）
+```python
+# 统一的处理流程
+print("🎨 使用基于Mermaid的业务流处理模式")
+self._process_mermaid_business_flows(config, all_business_flow_data)
+
+# 如果没有业务流则跳过处理
+if not mermaid_flows:
+    print("❌ 未找到Mermaid业务流，跳过业务流处理")
+```
+
+**优势**：
+- 单一处理路径，逻辑清晰
+- 以业务流为单位的整体处理
+- 任务粒度优化：每个业务流一个任务，包含完整上下文
+- 简化的架构设计
+- 代码简洁，易于维护
+
+## 🎯 处理模式决策树
+
+```
+开始处理
+   ↓
+检查是否有Mermaid业务流
+   ├── 有 → Mermaid业务流处理模式
+   │   ├── 扩展上下文（Call Tree + RAG）
+   │   ├── 构建业务流代码
+   │   └── 创建任务
+   │
+   └── 无 → 跳过业务流处理
+```
+
+## 📈 性能与效率
+
+### 🚀 性能提升
+1. **减少重复分析**：每个业务流只处理一次
+2. **智能去重**：避免处理重复函数
+3. **任务数量优化**：每个业务流只创建一个任务，而不是为每个函数创建任务
+4. **批量处理**：统一生成检查清单和任务
+5. **上下文丰富**：通过扩展发现更多相关函数
+
+### 📊 预期输出示例
+
+```
+🎨 使用基于Mermaid的业务流处理模式
+
+🔄 开始处理 3 个Mermaid业务流...
+
+📊 处理业务流: 'Token Transfer Flow'
+   原始函数数: 2
+   🔍 开始扩展业务流 'Token Transfer Flow' 的上下文...
+      原始函数: 2 个
+      Call Tree扩展: +3 个函数
+      RAG扩展: +1 个函数
+      总计: 6 个函数 (去重后)
+   扩展后函数数: 6
+   业务流代码长度: 1245 字符
+   📝 为业务流 'Token Transfer Flow' 创建任务...
+   ✅ 为业务流 'Token Transfer Flow' 成功创建 1 个任务
+      每个任务包含整个业务流的 6 个函数的完整上下文
+
+📊 处理业务流: 'Governance Flow'
+   ✅ 为业务流 'Governance Flow' 成功创建 1 个任务
+      每个任务包含整个业务流的 4 个函数的完整上下文
+
+📊 处理业务流: 'Liquidation Flow'
+   ✅ 为业务流 'Liquidation Flow' 成功创建 1 个任务
+      每个任务包含整个业务流的 3 个函数的完整上下文
+```
+
+### 🔄 无业务流输出
+
+```
+🎨 使用基于Mermaid的业务流处理模式
+❌ 未找到Mermaid业务流，跳过业务流处理
+```
+
+## 🛡️ 健壮性保证
+
+### 1. **优雅降级**
+- 当没有Mermaid业务流时，系统跳过处理而不会报错
+- 确保即使Mermaid生成失败，系统仍能正常工作
+
+### 2. **错误处理**
+- Call Tree扩展失败时的优雅降级
+- RAG查询失败时的错误处理
+- 函数匹配失败时的跳过机制
+
+### 3. **配置驱动**
+- 通过`switch_business_code`控制业务流处理行为
+- 支持不同项目的差异化配置
+
+## 🔮 未来扩展
+
+1. **多层扩展**：支持超过1层的上下文扩展
+2. **权重机制**：为不同扩展来源的函数分配权重
+3. **智能过滤**：根据相关性自动过滤扩展的函数
+4. **增量更新**：支持业务流的增量更新和扩展
+5. **自适应处理**：根据项目特征智能选择处理模式
+
+---
+
+# English Documentation
+
+## Planning Module Refactoring Documentation
+
+### Overview
+
+This refactoring splits the original `planning_v2.py` file into multiple modules, improving code maintainability and reusability. The refactoring adopts a layered architecture, decomposing complex business logic into independent processors and utility modules.
+
+### File Structure
+
+```
+src/planning/
+├── __init__.py                  # Module initialization file
+├── planning_v2.py              # Core entry class (simplified)
+├── business_flow_processor.py  # Business flow processor
+├── planning_processor.py       # Planning processor
+├── business_flow_utils.py      # Business flow utility tools
+├── json_utils.py               # JSON processing tools
+├── function_utils.py           # Function processing tools
+├── config_utils.py             # Configuration management tools
+└── README.md                   # Chinese documentation
+└── README_EN.md                # This English documentation
+```
+
+### Module Description
+
+#### 1. planning_v2.py (Core Entry)
+Now very concise, mainly responsible for:
+- `PlanningV2` class: Main planning engine entry point
+- Initialize various processors
+- Provide clean public API interface
+
+#### 2. business_flow_processor.py (Business Flow Processor)
+Specifically handles business flow related complex logic:
+- `get_all_business_flow()` - Main logic for getting all business flows
+- `_process_contract_business_flows()` - Process business flows for a single contract
+- `_process_function_business_flow()` - Process business flow for a single function
+- `_get_function_code()` - Get function code
+- `_get_business_flow_list()` - Get business flow list
+- `_process_business_flow_response()` - Process business flow response
+- `_extract_function_line_info()` - Extract function line information
+- `_enhance_with_cross_contract_code()` - Cross-contract code enhancement
+- `_enhance_business_flow_code()` - Business flow code enhancement
+
+#### 3. planning_processor.py (Planning Processor)
+Specifically handles planning related complex logic:
+- `do_planning()` - Main logic for executing planning
+- `_prepare_planning()` - Prepare planning work
+- `_filter_test_functions()` - Filter test functions
+- `_get_business_flows_if_needed()` - Get business flows on demand
+- `_process_all_functions()` - Process all functions
+- `_process_single_function()` - Process single function
+- `_handle_business_flow_planning()` - Handle business flow planning
+- `_generate_checklist_and_analysis()` - Generate checklist and analysis
+- `_write_checklist_to_csv()` - Write to CSV file
+- `_analyze_business_type()` - Analyze business type
+- `_create_planning_task()` - Create planning task
+
+#### 4. business_flow_utils.py (Business Flow Utils)
+Utility functions related to business flow processing:
+- `ask_openai_for_business_flow()` - Ask OpenAI to get business flow
+- `extract_and_concatenate_functions_content()` - Extract and concatenate function content
+- `decode_business_flow_list_from_response()` - Decode business flow list from response
+- `search_business_flow()` - Search business flow
+- `identify_contexts()` - Identify contexts
+
+#### 5. json_utils.py (JSON Utils)
+Utility functions related to JSON processing:
+- `extract_filtered_functions()` - Extract function names from JSON string
+- `extract_results()` - Extract results from text
+- `merge_and_sort_rulesets()` - Merge and sort rule sets
+
+#### 6. function_utils.py (Function Utils)
+Utility functions related to function processing:
+- `extract_related_functions_by_level()` - Extract related functions by level
+
+#### 7. config_utils.py (Configuration Utils)
+Utility functions related to configuration management:
+- `should_exclude_in_planning()` - Determine if file should be excluded in planning
+- `get_visibility_filter_by_language()` - Get visibility filter by programming language
+- `get_scan_configuration()` - Get scan configuration
+
+### Refactoring Architecture
+
+#### Layered Design
+```
+┌─────────────────────────────────────┐
+│           PlanningV2                │  ← Entry Layer (Simplified API)
+│         (Entry Point)               │
+└─────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────┐
+│       Processor Layer               │  ← Processor Layer (Core Business Logic)
+│  ┌─────────────────────────────────┐│
+│  │  BusinessFlowProcessor         ││
+│  └─────────────────────────────────┘│
+│  ┌─────────────────────────────────┐│
+│  │  PlanningProcessor             ││
+│  └─────────────────────────────────┘│
+└─────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────┐
+│         Utils Layer                 │  ← Utils Layer (Pure Function Tools)
+│  ┌─────────────┬─────────────────────│
+│  │BusinessFlow │JsonUtils │Function ││
+│  │Utils        │         │Utils    ││
+│  └─────────────┴─────────────────────│
+│  ┌─────────────────────────────────┐│
+│  │          ConfigUtils           ││
+│  └─────────────────────────────────┘│
+└─────────────────────────────────────┘
+```
+
+### Refactoring Benefits
+
+1. **Layered Architecture**: Clear layered design with distinct responsibilities
+2. **Code Reuse**: Utility functions and processors can be reused in other modules
+3. **Single Responsibility**: Each module focuses on specific functionality
+4. **Easy to Test**: Easier to perform unit testing on individual components
+5. **Easy to Maintain**: Modifying specific functionality only requires modifying corresponding module
+6. **Easy to Extend**: Adding new functionality only requires adding new processors or utilities
+7. **Code Readability**: Code structure is clearer and easier to understand
+
+### Lines of Code Comparison
+
+#### Before Refactoring
+- `planning_v2.py`: 786 lines (monolithic file)
+
+#### After Refactoring
+- `planning_v2.py`: 48 lines (entry file, 94% reduction)
+- `business_flow_processor.py`: 228 lines (business flow processor)
+- `planning_processor.py`: 227 lines (planning processor)
+- `business_flow_utils.py`: 148 lines (business flow utils)
+- `json_utils.py`: 93 lines (JSON utils)
+- `function_utils.py`: 116 lines (function utils)
+- `config_utils.py`: 111 lines (configuration utils)
+
+**Total**: The original 786 lines split into 7 files, each with clear responsibilities.
+
+### Usage
+
+#### Basic Usage (Fully Compatible with Previous Version)
+```python
+from planning import PlanningV2
+
+# Use core planning class (API unchanged)
+planning = PlanningV2(project, taskmgr)
+planning.do_planning()
+```
+
+#### Advanced Usage (Using Specific Processors and Tools)
+```python
+from planning import (
+    PlanningV2, 
+    BusinessFlowProcessor, 
+    PlanningProcessor,
+    BusinessFlowUtils, 
+    JsonUtils, 
+    FunctionUtils, 
+    ConfigUtils
+)
+
+# Use specific processors
+business_flow_processor = BusinessFlowProcessor(project)
+business_flows = business_flow_processor.get_all_business_flow(functions)
+
+# Use utility functions
+config = ConfigUtils.get_scan_configuration()
+filtered_functions = JsonUtils.extract_filtered_functions(json_string)
+```
+
+### Compatibility
+
+This refactoring maintains the original public API completely unchanged, so existing code can continue to work without any modifications. It also provides more fine-grained APIs for advanced users.
+
+---
+
+**🎉 这一方法论的引入标志着FiniteMonkey从传统的静态分析向智能化、上下文感知的业务流分析的重大转变，为智能合约安全分析开辟了新的可能性！** 

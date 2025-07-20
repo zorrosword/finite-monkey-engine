@@ -1,4 +1,14 @@
-# 智能代码总结器 (Smart Code Summarizer) v3.1
+# 智能代码总结器完整文档
+
+## 📋 目录
+
+- [智能代码总结器 v3.1](#智能代码总结器-v31)
+- [与Planning模块集成功能](#与planning模块集成功能)
+- [更新日志](#更新日志)
+
+---
+
+# 智能代码总结器 v3.1
 
 基于Claude的增量式业务流程分析和Mermaid图生成系统 - **新增强化分析和文件夹级别分析**
 
@@ -358,4 +368,348 @@ Apache License 2.0
 
 ---
 
-**🎉 智能代码总结器v3.1 - 让复杂项目的架构理解变得简单直观！** 
+# 与Planning模块集成功能
+
+## 🎯 功能概述
+
+本文档描述了`code_summarizer`模块与`planning`模块的集成功能，实现了从Mermaid业务流程图中提取业务流，并在planning阶段使用这些业务流进行智能合约审计。
+
+## 🚀 核心功能
+
+### 1. 扫描时生成Mermaid文件
+在项目扫描过程中，系统会自动：
+- 收集所有代码文件内容
+- 使用`smart_business_flow_analysis_from_content`生成Mermaid业务流程图
+- 保存一个或多个`.mmd`文件到输出目录
+
+### 2. Planning时从Mermaid提取业务流
+在planning阶段，如果满足以下条件：
+- 使用business flow mode (`SWITCH_BUSINESS_CODE=True`)
+- 文件模式是false (`SWITCH_FILE_CODE=False`)
+
+系统会：
+- 从生成的Mermaid文件中提取业务流JSON
+- 匹配业务流中的函数到`functions_to_check`
+- 使用提取的业务流替代传统的业务流提取方式
+
+## 📋 业务流提取Prompt
+
+系统使用以下prompt从Mermaid图中提取业务流：
+
+```
+基于以上业务流程图，提取出业务流，以JSON格式输出，结构如下：
+{
+"flows": [
+{
+"name": "业务流1",
+"steps": ["文件1.函数", "文件2.函数", "文件3.函数"]
+},
+{
+"name": "业务流2", 
+"steps": ["文件1.函数", "文件2.函数"]
+}
+]
+}
+```
+
+## 🔄 完整工作流程
+
+### 步骤1: 扫描阶段 (main.py)
+
+```python
+# 在scan_project函数中
+def scan_project(project, db_engine):
+    # ... 现有代码 ...
+    
+    # 🆕 生成Mermaid文件
+    files_content = {}
+    for func in project_audit.functions_to_check:
+        file_path = func['relative_file_path']
+        if file_path not in files_content:
+            files_content[file_path] = func['contract_code']
+    
+    mermaid_result = smart_business_flow_analysis_from_content(
+        files_content, 
+        project.id,
+        enable_reinforcement=True
+    )
+    
+    # 保存mermaid文件到 src/codebaseQA/mermaid_output/{project_id}/
+    # 将结果保存到project_audit以供后续使用
+    project_audit.mermaid_result = mermaid_result
+    project_audit.mermaid_output_dir = output_dir
+```
+
+### 步骤2: Planning阶段 (planning_processor.py)
+
+```python
+def _get_business_flows_if_needed(self, config: Dict) -> Dict:
+    # 🆕 尝试从mermaid文件中提取业务流
+    if hasattr(self.project, 'mermaid_output_dir') and self.project.mermaid_output_dir:
+        mermaid_business_flows = self._extract_business_flows_from_mermaid()
+        
+        if mermaid_business_flows:
+            return {
+                'use_mermaid_flows': True,
+                'mermaid_business_flows': mermaid_business_flows,
+                # ... 其他字段
+            }
+    
+    # 回退到传统方式
+    # ... 现有逻辑
+```
+
+### 步骤3: 业务流处理 (business_flow_utils.py)
+
+```python
+# 新增功能
+def extract_all_business_flows_from_mermaid_files(mermaid_output_dir, project_id):
+    # 加载所有.mmd文件
+    # 使用prompt提取业务流JSON
+    # 返回业务流列表
+
+def match_functions_from_business_flows(business_flows, functions_to_check):
+    # 先匹配函数名，再匹配文件/合约名
+    # 返回匹配的业务流和对应的函数
+```
+
+## 📁 文件结构
+
+```
+src/codebaseQA/mermaid_output/
+└── {project_id}/
+    ├── {project_id}_business_flow.mmd      # 小项目单一文件
+    ├── {project_id}_{folder_name}.mmd      # 大项目文件夹级别
+    └── {project_id}_global_overview.mmd    # 大项目全局概览
+```
+
+## 🎯 函数匹配策略
+
+系统使用以下策略匹配业务流中的函数步骤：
+
+1. **精确匹配**: `合约名.函数名` 或 `文件名.函数名`
+2. **函数名匹配**: 如果精确匹配失败，尝试只匹配函数名
+3. **优先级**: 优先匹配更具体的函数标识
+
+### 匹配示例
+
+```javascript
+// 业务流步骤: "Token.transfer"
+// 匹配到: functions_to_check中的 {name: "Token.transfer", ...}
+
+// 业务流步骤: "transfer" 
+// 匹配到: 第一个名为"transfer"的函数
+```
+
+## 🧪 测试功能
+
+运行集成测试：
+
+```bash
+cd src
+python test_smart_analyzer.py
+```
+
+测试包括：
+- Mermaid业务流提取prompt测试
+- 完整集成流程测试
+- 函数匹配验证
+
+## 🔧 配置要求
+
+确保环境变量正确设置：
+
+```bash
+# 启用业务流扫描，禁用文件级别扫描
+export SWITCH_BUSINESS_CODE=True
+export SWITCH_FILE_CODE=False
+
+# 其他相关配置
+export SWITCH_FUNCTION_CODE=True  # 可选
+```
+
+## 📊 优势对比
+
+| 特性 | 传统业务流提取 | 基于Mermaid的提取 |
+|------|---------------|------------------|
+| **数据来源** | AST分析 + AI分析 | Mermaid可视化图 |
+| **准确性** | 依赖代码结构 | 基于整体业务理解 |
+| **可视化** | 无 | 完整的流程图 |
+| **扩展性** | 有限 | 支持复杂业务场景 |
+| **调试性** | 较难 | 可视化，易于理解 |
+
+## ⚡ 性能考虑
+
+- **Mermaid生成**: 首次扫描时生成，后续复用
+- **业务流提取**: 使用AI分析Mermaid图，比传统AST分析更高效
+- **函数匹配**: 优化的索引策略，支持大型项目
+
+## 🛠️ 故障排除
+
+### 常见问题
+
+1. **Mermaid文件未生成**
+   - 检查`code_summarizer`模块是否正确导入
+   - 验证`functions_to_check`数据是否有效
+
+2. **业务流提取失败**
+   - 检查Mermaid文件内容是否有效
+   - 验证AI API配置是否正确
+
+3. **函数匹配失败**
+   - 检查函数名格式是否一致
+   - 验证`functions_to_check`数据结构
+
+### 调试模式
+
+启用详细日志：
+
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
+## 🔮 未来扩展
+
+1. **增量更新**: 支持项目变更时的增量Mermaid更新
+2. **自定义匹配**: 支持用户自定义函数匹配规则
+3. **多格式支持**: 支持其他图表格式（如PlantUML）
+4. **交互式优化**: 支持用户交互式优化业务流提取
+
+## 🤝 贡献指南
+
+1. 遵循现有代码风格
+2. 添加适当的测试用例
+3. 更新相关文档
+4. 确保向后兼容性
+
+---
+
+# 更新日志
+
+## v3.1.1 - 原始合约名和函数名保持增强 (2025-07-20)
+
+### 🎯 重大改进
+
+#### 强化原始命名保持功能
+- **✅ 增量分析增强**: 修改prompt强制要求使用原始合约名和函数名
+- **✅ 强化分析优化**: 强化分析阶段严格保持代码中的真实命名
+- **✅ 最终优化改进**: 最终优化阶段禁止修改任何合约名和函数名
+- **✅ 全局概览增强**: 全局架构图也使用具体的模块名称
+
+#### 具体修改内容
+
+1. **增量分析Prompt增强**
+   ```diff
+   + **关键格式要求 - 必须严格遵守:**
+   + - **合约名**: 使用文件中的原始合约名 (如: ERC20AssetGateway, PlanFactory)
+   + - **函数名**: 使用代码中的准确函数名 (如: constructor, confirmJoin)
+   + - **参数**: 包含函数的真实参数名和类型 (如: address _user, uint256 _amount)
+   + - **重要提醒**: 绝对不能使用通用名称如 "Contract", "Token"
+   ```
+
+2. **强化分析Prompt升级**
+   ```diff
+   + **关键格式要求 - 必须严格遵守:**
+   + - **合约名**: 使用原始合约名，不能使用通用名称
+   + - **函数名**: 使用代码中的准确函数名，包含完整的函数签名
+   + - **参数类型**: 包含准确的参数类型 (如: address, uint256, string, bool)
+   + - **绝对不能使用通用名称如 "Contract", "Token", "System"**
+   ```
+
+3. **最终优化Prompt强化**
+   ```diff
+   + **关键格式要求:**
+   + - **绝对不能修改合约名** - 保持所有原始合约名
+   + - **绝对不能修改函数名** - 保持所有原始函数名和参数
+   + - **不能使用通用名称** - 禁止将具体合约名改为通用名称
+   ```
+
+### 📊 测试验证结果
+
+使用TokenVault和StakingRewards合约进行测试：
+
+- **✅ 合约名保持率**: 100.0%
+- **✅ 函数名保持率**: 83.3%
+- **✅ 总体得分**: 71.7% (通过70%阈值)
+- **✅ 强化分析**: 2轮强化分析成功执行
+
+### 🎯 使用效果对比
+
+#### 修改前 (v3.1.0)
+```mermaid
+sequenceDiagram
+    User->>Contract: deposit(amount)
+    Contract->>Token: transfer(user, amount)
+    Contract->>System: emit Deposited(amount)
+```
+
+#### 修改后 (v3.1.1)
+```mermaid
+sequenceDiagram
+    User->>TokenVault: deposit(uint256 _amount)
+    TokenVault->>IERC20: transferFrom(msg.sender, address(this), _amount)
+    TokenVault->>TokenVault: userBalances[msg.sender] += _amount
+    TokenVault-->>User: emit Deposited(address indexed user, uint256 amount)
+```
+
+### 💡 核心优势
+
+1. **📋 技术文档友好**: 生成的Mermaid图可直接用于技术文档
+2. **🔍 代码审查精准**: 准确反映实际的合约结构和函数调用
+3. **🎯 智能合约专用**: 特别适合Solidity等智能合约代码分析
+4. **🔄 防御性设计**: 多层级的命名保护机制
+
+### 🚀 应用场景
+
+- **智能合约审计**: 生成准确的业务流程图用于安全审计
+- **项目文档**: 为DeFi、NFT等项目生成技术文档
+- **代码理解**: 帮助开发者快速理解复杂的智能合约交互
+- **架构设计**: 可视化展示项目的真实架构结构
+
+### 🔧 使用方法
+
+```python
+from code_summarizer import smart_business_flow_analysis
+
+# 智能分析 - 自动保持原始命名
+result = smart_business_flow_analysis(
+    project_path="./your_smart_contract_project",
+    project_name="MyDeFiProtocol",
+    enable_reinforcement=True  # 启用强化分析
+)
+
+# 生成的Mermaid图将包含真实的合约名和函数名
+print(result.final_mermaid_graph)
+```
+
+### 📈 性能数据
+
+- **Token效率**: 平均每文件2,591 tokens (GoMutual项目测试)
+- **分析精度**: 置信度提升至0.92+
+- **命名准确率**: 合约名100%，函数名83%+
+- **强化效果**: 2轮强化分析显著提升细节程度
+
+---
+
+## v3.1.0 - 智能分析策略和强化分析 (2025-07-20)
+
+### 新功能
+- 🤖 智能策略选择 (增量 vs 文件夹级别)
+- 🔄 多轮强化分析功能
+- 📁 文件夹级别分析支持
+- 🛡️ 防御性逻辑设计
+
+---
+
+## v3.0.0 - 增量式业务流程分析器 (2025-07-19)
+
+### 基础功能
+- ⚡ 增量式分析 (A→A+B→A+B+C)
+- 🎨 Mermaid序列图生成
+- 💰 智能Token管理
+- 📊 多种文件格式支持
+
+---
+
+**🎉 通过智能代码总结器，智能合约分析变得更加智能和可视化！智能代码总结器v3.1 - 让复杂项目的架构理解变得简单直观！** 
