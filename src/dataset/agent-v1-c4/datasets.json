@@ -248,8 +248,8 @@
         "exclude_in_planning":"true",
         "exclude_directory":["exclude"]
     },
-    "test_crosscontract11":{
-        "path":"test_crosscontract",
+    "chainlink072111":{
+        "path":"chainlink",
         "files":[
         ],
         "functions":[],

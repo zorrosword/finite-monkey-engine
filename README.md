@@ -19,6 +19,60 @@ FiniteMonkey is an intelligent vulnerability mining engine based on large langua
 - **Focus on prompt design rather than model design**
 - **Leverage "deception" and hallucination as key mechanisms**
 
+## 🔄 Business Flow Analysis Methodology
+
+FiniteMonkey introduces an innovative **Mermaid-based Business Flow Extraction** approach that revolutionizes how smart contracts are analyzed:
+
+### 📊 Core Features
+
+#### 1. **Intelligent Mermaid Generation**
+- **AI-Powered Analysis**: Leverages Claude-4-Sonnet to generate comprehensive Mermaid diagrams from smart contract code
+- **Multi-Strategy Approach**: Automatically selects between incremental analysis (small projects) and folder-based analysis (large projects)
+- **Reinforcement Analysis**: Multiple rounds of analysis to ensure complete function coverage, especially getter/setter functions
+
+#### 2. **Business Flow Extraction**
+- **JSON-Based Parsing**: Extracts structured business flows from Mermaid sequence diagrams
+- **Semantic Understanding**: Identifies meaningful business processes beyond simple function calls
+- **Context-Aware Grouping**: Groups related functions into coherent business workflows
+
+#### 3. **Smart Context Expansion**
+- **Call Tree Integration**: Expands business flows using function call relationships
+- **RAG Enhancement**: Leverages Retrieval-Augmented Generation for deeper context understanding
+- **Duplicate Prevention**: Intelligent filtering to avoid redundant function analysis
+
+#### 4. **Advanced Task Creation**
+- **Business Flow Level**: Creates tasks at business flow granularity instead of individual functions
+- **Coverage Analysis**: Tracks which functions are covered by business flows vs. requiring individual analysis
+- **Hybrid Approach**: Combines business flow tasks with function-level tasks for comprehensive coverage
+
+### 🎯 Analysis Modes
+
+#### **Pure Mermaid Mode** (`SWITCH_BUSINESS_CODE=True`)
+- Generates Mermaid diagrams for complete project visualization
+- Extracts business flows from Mermaid files stored in `src/codebaseQA/mermaid_output/`
+- Creates business flow-based analysis tasks
+- Provides detailed coverage reporting
+
+#### **Hybrid Mode**
+- Combines Mermaid-based business flow analysis with traditional function-level scanning
+- Optimizes analysis efficiency while maintaining comprehensive coverage
+- Intelligent fallback to function-level analysis for uncovered code
+
+### 📈 Benefits
+
+- **Higher Efficiency**: Reduces redundant analysis by grouping related functions
+- **Better Context**: Business flows provide richer context than isolated functions
+- **Comprehensive Coverage**: Ensures all functions are analyzed either through business flows or individually
+- **Visual Understanding**: Mermaid diagrams provide clear visualization of contract interactions
+- **Scalable Analysis**: Handles both small contracts and large multi-contract projects
+
+### 🔧 Implementation
+
+The methodology is implemented across multiple modules:
+- **Code Summarizer**: Generates enhanced Mermaid diagrams with reinforcement analysis
+- **Planning Module**: Extracts business flows and creates optimized analysis tasks
+- **Context Manager**: Provides intelligent context expansion using call trees and RAG
+
 ## 🏆 Achievements
 
 As of May 2024, this tool has helped discover over $60,000 worth of bug bounties.

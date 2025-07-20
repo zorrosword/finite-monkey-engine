@@ -2,6 +2,7 @@ import json
 import random
 import csv
 import sys
+import os
 import os.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from typing import List, Dict
@@ -77,10 +78,36 @@ class PlanningProcessor:
         # 只有在非文件级别扫描且开启业务流扫描时才获取业务流数据
         if config['switch_business_code']:
             try:
+                # 🆕 新功能：尝试从mermaid文件中提取业务流
+                if hasattr(self.project, 'mermaid_output_dir') and self.project.mermaid_output_dir:
+                    # 检查是否使用已存在的mmd文件
+                    if hasattr(self.project, 'mermaid_result') and self.project.mermaid_result is None:
+                        print("🎯 检测到使用已存在的Mermaid文件，从现有文件中提取业务流...")
+                    else:
+                        print("🎨 尝试从新生成的Mermaid文件中提取业务流...")
+                    
+                    mermaid_business_flows = self._extract_business_flows_from_mermaid()
+                    
+                    if mermaid_business_flows:
+                        print("✅ 成功从Mermaid文件提取业务流，使用基于mermaid的业务流")
+                        return {
+                            'use_mermaid_flows': True,
+                            'mermaid_business_flows': mermaid_business_flows,
+                            'all_business_flow': {},
+                            'all_business_flow_line': {},
+                            'all_business_flow_context': {}
+                        }
+                    else:
+                        print("⚠️ 从Mermaid文件提取业务流失败，回退到传统方式")
+                
+                # 传统方式：从context_factory获取业务流
+                print("🔄 使用传统方式获取业务流...")
                 all_business_flow, all_business_flow_line, all_business_flow_context = self.context_factory.get_business_flow_context(
                     self.project.functions_to_check
                 )
                 return {
+                    'use_mermaid_flows': False,
+                    'mermaid_business_flows': {},
                     'all_business_flow': all_business_flow,
                     'all_business_flow_line': all_business_flow_line,
                     'all_business_flow_context': all_business_flow_context
@@ -90,14 +117,451 @@ class PlanningProcessor:
                 return {}
         return {}
     
+    def _extract_business_flows_from_mermaid(self) -> Dict[str, List[Dict]]:
+        """从mermaid文件中提取业务流，并将步骤匹配到实际函数
+        
+        Returns:
+            Dict[str, List[Dict]]: 业务流名称到实际函数对象列表的映射
+        """
+        try:
+            # 1. 从所有mermaid文件中提取原始业务流JSON
+            raw_business_flows = BusinessFlowUtils.extract_all_business_flows_from_mermaid_files(
+                self.project.mermaid_output_dir, 
+                self.project.project_id
+            )
+            
+            if not raw_business_flows:
+                print("❌ 未从Mermaid文件中提取到任何业务流")
+                return {}
+            
+            print(f"\n🎯 从Mermaid文件提取的原始业务流详情：")
+            print("="*80)
+            for i, flow in enumerate(raw_business_flows, 1):
+                flow_name = flow.get('name', f'未命名业务流{i}')
+                steps = flow.get('steps', [])
+                print(f"\n📋 业务流 #{i}: {flow_name}")
+                print(f"   步骤数量: {len(steps)}")
+                print(f"   步骤详情:")
+                for j, step in enumerate(steps, 1):
+                    print(f"     {j}. {step}")
+            print("="*80)
+            
+            # 2. 🆕 关键逻辑：根据业务流步骤在functions_to_check中查找实际函数
+            matched_flows = self._match_business_flow_steps_to_functions(raw_business_flows)
+            
+            if matched_flows:
+                print(f"\n🎉 业务流步骤匹配结果详情：")
+                print("="*80)
+                
+                total_flows = len(matched_flows)
+                total_functions = sum(len(functions) for functions in matched_flows.values())
+                
+                print(f"✅ 成功匹配 {total_flows} 个业务流，共 {total_functions} 个函数")
+                
+                # 详细打印每个匹配的业务流
+                for flow_name, functions in matched_flows.items():
+                    print(f"\n📊 业务流: '{flow_name}'")
+                    print(f"   匹配函数数: {len(functions)}")
+                    print(f"   函数详情:")
+                    
+                    for i, func in enumerate(functions, 1):
+                        print(f"     {i}. {func['name']}")
+                        print(f"        📁 文件: {func['relative_file_path']}")
+                        print(f"        📍 行号: {func['start_line']}-{func['end_line']}")
+                        print(f"        🏢 合约: {func['contract_name']}")
+                        # 显示函数内容的前50字符
+                        content_preview = func.get('content', '')[:50].replace('\n', ' ')
+                        print(f"        📝 内容预览: {content_preview}{'...' if len(func.get('content', '')) > 50 else ''}")
+                
+                print("="*80)
+                
+                return matched_flows
+            else:
+                print("❌ 业务流步骤匹配失败，未找到对应的函数")
+                return {}
+                
+        except Exception as e:
+            print(f"❌ 从Mermaid提取业务流时发生错误: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {}
+    
+    def _match_business_flow_steps_to_functions(self, raw_business_flows: List[Dict]) -> Dict[str, List[Dict]]:
+        """根据业务流步骤在functions_to_check中查找实际函数对象
+        
+        Args:
+            raw_business_flows: 从mermaid提取的原始业务流
+            格式: [{"name": "flow1", "steps": ["Token.transfer", "DEX.swap"]}, ...]
+            
+        Returns:
+            Dict[str, List[Dict]]: 业务流名称到实际函数对象列表的映射
+        """
+        print(f"\n🔍 开始匹配业务流步骤到实际函数...")
+        
+        # 创建函数查找索引，便于快速查找
+        function_lookup = self._build_function_lookup_index()
+        
+        matched_flows = {}
+        
+        for flow in raw_business_flows:
+            flow_name = flow.get('name', 'Unknown Flow')
+            steps = flow.get('steps', [])
+            
+            print(f"\n🔄 处理业务流: '{flow_name}' ({len(steps)} 个步骤)")
+            
+            matched_functions = []
+            for step_index, step in enumerate(steps, 1):
+                print(f"   步骤 {step_index}: {step}")
+                
+                # 在functions_to_check中查找匹配的函数
+                matched_func = self._find_function_by_step(step, function_lookup)
+                
+                if matched_func:
+                    matched_functions.append(matched_func)
+                    print(f"     ✅ 匹配到: {matched_func['name']} ({matched_func['relative_file_path']})")
+                else:
+                    print(f"     ❌ 未找到匹配的函数")
+            
+            if matched_functions:
+                matched_flows[flow_name] = matched_functions
+                print(f"   ✅ 业务流 '{flow_name}' 成功匹配 {len(matched_functions)} 个函数")
+            else:
+                print(f"   ⚠️ 业务流 '{flow_name}' 未匹配到任何函数")
+        
+        return matched_flows
+    
+    def _build_function_lookup_index(self) -> Dict[str, List[Dict]]:
+        """构建函数查找索引
+        
+        Returns:
+            Dict: 多种查找方式的索引
+            {
+                'by_name': {function_name: [function_objects]},
+                'by_contract_function': {contract.function: [function_objects]},
+                'by_file_function': {file.function: [function_objects]}
+            }
+        """
+        function_lookup = {
+            'by_name': {},           # transfer -> [所有transfer函数]
+            'by_contract_function': {},  # Token.transfer -> [Token合约的transfer函数]
+            'by_file_function': {}   # Token.sol.transfer -> [Token.sol文件的transfer函数]
+        }
+        
+        for func in self.project.functions_to_check:
+            func_name = func['name']
+            
+            # 提取纯函数名（去掉合约前缀）
+            if '.' in func_name:
+                contract_name, pure_func_name = func_name.split('.', 1)
+                
+                # 按纯函数名索引
+                if pure_func_name not in function_lookup['by_name']:
+                    function_lookup['by_name'][pure_func_name] = []
+                function_lookup['by_name'][pure_func_name].append(func)
+                
+                # 按合约.函数名索引
+                contract_func_key = f"{contract_name}.{pure_func_name}"
+                if contract_func_key not in function_lookup['by_contract_function']:
+                    function_lookup['by_contract_function'][contract_func_key] = []
+                function_lookup['by_contract_function'][contract_func_key].append(func)
+                
+                # 按文件.函数名索引
+                file_name = os.path.basename(func['relative_file_path']).replace('.sol', '').replace('.py', '').replace('.js', '').replace('.ts', '')
+                file_func_key = f"{file_name}.{pure_func_name}"
+                if file_func_key not in function_lookup['by_file_function']:
+                    function_lookup['by_file_function'][file_func_key] = []
+                function_lookup['by_file_function'][file_func_key].append(func)
+        
+        return function_lookup
+    
+    def _find_function_by_step(self, step: str, function_lookup: Dict) -> Dict:
+        """根据业务流步骤查找对应的函数对象
+        
+        Args:
+            step: 业务流步骤，如 "Token.transfer"
+            function_lookup: 函数查找索引
+            
+        Returns:
+            Dict: 匹配的函数对象，如果未找到返回None
+        """
+        # 策略1: 精确匹配 (合约.函数 或 文件.函数)
+        if step in function_lookup['by_contract_function']:
+            candidates = function_lookup['by_contract_function'][step]
+            if candidates:
+                return candidates[0]  # 返回第一个匹配
+        
+        if step in function_lookup['by_file_function']:
+            candidates = function_lookup['by_file_function'][step]
+            if candidates:
+                return candidates[0]  # 返回第一个匹配
+        
+        # 策略2: 如果包含点号，尝试只匹配函数名部分
+        if '.' in step:
+            _, func_name = step.split('.', 1)
+            if func_name in function_lookup['by_name']:
+                candidates = function_lookup['by_name'][func_name]
+                if candidates:
+                    return candidates[0]  # 返回第一个匹配
+        
+        # 策略3: 直接按函数名匹配
+        if step in function_lookup['by_name']:
+            candidates = function_lookup['by_name'][step]
+            if candidates:
+                return candidates[0]  # 返回第一个匹配
+        
+        return None
+    
     def _process_all_functions(self, config: Dict, all_business_flow_data: Dict):
         """处理所有函数"""
         # 如果开启了文件级别扫描
         if config['switch_file_code']:
             self._process_all_files(config)
         else:
-            for function in tqdm(self.project.functions_to_check, desc="Finding project rules"):
-                self._process_single_function(function, config, all_business_flow_data)
+            # 🆕 使用基于mermaid的业务流处理模式
+            print("🎨 使用基于Mermaid的业务流处理模式")
+            self._process_mermaid_business_flows(config, all_business_flow_data)
+    
+    def _process_mermaid_business_flows(self, config: Dict, all_business_flow_data: Dict):
+        """基于Mermaid业务流的整体处理模式"""
+        mermaid_flows = all_business_flow_data.get('mermaid_business_flows', {})
+        
+        if not mermaid_flows:
+            print("❌ 未找到Mermaid业务流")
+            # 如果没有Mermaid业务流但开启了函数代码处理，则处理所有函数
+            if config['switch_function_code']:
+                print("🔄 回退到函数代码处理模式")
+                self._process_all_functions_code_only(config)
+            return
+        
+        print(f"\n🔄 开始处理 {len(mermaid_flows)} 个Mermaid业务流...")
+        
+        # 记录所有被业务流覆盖的函数（包括扩展后的）
+        all_covered_functions = set()
+        all_expanded_functions = []
+        
+        # 对每个业务流进行上下文扩展和任务创建
+        for flow_name, flow_functions in mermaid_flows.items():
+            print(f"\n📊 处理业务流: '{flow_name}'")
+            print(f"   原始函数数: {len(flow_functions)}")
+            
+            # 1. 扩展业务流上下文
+            expanded_functions = self._expand_business_flow_context(flow_functions, flow_name)
+            
+            print(f"   扩展后函数数: {len(expanded_functions)}")
+            
+            # 记录扩展后的函数
+            all_expanded_functions.extend(expanded_functions)
+            for func in expanded_functions:
+                all_covered_functions.add(func['name'])
+            
+            # 2. 构建完整的业务流代码
+            business_flow_code = self._build_business_flow_code_from_functions(expanded_functions)
+            line_info_list = self._build_line_info_from_functions(expanded_functions)
+            
+            print(f"   业务流代码长度: {len(business_flow_code)} 字符")
+            
+            # 3. 为业务流中的每个函数创建任务
+            self._create_tasks_for_business_flow(
+                expanded_functions, business_flow_code, line_info_list, 
+                flow_name, config
+            )
+        
+        # 🆕 添加业务流覆盖度分析日志
+        self._log_business_flow_coverage(all_covered_functions, all_expanded_functions)
+    
+    def _process_all_functions_code_only(self, config: Dict):
+        """处理所有函数的代码（非业务流模式）"""
+        print(f"\n🔄 开始处理 {len(self.project.functions_to_check)} 个函数的代码...")
+        
+        for function in tqdm(self.project.functions_to_check, desc="Processing function codes"):
+            name = function['name']
+            content = function['content']
+            
+            # 检查函数长度
+            if len(content) < config['threshold']:
+                print(f"Function code for {name} is too short for <{config['threshold']}, skipping...")
+                continue
+            
+            # 检查是否应该排除
+            if ConfigUtils.should_exclude_in_planning(self.project, function['relative_file_path']):
+                print(f"Excluding function {name} in planning process based on configuration")
+                continue
+            
+            print(f"————————Processing function: {name}————————")
+            
+            # 处理函数代码
+            self._handle_function_code_planning(function, config)
+    
+    def _expand_business_flow_context(self, flow_functions: List[Dict], flow_name: str) -> List[Dict]:
+        """扩展业务流的上下文，使用call tree和rag进行1层扩展
+        
+        Args:
+            flow_functions: 业务流中的原始函数列表
+            flow_name: 业务流名称
+            
+        Returns:
+            List[Dict]: 扩展后的函数列表（已去重）
+        """
+        print(f"   🔍 开始扩展业务流 '{flow_name}' 的上下文...")
+        
+        # 存储所有扩展后的函数，使用set去重
+        expanded_functions_set = set()
+        expanded_functions_list = []
+        
+        # 首先添加原始函数
+        for func in flow_functions:
+            func_key = f"{func['name']}_{func['start_line']}_{func['end_line']}"
+            if func_key not in expanded_functions_set:
+                expanded_functions_set.add(func_key)
+                expanded_functions_list.append(func)
+        
+        print(f"      原始函数: {len(expanded_functions_list)} 个")
+        
+        # 1. 使用call tree扩展上下文
+        call_tree_expanded = self._expand_via_call_tree(flow_functions)
+        added_via_call_tree = 0
+        
+        for func in call_tree_expanded:
+            func_key = f"{func['name']}_{func['start_line']}_{func['end_line']}"
+            if func_key not in expanded_functions_set:
+                expanded_functions_set.add(func_key)
+                expanded_functions_list.append(func)
+                added_via_call_tree += 1
+        
+        print(f"      Call Tree扩展: +{added_via_call_tree} 个函数")
+        
+        # 2. 使用RAG扩展上下文
+        rag_expanded = self._expand_via_rag(flow_functions)
+        added_via_rag = 0
+        
+        for func in rag_expanded:
+            func_key = f"{func['name']}_{func['start_line']}_{func['end_line']}"
+            if func_key not in expanded_functions_set:
+                expanded_functions_set.add(func_key)
+                expanded_functions_list.append(func)
+                added_via_rag += 1
+        
+        print(f"      RAG扩展: +{added_via_rag} 个函数")
+        print(f"      总计: {len(expanded_functions_list)} 个函数 (去重后)")
+        
+        return expanded_functions_list
+    
+    def _expand_via_call_tree(self, functions: List[Dict]) -> List[Dict]:
+        """使用call tree扩展函数上下文（1层）"""
+        expanded_functions = []
+        
+        if not hasattr(self.project, 'call_trees') or not self.project.call_trees:
+            print("      ⚠️ 未找到call trees，跳过call tree扩展")
+            return expanded_functions
+        
+        # 从context.function_utils导入函数处理工具
+        from context.function_utils import FunctionUtils
+        
+        # 提取函数名列表
+        function_names = []
+        for func in functions:
+            if '.' in func['name']:
+                pure_func_name = func['name'].split('.', 1)[1]
+                function_names.append(pure_func_name)
+        
+        if not function_names:
+            return expanded_functions
+        
+        try:
+            # 使用FunctionUtils获取相关函数，返回格式为pairs
+            related_text, function_pairs = FunctionUtils.extract_related_functions_by_level(
+                self.project, function_names, level=1, return_pairs=True
+            )
+            
+            # 将相关函数转换为函数对象
+            for func_name, func_content in function_pairs:
+                # 在functions_to_check中查找对应的函数对象
+                for check_func in self.project.functions_to_check:
+                    if check_func['name'].endswith('.' + func_name) and check_func['content'] == func_content:
+                        expanded_functions.append(check_func)
+                        break
+            
+        except Exception as e:
+            print(f"      ❌ Call tree扩展失败: {str(e)}")
+        
+        return expanded_functions
+    
+    def _expand_via_rag(self, functions: List[Dict]) -> List[Dict]:
+        """使用RAG扩展函数上下文"""
+        expanded_functions = []
+        
+        try:
+            # 检查是否有RAG处理器
+            if not hasattr(self.context_factory, 'rag_processor') or not self.context_factory.rag_processor:
+                print("      ⚠️ 未找到RAG处理器，跳过RAG扩展")
+                return expanded_functions
+            
+            # 为每个函数查找相似函数
+            for func in functions:
+                func_content = func.get('content', '')
+                if len(func_content) > 50:  # 只对有足够内容的函数进行RAG查询
+                    try:
+                        similar_functions = self.context_factory.search_similar_functions(
+                            func['name'], k=3  # 每个函数查找3个相似函数
+                        )
+                        
+                        # 将相似函数转换为函数对象
+                        for similar_func_data in similar_functions:
+                            # 在functions_to_check中查找对应的函数对象
+                            similar_func_name = similar_func_data.get('name', '')
+                            for check_func in self.project.functions_to_check:
+                                if check_func['name'] == similar_func_name:
+                                    expanded_functions.append(check_func)
+                                    break
+                                    
+                    except Exception as e:
+                        print(f"      ⚠️ 函数 {func['name']} RAG查询失败: {str(e)}")
+                        continue
+        
+        except Exception as e:
+            print(f"      ❌ RAG扩展失败: {str(e)}")
+        
+        return expanded_functions
+    
+    def _create_tasks_for_business_flow(self, expanded_functions: List[Dict], 
+                                      business_flow_code: str, line_info_list: List[Dict],
+                                      flow_name: str, config: Dict):
+        """为业务流创建任务（整个业务流一个任务，而不是每个函数一个任务）"""
+        
+        print(f"   📝 为业务流 '{flow_name}' 创建任务...")
+        
+        # 选择一个代表性函数作为任务的主要函数（通常是第一个函数）
+        representative_function = expanded_functions[0] if expanded_functions else None
+        if not representative_function:
+            print("   ❌ 业务流中无有效函数，跳过任务创建")
+            return
+        
+        # 生成检查清单和业务类型分析（基于整个业务流）
+        checklist, business_type_str = self._generate_checklist_and_analysis(
+            business_flow_code, 
+            representative_function['content'], 
+            representative_function['contract_name'], 
+            is_business_flow=True
+        )
+        
+        print(f"   📋 生成的业务类型: {business_type_str}")
+        print(f"   📊 业务流包含 {len(expanded_functions)} 个函数")
+        
+        # 为整个业务流创建任务（不是为每个函数创建）
+        tasks_created = 0
+        for i in range(config['actual_iteration_count']):
+            # print(f"      📝 创建业务流 '{flow_name}' 的第 {i+1} 个任务...")
+            
+            # 使用代表性函数作为任务载体，但任务包含整个业务流的信息
+            self._create_planning_task(
+                representative_function, checklist, business_type_str,
+                business_flow_code, line_info_list,
+                if_business_flow_scan=1, config=config
+            )
+            tasks_created += 1
+        
+        print(f"   ✅ 为业务流 '{flow_name}' 成功创建 {tasks_created} 个任务")
+        print(f"      每个任务包含整个业务流的 {len(expanded_functions)} 个函数的完整上下文")
     
     def _process_all_files(self, config: Dict):
         """处理所有文件 - 文件级别扫描"""
@@ -180,7 +644,7 @@ class PlanningProcessor:
             if checklist_dict:
                 checklist_key = list(checklist_dict.keys())[0]
                 recommendation = checklist_key
-                print(f"[DEBUG🐞]📋Setting recommendation to checklist key: {checklist_key} (index: {self.fine_grained_counter % config['total_checklist_count']})")
+                # print(f"[DEBUG🐞]📋Setting recommendation to checklist key: {checklist_key} (index: {self.fine_grained_counter % config['total_checklist_count']})")
             self.fine_grained_counter += 1
         
         task = Project_Task(
@@ -212,86 +676,6 @@ class PlanningProcessor:
             if_business_flow_scan=0  # 文件级别扫描不是业务流扫描
         )
         self.taskmgr.add_task_in_one(task)
-    
-    def _process_single_function(self, function: Dict, config: Dict, all_business_flow_data: Dict):
-        """处理单个函数"""
-        name = function['name']
-        content = function['content']
-        contract_code = function['contract_code']
-        
-        # 检查函数长度
-        if len(content) < config['threshold']:
-            print(f"Function code for {name} is too short for <{config['threshold']}, skipping...")
-            return
-        
-        # 检查是否应该排除
-        if ConfigUtils.should_exclude_in_planning(self.project, function['relative_file_path']):
-            print(f"Excluding function {name} in planning process based on configuration")
-            return
-        
-        contract_name = function['contract_name']
-        print(f"————————Processing function: {name}————————")
-        
-        # 处理业务流代码
-        if config['switch_business_code']:
-            self._handle_business_flow_planning(
-                function, config, all_business_flow_data
-            )
-        
-        # 处理函数代码
-        if config['switch_function_code']:
-            self._handle_function_code_planning(function, config)
-    
-    def _handle_business_flow_planning(self, function: Dict, config: Dict, all_business_flow_data: Dict):
-        """处理业务流规划"""
-        name = function['name']
-        content = function['content']
-        contract_name = function['contract_name']
-        
-        # 获取业务流代码
-        business_flow_code, line_info_list = BusinessFlowUtils.search_business_flow(
-            all_business_flow_data.get('all_business_flow', {}),
-            all_business_flow_data.get('all_business_flow_line', {}),
-            all_business_flow_data.get('all_business_flow_context', {}),
-            name.split(".")[1],
-            contract_name
-        )
-        
-        print(f"[DEBUG] 获取到的业务流代码长度: {len(business_flow_code) if business_flow_code else 0}")
-        
-        if business_flow_code == "not found":
-            return
-        
-        # 生成检查清单和业务类型分析
-        checklist, business_type_str = self._generate_checklist_and_analysis(
-            business_flow_code, content, contract_name, is_business_flow=True
-        )
-        
-        # 创建任务
-        for i in range(config['actual_iteration_count']):
-            self._create_planning_task(
-                function, checklist, business_type_str, 
-                str(business_flow_code), line_info_list, 
-                if_business_flow_scan=1, config=config
-            )
-    
-    def _handle_function_code_planning(self, function: Dict, config: Dict):
-        """处理函数代码规划"""
-        content = function['content']
-        contract_name = function['contract_name']
-        
-        # 生成检查清单
-        checklist, _ = self._generate_checklist_and_analysis(
-            "", content, contract_name, is_business_flow=False
-        )
-        
-        # 创建任务
-        for i in range(config['actual_iteration_count']):
-            self._create_planning_task(
-                function, checklist, "", 
-                "", "", 
-                if_business_flow_scan=0, config=config
-            )
     
     def _generate_checklist_and_analysis(
         self, 
@@ -406,7 +790,7 @@ class PlanningProcessor:
             if checklist_dict:
                 checklist_key = list(checklist_dict.keys())[0]
                 recommendation = checklist_key
-                print(f"[DEBUG🐞]📋Setting recommendation to checklist key: {checklist_key} (index: {self.fine_grained_counter % config['total_checklist_count']})")
+                # print(f"[DEBUG🐞]📋Setting recommendation to checklist key: {checklist_key} (index: {self.fine_grained_counter % config['total_checklist_count']})")
             self.fine_grained_counter += 1
         
         # 将business_flow_lines序列化为JSON字符串以便存储到数据库
@@ -450,3 +834,173 @@ class PlanningProcessor:
             if_business_flow_scan=if_business_flow_scan
         )
         self.taskmgr.add_task_in_one(task) 
+    
+    def _build_business_flow_code_from_functions(self, functions: List[Dict]) -> str:
+        """从函数列表构建业务流代码
+        
+        Args:
+            functions: 函数列表
+            
+        Returns:
+            str: 拼接的业务流代码
+        """
+        business_flow_code = ""
+        
+        for func in functions:
+            content = func.get('content', '')
+            if content:
+                business_flow_code += f"\n// 函数: {func['name']}\n"
+                business_flow_code += content + "\n"
+        
+        return business_flow_code.strip()
+    
+    def _build_line_info_from_functions(self, functions: List[Dict]) -> List[Dict]:
+        """从函数列表构建行信息
+        
+        Args:
+            functions: 函数列表
+            
+        Returns:
+            List[Dict]: 行信息列表
+        """
+        line_info_list = []
+        
+        for func in functions:
+            line_info = {
+                'function_name': func['name'],
+                'start_line': func.get('start_line', 0),
+                'end_line': func.get('end_line', 0),
+                'file_path': func.get('relative_file_path', '')
+            }
+            line_info_list.append(line_info)
+        
+        return line_info_list
+    
+    def _handle_function_code_planning(self, function: Dict, config: Dict):
+        """处理函数代码规划"""
+        content = function['content']
+        contract_name = function['contract_name']
+        
+        # 生成检查清单
+        checklist, _ = self._generate_checklist_and_analysis(
+            "", content, contract_name, is_business_flow=False
+        )
+        
+        # 创建任务
+        for i in range(config['actual_iteration_count']):
+            self._create_planning_task(
+                function, checklist, "", 
+                "", "", 
+                if_business_flow_scan=0, config=config
+            ) 
+    
+    def _log_business_flow_coverage(self, all_covered_functions: set, all_expanded_functions: List[Dict]):
+        """记录业务流覆盖度分析"""
+        total_functions = len(self.project.functions_to_check)
+        covered_count = len(all_covered_functions)
+        uncovered_count = total_functions - covered_count
+        coverage_rate = (covered_count / total_functions * 100) if total_functions > 0 else 0
+        
+        print(f"\n🔍 业务流覆盖度分析:")
+        print("="*80)
+        print(f"📊 总函数数: {total_functions}")
+        print(f"✅ 被业务流覆盖的函数数: {covered_count}")
+        print(f"❌ 未被业务流覆盖的函数数: {uncovered_count}")
+        print(f"📈 覆盖率: {coverage_rate:.2f}%")
+        print("="*80)
+        
+        if uncovered_count > 0:
+            print(f"\n❌ 未被业务流覆盖的函数详情 ({uncovered_count} 个):")
+            print("-"*80)
+            
+            # 收集未覆盖函数信息
+            uncovered_functions = []
+            for func in self.project.functions_to_check:
+                if func['name'] not in all_covered_functions:
+                    uncovered_functions.append(func)
+            
+            # 按函数长度分组统计
+            length_groups = {
+                'very_short': [],    # < 50 字符
+                'short': [],         # 50-200 字符  
+                'medium': [],        # 200-500 字符
+                'long': [],          # 500-1000 字符
+                'very_long': []      # > 1000 字符
+            }
+            
+            # 输出每个未覆盖函数的详细信息
+            for i, func in enumerate(uncovered_functions, 1):
+                func_length = len(func.get('content', ''))
+                
+                print(f"{i:3d}. 函数: {func['name']}")
+                print(f"     文件: {func.get('relative_file_path', 'unknown')}")
+                print(f"     合约: {func.get('contract_name', 'unknown')}")
+                print(f"     长度: {func_length} 字符")
+                print(f"     行号: {func.get('start_line', 'N/A')}-{func.get('end_line', 'N/A')}")
+                
+                # 显示函数内容预览
+                content_preview = func.get('content', '')[:80].replace('\n', ' ').strip()
+                if len(func.get('content', '')) > 80:
+                    content_preview += "..."
+                print(f"     预览: {content_preview}")
+                print()
+                
+                # 分组统计
+                if func_length < 50:
+                    length_groups['very_short'].append(func)
+                elif func_length < 200:
+                    length_groups['short'].append(func)
+                elif func_length < 500:
+                    length_groups['medium'].append(func)
+                elif func_length < 1000:
+                    length_groups['long'].append(func)
+                else:
+                    length_groups['very_long'].append(func)
+            
+            print("-"*80)
+            print("\n📊 未覆盖函数长度分布:")
+            for group_name, group_functions in length_groups.items():
+                if group_functions:
+                    group_display = {
+                        'very_short': '极短函数 (< 50字符)',
+                        'short': '短函数 (50-200字符)',
+                        'medium': '中等函数 (200-500字符)',
+                        'long': '长函数 (500-1000字符)',
+                        'very_long': '极长函数 (> 1000字符)'
+                    }
+                    
+                    avg_length = sum(len(f.get('content', '')) for f in group_functions) / len(group_functions)
+                    print(f"   {group_display[group_name]}: {len(group_functions)} 个 (平均长度: {avg_length:.0f}字符)")
+                    
+                    # 显示该组的函数名示例
+                    func_names = [f['name'].split('.')[-1] for f in group_functions[:3]]
+                    if len(group_functions) > 3:
+                        func_names.append(f"... 还有{len(group_functions)-3}个")
+                    print(f"     示例: {', '.join(func_names)}")
+            
+            # 分析未覆盖函数的文件分布
+            file_distribution = {}
+            for func in uncovered_functions:
+                file_path = func.get('relative_file_path', 'unknown')
+                if file_path not in file_distribution:
+                    file_distribution[file_path] = []
+                file_distribution[file_path].append(func)
+            
+            print(f"\n📁 未覆盖函数的文件分布:")
+            for file_path, file_functions in sorted(file_distribution.items(), key=lambda x: len(x[1]), reverse=True):
+                avg_length = sum(len(f.get('content', '')) for f in file_functions) / len(file_functions)
+                print(f"   {file_path}: {len(file_functions)} 个函数 (平均长度: {avg_length:.0f}字符)")
+            
+            print("-"*80)
+            
+            # 给出覆盖度评估
+            if coverage_rate >= 80:
+                print(f"✅ 覆盖率良好 ({coverage_rate:.2f}%)！")
+            elif coverage_rate >= 60:
+                print(f"⚠️  覆盖率中等 ({coverage_rate:.2f}%)")
+            else:
+                print(f"❌ 覆盖率较低 ({coverage_rate:.2f}%)")
+        else:
+            print("\n🎉 所有函数均被业务流覆盖！业务流分析完美！")
+        
+        print("="*80) 
