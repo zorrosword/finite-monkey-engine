@@ -541,3 +541,137 @@ def common_ask_confirmation(prompt):
         return ask_deepseek(prompt)
     else:
         return ask_openai_common(prompt)
+
+def ask_claude_for_code_analysis(prompt):
+    """专门用于代码分析和总结的Claude函数"""
+    model = os.environ.get('CLAUDE_MODEL', 'claude-3-5-sonnet-20241022')  # 使用可用的Claude模型
+    api_key = os.environ.get('OPENAI_API_KEY', 'sk-4GquOBLR9GFUHXsUMcZXTXnEY53h2hUjAbc8bONO0k3xCr87')
+    api_base = os.environ.get('OPENAI_API_BASE', 'api.openai-proxy.org')
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
+
+    data = {
+        'model': model,
+        'messages': [
+            {
+                'role': 'user',
+                'content': f'你是一个专业的代码架构分析师。请分析以下代码：\n\n{prompt}'
+            }
+        ],
+        'max_tokens': 4096,  # 设置合理的token限制
+        'temperature': 0.3   # 降低随机性，提高分析的一致性
+    }
+
+    try:
+        response = requests.post(f'https://{api_base}/v1/chat/completions', 
+                               headers=headers, 
+                               json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            return response_data['choices'][0]['message']['content']
+        else:
+            return ""
+    except requests.exceptions.RequestException as e:
+        print(f"Claude代码分析API调用失败。错误: {str(e)}")
+        return ""
+
+def ask_claude_for_mermaid_generation(prompt):
+    """专门用于生成Mermaid图的Claude函数"""
+    model = os.environ.get('CLAUDE_MODEL', 'claude-3-5-sonnet-20241022')
+    api_key = os.environ.get('OPENAI_API_KEY', 'sk-4GquOBLR9GFUHXsUMcZXTXnEY53h2hUjAbc8bONO0k3xCr87')
+    api_base = os.environ.get('OPENAI_API_BASE', 'api.openai-proxy.org')
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
+
+    data = {
+        'model': model,
+        'messages': [
+            {
+                'role': 'system',
+                'content': '你是一个专业的代码可视化专家，擅长将代码架构转换为清晰的Mermaid图表。'
+            },
+            {
+                'role': 'user',
+                'content': prompt
+            }
+        ],
+        'max_tokens': 4096,
+        'temperature': 0.2   # 更低的随机性，确保Mermaid语法准确
+    }
+
+    try:
+        response = requests.post(f'https://{api_base}/v1/chat/completions', 
+                               headers=headers, 
+                               json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            return response_data['choices'][0]['message']['content']
+        else:
+            return ""
+    except requests.exceptions.RequestException as e:
+        print(f"Claude Mermaid生成API调用失败。错误: {str(e)}")
+        return ""
+
+def ask_claude_for_batch_analysis(files_content, analysis_type="overview"):
+    """批量分析多个文件的关系"""
+    model = os.environ.get('CLAUDE_MODEL', 'claude-3-5-sonnet-20241022')
+    api_key = os.environ.get('OPENAI_API_KEY', 'sk-4GquOBLR9GFUHXsUMcZXTXnEY53h2hUjAbc8bONO0k3xCr87')
+    api_base = os.environ.get('OPENAI_API_BASE', 'api.openai-proxy.org')
+    
+    # 根据分析类型调整系统提示
+    system_prompts = {
+        "overview": "分析文件间的高层架构关系，关注模块和组件的整体结构",
+        "detailed": "深入分析文件内部的函数、类和方法之间的详细关系",
+        "dependencies": "专注分析文件间的依赖关系、导入关系和调用关系",
+        "data_flow": "分析数据在不同文件和组件间的流动和传递关系"
+    }
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
+
+    data = {
+        'model': model,
+        'messages': [
+            {
+                'role': 'system',
+                'content': f'''你是一个专业的代码架构分析师。当前分析类型：{analysis_type}
+{system_prompts.get(analysis_type, system_prompts["overview"])}
+
+请分析提供的代码文件并：
+1. 识别主要的模块和组件
+2. 理解文件间的关系和依赖
+3. 发现重要的设计模式和架构决策
+4. 生成清晰的关系描述'''
+            },
+            {
+                'role': 'user',
+                'content': files_content
+            }
+        ],
+        'max_tokens': 4096,
+        'temperature': 0.3
+    }
+
+    try:
+        response = requests.post(f'https://{api_base}/v1/chat/completions', 
+                               headers=headers, 
+                               json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            return response_data['choices'][0]['message']['content']
+        else:
+            return ""
+    except requests.exceptions.RequestException as e:
+        print(f"Claude批量分析API调用失败。错误: {str(e)}")
+        return ""

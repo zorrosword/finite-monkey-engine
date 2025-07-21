@@ -34,7 +34,7 @@ class ScanUtils:
         elif scan_mode == "COMMON_PROJECT_FINE_GRAINED":
             # 在COMMON_PROJECT_FINE_GRAINED模式下，直接使用task.recommendation中的checklist类型
             if hasattr(task, 'recommendation') and task.recommendation:
-                print(f"[DEBUG🐞]📋Using pre-set checklist type from recommendation: {task.recommendation}")
+                # print(f"[DEBUG🐞]📋Using pre-set checklist type from recommendation: {task.recommendation}")
                 # 根据checklist类型名称获取对应的索引
                 all_checklists = VulPromptCommon.vul_prompt_common_new()
                 checklist_keys = list(all_checklists.keys())

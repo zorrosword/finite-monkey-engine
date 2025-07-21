@@ -1,7 +1,7 @@
 from typing import List
 from tqdm import tqdm
 
-from ..utils.context_manager import ContextManager
+from context.context_manager import ContextManager
 
 
 class ContextUpdateProcessor:

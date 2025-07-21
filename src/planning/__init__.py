@@ -5,19 +5,17 @@ from .planning_v2 import PlanningV2
 # 导入新的工具模块
 from .business_flow_utils import BusinessFlowUtils
 from .json_utils import JsonUtils
-from .function_utils import FunctionUtils
 from .config_utils import ConfigUtils
-
-# 导入新的处理器模块
-from .business_flow_processor import BusinessFlowProcessor
 from .planning_processor import PlanningProcessor
+
+# 导入统一的上下文接口
+from context import ContextFactory
 
 __all__ = [
     'PlanningV2',
     'BusinessFlowUtils',
     'JsonUtils', 
-    'FunctionUtils',
     'ConfigUtils',
-    'BusinessFlowProcessor',
-    'PlanningProcessor'
+    'PlanningProcessor',
+    'ContextFactory'
 ]
