@@ -4,11 +4,16 @@ src/*.pyc
 src/.env
 .DS_Store
 src/__pycache__/ai_engine.cpython-312.pyc
+src/dataset/*
+*/dataset/*
 .venv
 docker.env
 
 src/dataset/.DS_Store
+src/codebaseQA/lancedb/*
 output.xlsx
+src/dataset/agent-v1-c4/datasets.json
+src/dataset/agent-v1-c4/datasets.json
 .DS_Store
 src/.DS_Store
 .env
