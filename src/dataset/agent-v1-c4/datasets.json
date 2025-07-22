@@ -248,8 +248,8 @@
         "exclude_in_planning":"true",
         "exclude_directory":["exclude"]
     },
-    "tonvm":{
-        "path":"tonvm",
+    "openeden3":{
+        "path":"openeden",
         "files":[
         ],
         "functions":[],

@@ -1,33 +1,53 @@
 # Finite Monkey Engine
 
-**An AI-Powered Smart Contract Security Analysis Platform**
+**An AI-Powered Code Security Analysis Platform**
 
 ## 🎯 Overview
 
-Finite Monkey Engine is an advanced smart contract security analysis platform that leverages AI and cutting-edge analysis techniques to provide comprehensive vulnerability detection and business flow analysis for blockchain projects.
+Finite Monkey Engine is an advanced AI-driven code security analysis platform that **supports not only smart contracts but can be extended to any programming language project**. By integrating multiple AI models and advanced static analysis techniques, it provides comprehensive, intelligent security auditing solutions for various types of code projects.
+
+### 🌍 Multi-Language Support
+Built on ANTLR4 parsing engine and function-level analysis architecture, currently supporting:
+
+**Blockchain Languages:**
+- **Solidity** (.sol) - Ethereum smart contracts with full ANTLR support
+- **Rust** (.rs) - Solana ecosystem, Substrate, etc.
+- **Move** (.move) - Aptos, Sui blockchain language
+- **Cairo** (.cairo) - StarkNet smart contract language
+- **Tact** (.tact) - TON blockchain smart contracts
+- **FunC** (.fc/.func) - TON blockchain native language
+- **FA** (.fr) - Functional smart contract language
+
+**Traditional Programming Languages:**
+- **Python** (.py) - Web3, DeFi backend projects
+- **JavaScript/TypeScript** (.js/.ts) - Web3 frontend, Node.js projects
+- **Go** (.go) - Blockchain infrastructure, TEE projects
+- **Java** (.java) - Enterprise blockchain applications
+- **C/C++** (.c/.cpp/.cxx/.cc/.C) - Blockchain core, node clients
+
+> 💡 **Design Philosophy**: Function-granularity code analysis, theoretically extensible to any programming language
 
 ## 🚀 Key Features
 
 ### 🧠 AI-Powered Analysis
-- **Claude-4 Sonnet Integration**: Utilizes advanced language models for intelligent code understanding
-- **Multi-modal Analysis**: Combines static analysis with AI-driven semantic understanding
-- **Context-Aware Detection**: Smart vulnerability detection with business logic understanding
+- **Multi-Model Support**: Integrates Claude-4 Sonnet, GPT-4, DeepSeek and other mainstream AI models
+- **Context-Aware Detection**: RAG-enhanced intelligent code understanding
+- **Business Logic Analysis**: Deep understanding of DeFi protocols, governance mechanisms, and application architectures
 
 ### 📊 Business Flow Visualization
-- **Mermaid Diagram Generation**: Automatic generation of business flow diagrams
-- **Interactive Analysis**: Visual representation of contract interactions and dependencies
-- **Multi-level Granularity**: Project-level, folder-level, and function-level analysis
+- **Automatic Generation**: Smart code analysis generating Mermaid diagrams
+- **Multi-level Analysis**: Support for project-level, folder-level, and function-level analysis
+- **Interactive Diagrams**: Clear visualization of code interactions and dependencies
 
-### 🔍 Advanced Security Features
-- **Comprehensive Vulnerability Detection**: Detection of common and complex smart contract vulnerabilities
-- **Business Logic Analysis**: Understanding of DeFi protocols, governance mechanisms, and token economics
-- **Cross-Contract Analysis**: Multi-contract interaction analysis and dependency tracking
+### 🔍 Comprehensive Security Detection
+- **Vulnerability Detection**: Covers common and complex security vulnerabilities
+- **Cross-File Analysis**: Multi-file interaction analysis and dependency tracking
+- **Targeted Business Scenarios**: Security analysis for specific business scenarios
 
-### 🛠 Modular Architecture
-- **Planning Module**: Intelligent task planning and business flow extraction
-- **Validation Module**: Comprehensive vulnerability checking and validation
-- **Context Module**: Advanced context management with RAG and call tree analysis
-- **Code Summarizer**: Smart code analysis with reinforcement learning capabilities
+### 🛠 Language-Agnostic Architecture
+- **Universal Framework**: Function-level analysis framework applicable to any language
+- **Modular Design**: Planning, validation, context, and analysis modules
+- **Extensible Parsing**: ANTLR4-based parsing supporting multiple languages
 
 ## 📁 Project Structure
 
@@ -51,78 +71,112 @@ finite-monkey-engine/
 ## 🚀 Quick Start
 
 ### Prerequisites
-
-- Python 3.9+
-- Node.js 16+ (for certain analysis features)
-- OpenAI API key or compatible AI service
+- **Python 3.10+**
+- **PostgreSQL 13+** (optional, SQLite also supported)
+- **AI API Keys** (OpenAI, Claude, or other compatible services)
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/your-org/finite-monkey-engine.git
-   cd finite-monkey-engine
-   ```
+```bash
+# 1. Clone the repository
+git clone https://github.com/your-org/finite-monkey-engine.git
+cd finite-monkey-engine
 
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+# 2. Install Python dependencies
+pip install -r requirements.txt
 
-3. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your API keys and configuration
-   ```
+# 3. Configure environment variables
+cp env.example .env
+# Edit .env file with your API keys and database configuration
 
-4. **Run the analysis**
-   ```bash
-   python src/main.py
-   ```
+# 4. Run analysis
+python src/main.py
+```
 
 ## 🔧 Configuration
 
-### Analysis Modes
+### Quick Configuration
 
-The platform supports multiple analysis modes:
+1. **Copy environment template**:
+   ```bash
+   cp env.example .env
+   ```
 
-- **Business Flow Mode** (`SWITCH_BUSINESS_CODE=True`): Focus on business logic analysis
-- **File-Level Mode** (`SWITCH_FILE_CODE=True`): Comprehensive file-by-file analysis
-- **Fine-Grained Mode** (`SCAN_MODE=COMMON_PROJECT_FINE_GRAINED`): Detailed vulnerability scanning
+2. **Edit `.env` file** with your API keys and preferences
 
-### Environment Variables
+### Core Environment Variables
 
 ```bash
-# Analysis Configuration
+# Database Configuration (Required)
+DATABASE_URL=postgresql://postgres:1234@127.0.0.1:5432/postgres
+
+# AI Model Configuration (Required)
+OPENAI_API_BASE="api.openai-proxy.org"  # LLM proxy platform
+OPENAI_API_KEY="your_api_key_here"      # API key
+CLAUDE_MODEL=claude-sonnet-4-20250514   # Recommended Claude model
+VUL_MODEL=claude-sonnet-4-20250514      # Vulnerability detection model
+
+# Scan Mode Configuration
+SCAN_MODE=COMMON_PROJECT_FINE_GRAINED   # Recommended mode
+SWITCH_BUSINESS_CODE=False              # Business flow analysis
+SWITCH_FILE_CODE=True                   # File-level analysis
+CROSS_CONTRACT_SCAN=True                # Cross-contract/file analysis
+
+# Performance Tuning
+MAX_THREADS_OF_SCAN=10                  # Scan threads
+MAX_THREADS_OF_CONFIRMATION=50          # Confirmation threads
+BUSINESS_FLOW_COUNT=8                   # Business flow iterations
+```
+
+> 📝 **Complete Configuration**: See `env.example` file for all configurable options and detailed descriptions
+
+### Recommended Configuration Schemes
+
+#### 🚀 Quick Start (Small projects < 50 files)
+```bash
+SCAN_MODE=SPECIFIC_PROJECT
 SWITCH_BUSINESS_CODE=True
 SWITCH_FILE_CODE=False
+HUGE_PROJECT=False
+MAX_THREADS_OF_SCAN=3
+```
+
+#### 🏢 Enterprise (Large projects > 100 files)
+```bash
 SCAN_MODE=COMMON_PROJECT_FINE_GRAINED
+SWITCH_BUSINESS_CODE=True
+SWITCH_FILE_CODE=False
+HUGE_PROJECT=True
+MAX_THREADS_OF_SCAN=8
+CROSS_CONTRACT_SCAN=True
+```
 
-# AI Configuration
-OPENAI_API_KEY=your_api_key_here
-OPENAI_BASE_URL=https://api.openai.com/v1
-
-# Output Configuration
-OUTPUT_DIR=./output
-MERMAID_OUTPUT_DIR=src/codebaseQA/mermaid_output
+#### 💰 Cost Optimized
+```bash
+VUL_MODEL=gpt-4-mini
+CONFIRMATION_MODEL=gpt-4-mini
+MAX_THREADS_OF_SCAN=3
+BUSINESS_FLOW_COUNT=1
 ```
 
 ## 🎯 Use Cases
 
-### DeFi Protocol Analysis
-- **Liquidity Pool Security**: Analysis of AMM and lending protocols
-- **Governance Mechanism Review**: DAO governance and voting system analysis
-- **Token Economics Validation**: Tokenomics and distribution mechanism review
+### Blockchain & Web3 Projects
+- **Smart Contract Security**: Solidity, Rust, Move contract analysis
+- **DeFi Protocol Analysis**: AMM, lending, governance mechanism review
+- **Cross-Chain Applications**: Bridge security, multi-chain deployment analysis
+- **NFT & Gaming**: Minting logic, marketplace integration security
 
-### NFT Project Security
-- **Minting Logic Analysis**: NFT minting mechanism and access control review
-- **Marketplace Integration**: Secondary market integration security analysis
-- **Royalty Mechanism Review**: Creator royalty and fee distribution analysis
+### Traditional Software Projects
+- **Web3 Backend**: Python/Node.js API security analysis
+- **Blockchain Infrastructure**: Go/C++ node and client security
+- **Enterprise Applications**: Java enterprise blockchain applications
+- **System-Level Code**: C/C++ core components and TEE projects
 
-### Cross-Chain Protocol Analysis
-- **Bridge Security Assessment**: Cross-chain bridge mechanism analysis
-- **Multi-Chain Deployment**: Consistent security across different chains
-- **Interoperability Review**: Protocol interaction and dependency analysis
+### Multi-Language Project Analysis
+- **Polyglot Codebases**: Cross-language dependency analysis
+- **Microservice Architecture**: Multi-service security assessment
+- **Full-Stack Applications**: Frontend, backend, and contract integration security
 
 ## 📊 Analysis Reports
 
