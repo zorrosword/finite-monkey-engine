@@ -168,7 +168,6 @@ result = smart_business_flow_analysis(
 # 查看分析结果
 print(f"分析策略: {result.analysis_strategy}")  # "incremental" 或 "folder_based"
 print(f"总Token使用: {result.total_token_usage.total_tokens:,}")
-print(f"置信度: {result.overall_confidence:.2f}")
 
 if result.analysis_strategy == "folder_based":
     # 文件夹级别分析结果

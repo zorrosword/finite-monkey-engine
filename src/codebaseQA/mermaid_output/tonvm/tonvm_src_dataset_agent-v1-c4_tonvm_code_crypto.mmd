@@ -1,0 +1,173 @@
+## 强化分析描述
+
+对 `./src/dataset/agent-v1-c4/tonvm/code/crypto/Hasher.cpp` 进行**全函数覆盖分析**，发现以下所有函数：
+
+**🔍 已识别的完整函数列表:**
+
+**Hasher类核心函数:**
+- `Hasher(int hash_id)` - 构造函数，根据hash_id初始化不同的哈希实现
+- `append(td::ConstBitPtr data, unsigned size)` - 追加数据到哈希器缓冲区
+- `finish()` - 完成哈希计算并返回结果
+- `bytes_per_gas_unit() const` - 获取每个gas单位对应的字节数（getter函数）
+
+**HasherImplEVP类函数:**
+- `HasherImplEVP(EVP_MD_CTX *ctx)` - EVP实现构造函数，存储OpenSSL上下文
+- `append(const unsigned char *data, size_t size)` - EVP实现的数据追加
+- `finish()` - EVP实现的哈希完成
+
+**HasherImplKeccak类函数:**
+- `HasherImplKeccak(unsigned hash_size)` - Keccak实现构造函数，初始化Keccak状态
+- `append(const unsigned char *data, size_t size)` - Keccak实现的数据追加  
+- `finish()` - Keccak实现的哈希完成
+
+**内部状态管理函数:**
+- 缓冲区管理逻辑（buf_、buf_ptr_状态变量的操作）
+- 实现指针管理（impl_状态变量的操作）
+- 哈希ID存储（id_状态变量的访问）
+
+## 强化后的完整业务流程图
+
+```mermaid
+sequenceDiagram
+    participant User as User/VM
+    participant Hasher as Hasher
+    participant HasherImplEVP as HasherImplEVP
+    participant HasherImplKeccak as HasherImplKeccak
+    participant OpenSSL as OpenSSL_EVP
+    participant KeccakLib as Keccak_Library
+    participant Error as Error_Handler
+    participant Buffer as Internal_Buffer
+    participant GasCalc as Gas_Calculator
+
+    %% ========== 哈希器初始化和管理流程 ==========
+    Note over User,GasCalc: Hasher构造函数初始化阶段
+    User->>Hasher: Hasher(int hash_id)
+    Hasher->>Hasher: store id_ = hash_id
+    alt hash_id == KECCAK256 || hash_id == KECCAK512
+        Hasher->>HasherImplKeccak: new HasherImplKeccak(hash_id == KECCAK256 ? 32 : 64)
+        HasherImplKeccak->>HasherImplKeccak: store hash_size_ = hash_size
+        HasherImplKeccak->>KeccakLib: keccak_init(&state_, hash_size * 2, 24)
+        KeccakLib-->>HasherImplKeccak: return 0 (success)
+        HasherImplKeccak->>HasherImplKeccak: CHECK(keccak_init result == 0)
+        HasherImplKeccak->>HasherImplKeccak: CHECK(state_ != nullptr)
+        HasherImplKeccak-->>Hasher: return HasherImplKeccak instance
+        Hasher->>Hasher: impl_ = std::make_unique<HasherImplKeccak>
+    else hash_id in [SHA256, SHA512, BLAKE2B]
+        Hasher->>OpenSSL: EVP_MD_CTX_new()
+        OpenSSL-->>Hasher: return EVP_MD_CTX *ctx
+        Hasher->>Hasher: CHECK(ctx != nullptr)
+        alt hash_id == SHA256
+            Hasher->>OpenSSL: EVP_sha256()
+            OpenSSL-->>Hasher: return const EVP_MD *evp
+        else hash_id == SHA512
+            Hasher->>OpenSSL: EVP_sha512()
+            OpenSSL-->>Hasher: return const EVP_MD *evp
+        else hash_id == BLAKE2B
+            Hasher->>OpenSSL: EVP_blake2b512()
+            OpenSSL-->>Hasher: return const EVP_MD *evp
+        end
+        Hasher->>OpenSSL: EVP_DigestInit_ex(ctx, evp, nullptr)
+        OpenSSL-->>Hasher: return success status
+        Hasher->>Hasher: CHECK(evp != nullptr && EVP_DigestInit_ex success)
+        Hasher->>HasherImplEVP: new HasherImplEVP(EVP_MD_CTX *ctx)
+        HasherImplEVP->>HasherImplEVP: store ctx_ = ctx
+        HasherImplEVP-->>Hasher: return HasherImplEVP instance
+        Hasher->>Hasher: impl_ = std::make_unique<HasherImplEVP>
+    else
+        Hasher->>Error: throw VmError{Excno::range_chk, "invalid hash id"}
+    end
+    Hasher->>Buffer: initialize buf_ptr_ = 0
+    Hasher-->>User: return Hasher instance
+
+    %% ========== 数据追加处理流程 ==========
+    Note over User,GasCalc: append函数数据处理阶段
+    User->>Hasher: append(td::ConstBitPtr data, unsigned size)
+    Hasher->>Hasher: check if (!impl_)
+    alt impl_ is null
+        Hasher->>Error: throw VmError{Excno::unknown, "can't use finished hasher"}
+    else impl_ exists
+        loop while size > 0
+            Hasher->>Buffer: cur_size = std::min(size, BUF_SIZE * 8 - buf_ptr_)
+            Hasher->>Buffer: td::BitPtr{buf_, (int)buf_ptr_}.copy_from(data, cur_size)
+            Hasher->>Buffer: buf_ptr_ += cur_size
+            alt buf_ptr_ == BUF_SIZE * 8
+                alt impl_ is HasherImplEVP
+                    Hasher->>HasherImplEVP: append(buf_, BUF_SIZE)
+                    HasherImplEVP->>OpenSSL: EVP_DigestUpdate(ctx_, data, size)
+                    OpenSSL-->>HasherImplEVP: return success status
+                    HasherImplEVP-->>Hasher: append complete
+                else impl_ is HasherImplKeccak
+                    Hasher->>HasherImplKeccak: append(buf_, BUF_SIZE)
+                    HasherImplKeccak->>KeccakLib: keccak_update(&state_, data, size)
+                    KeccakLib-->>HasherImplKeccak: update complete
+                    HasherImplKeccak-->>Hasher: append complete
+                end
+                Hasher->>Buffer: buf_ptr_ = 0
+            end
+            Hasher->>Hasher: size -= cur_size
+            Hasher->>Hasher: data += cur_size
+        end
+    end
+    Hasher-->>User: append complete
+
+    %% ========== 哈希完成处理流程 ==========
+    Note over User,GasCalc: finish函数哈希完成阶段
+    User->>Hasher: finish()
+    Hasher->>Hasher: check if (!impl_)
+    alt impl_ is null
+        Hasher->>Error: throw VmError{Excno::unknown, "can't use finished hasher"}
+    else impl_ exists
+        Hasher->>Hasher: check if (buf_ptr_ % 8 != 0)
+        alt buf_ptr_ % 8 != 0
+            Hasher->>Error: throw VmError{Excno::cell_und, "data does not consist of an integer number of bytes"}
+        else buf_ptr_ % 8 == 0
+            alt impl_ is HasherImplEVP
+                Hasher->>HasherImplEVP: append(buf_, buf_ptr_ / 8)
+                HasherImplEVP->>OpenSSL: EVP_DigestUpdate(ctx_, data, buf_ptr_ / 8)
+                OpenSSL-->>HasherImplEVP: update complete
+                Hasher->>HasherImplEVP: finish()
+                HasherImplEVP->>OpenSSL: EVP_DigestFinal_ex(ctx_, hash_buffer, &hash_len)
+                OpenSSL-->>HasherImplEVP: return hash result
+                HasherImplEVP->>OpenSSL: EVP_MD_CTX_free(ctx_)
+                HasherImplEVP->>HasherImplEVP: create td::BufferSlice from hash
+                HasherImplEVP-->>Hasher: return td::BufferSlice hash
+            else impl_ is HasherImplKeccak
+                Hasher->>HasherImplKeccak: append(buf_, buf_ptr_ / 8)
+                HasherImplKeccak->>KeccakLib: keccak_update(&state_, data, buf_ptr_ / 8)
+                KeccakLib-->>HasherImplKeccak: update complete
+                Hasher->>HasherImplKeccak: finish()
+                HasherImplKeccak->>KeccakLib: keccak_final(&state_, hash_buffer)
+                KeccakLib-->>HasherImplKeccak: return hash result
+                HasherImplKeccak->>HasherImplKeccak: create td::BufferSlice from hash
+                HasherImplKeccak-->>Hasher: return td::BufferSlice hash
+            end
+            Hasher->>Hasher: impl_ = nullptr (mark as finished)
+            Hasher-->>User: return td::BufferSlice hash
+        end
+    end
+
+    %% ========== Gas计算查询流程 ==========
+    Note over User,GasCalc: bytes_per_gas_unit getter函数
+    User->>Hasher: bytes_per_gas_unit() const
+    Hasher->>GasCalc: BYTES_PER_GAS_UNIT[id_]
+    GasCalc-->>Hasher: return gas unit value
+    Hasher-->>User: return bytes per gas unit
+
+    %% ========== 错误处理和状态检查 ==========
+    Note over User,GasCalc: 状态管理和错误处理
+    alt Invalid hash_id during construction
+        Hasher->>Error: VmError{Excno::range_chk, "invalid hash id"}
+    end
+    alt Using finished hasher
+        Hasher->>Error: VmError{Excno::unknown, "can't use finished hasher"}
+    end
+    alt Non-byte-aligned data
+        Hasher->>Error: VmError{Excno::cell_und, "data does not consist of an integer number of bytes"}
+    end
+    alt OpenSSL initialization failure
+        Hasher->>Error: CHECK failure for EVP operations
+    end
+    alt Keccak initialization failure
+        HasherImplKeccak->>Error: CHECK failure for keccak_init
+    end
+```

@@ -1,0 +1,322 @@
+## 业务流程总结
+
+tonvm_cells 项目实现了 TON 虚拟机中单元格的完整生命周期管理，包括单元格的创建、构建、验证、虚拟化、使用跟踪和状态管理。核心业务流程涵盖：
+
+1. **单元格构建与生命周期管理**：通过 CellBuilder 进行单元格的构建和重置，配合 ThreadSafeCounter 进行引用计数管理
+2. **单元格使用跟踪**：CellUsageTree 和 NodePtr 提供完整的单元格使用树管理，包括节点创建、标记、路径跟踪等
+3. **单元格核心验证与虚拟化**：Cell 类提供深度等价性验证和虚拟化处理能力
+4. **字符串和文本处理**：CellString 和 CellText 提供单元格数据的字符串表示和 UTF-8 文本处理
+5. **虚拟机状态接口**：VmStateInterface 提供虚拟机状态的完整访问接口，包括根单元格、余额、寄存器等的 getter/setter 操作
+
+所有组件协同工作，为 TON 虚拟机提供了完整的单元格管理和状态维护能力。
+
+## 优化后的完整业务流程图
+
+```mermaid
+sequenceDiagram
+    participant Client as Client
+    participant MU as MerkleUpdate
+    participant MUA as MerkleUpdateApply
+    participant MUV as MerkleUpdateValidator
+    participant MUC as MerkleUpdateCombiner
+    participant MP as MerkleProof
+    participant MPI as MerkleProofImpl
+    participant MPC as MerkleProofCombiner
+    participant CS as CellSlice
+    participant Cell as Cell
+    participant CB as CellBuilder
+    participant CUT as CellUsageTree
+    participant CUTNP as CellUsageTree::NodePtr
+    participant DC as DataCell
+    participant VC as VirtualCell
+    participant VSI as VmStateInterface
+    participant TSC as ThreadSafeCounter
+    participant CST as CellString
+    participant CT as CellText
+
+    %% ========== Phase 1: Initialization and Setup ==========
+    Note over Client,CT: Phase 1: Component Initialization and Setup
+    
+    %% CellBuilder Initialization
+    Client->>CB: CellBuilder()
+    CB->>TSC: get_thread_safe_counter().add(-1)
+    Note over CB: Initialize with refs_cnt(0)
+    CB->>TSC: get_thread_safe_counter().add(+1)
+    
+    %% CellUsageTree Root Setup
+    Client->>CUT: root_ptr()
+    CUT->>CUT: shared_from_this()
+    CUT-->>Client: NodePtr{shared_ptr, 1}
+    
+    Client->>CUT: root_id()
+    CUT-->>Client: 1
+    
+    %% VmStateInterface Initialization
+    Client->>VSI: VmStateInterface()
+    VSI->>VSI: Initialize base state
+
+    %% CellString and CellText Initialization
+    Client->>CST: CellString()
+    CST->>CST: Initialize empty string
+    
+    Client->>CT: CellText()
+    CT->>CT: Initialize empty
+
+    %% ========== Phase 2: Data Loading and Construction ==========
+    Note over Client,CT: Phase 2: Data Loading and Cell Construction
+    
+    %% CellString Construction with Data
+    Client->>CST: CellString(str, 0, str.size())
+    CST->>CST: Store string data
+    
+    Client->>CST: CellString(slice)
+    CST->>CS: slice.size()
+    alt size > max_bytes * 8
+        CST-->>Client: Failure (too large)
+    else
+        CST->>CS: slice.fetch_bytes(bytes)
+        CST->>CST: Store fetched bytes
+        CST-->>Client: Success
+    end
+    
+    %% CellText Construction with Data
+    Client->>CT: CellText(text, 0, text.size())
+    CT->>CT: Store text data
+    
+    Client->>CT: CellText(slice)
+    CT->>CST: CellString(slice)
+    alt CellString creation fails
+        CT-->>Client: Failure
+    else
+        CT->>CT: Convert to text
+        CT-->>Client: Success
+    end
+
+    %% ========== Phase 3: Cell Usage Tree Management ==========
+    Note over Client,CT: Phase 3: Cell Usage Tree Operations and Node Management
+    
+    %% Node Loading Operations
+    Client->>CUTNP: on_load(cell)
+    CUTNP->>CUT: Check tree validity via weak_ptr
+    alt tree is valid
+        CUTNP->>CUT: on_load(node_id, cell)
+        CUT->>DC: Process cell loading
+    else tree expired
+        Note over CUTNP: Skip loading - tree no longer valid
+    end
+    
+    %% Child Node Creation and Management
+    Client->>CUTNP: create_child(ref_id)
+    CUTNP->>CUT: create_child(node_id, ref_id)
+    CUT->>CUT: create_node(node_id)
+    CUT-->>CUTNP: New NodePtr for child
+    
+    Client->>CUT: create_child(node_id, ref_id)
+    alt child exists
+        CUT-->>Client: Existing child NodeId
+    else child not exists
+        CUT->>CUT: create_node(node_id)
+        CUT-->>Client: New child NodeId
+    end
+    
+    %% Tree Validation and Relationship Checks
+    Client->>CUTNP: is_from_tree(master_tree)
+    CUTNP->>CUT: Compare tree pointers
+    CUT-->>CUTNP: boolean result
+    
+    Client->>CUT: get_parent(node_id)
+    CUT-->>Client: parent NodeId
+    
+    Client->>CUT: get_child(node_id, ref_id)
+    CUT-->>Client: child NodeId
+
+    %% ========== Phase 4: Node Status Management ==========
+    Note over Client,CT: Phase 4: Node Status and Marking Operations
+    
+    %% Loading Status Checks
+    Client->>CUT: is_loaded(node_id)
+    alt mark_mode enabled
+        CUT->>CUT: Check mark status
+    else mark_mode disabled
+        CUT->>CUT: Check loaded status
+    end
+    CUT-->>Client: boolean result
+    
+    Client->>CUT: on_load(node_id, cell)
+    CUT->>CUT: Set loaded status
+    alt callback exists
+        CUT->>Client: Trigger load callback
+    end
+    
+    %% Marking Operations
+    Client->>CUT: has_mark(node_id)
+    CUT-->>Client: boolean mark status
+    
+    Client->>CUT: set_mark(node_id, mark)
+    CUT->>CUT: Update mark status
+    
+    Client->>CUTNP: mark_path(master_tree)
+    CUTNP->>CUT: mark_path(node_id)
+    CUT->>CUT: Mark path to root
+    
+    Client->>CUT: mark_path(node_id)
+    CUT->>CUT: Mark all nodes to root
+
+    %% ========== Phase 5: Cell Core Operations ==========
+    Note over Client,CT: Phase 5: Cell Validation and Virtualization
+    
+    %% Deep Equality Verification
+    Client->>Cell: check_equals_unloaded(other)
+    Cell->>Cell: get_level_mask()
+    Cell->>Cell: other->get_level_mask()
+    alt level_mask != other_level_mask
+        Cell-->>Client: td::Status::Error("level mismatch")
+    else level masks match
+        Cell->>Cell: level_mask.get_level()
+        loop for each level i <= level
+            Cell->>Cell: get_level_mask().is_significant(i)
+            alt is_significant
+                Cell->>Cell: get_hash(i)
+                Cell->>Cell: other->get_hash(i)
+                alt hash mismatch
+                    Cell-->>Client: td::Status::Error("hash mismatch")
+                end
+            end
+        end
+        loop for each level i <= level (depth check)
+            Cell->>Cell: get_level_mask().is_significant(i)
+            alt is_significant
+                Cell->>Cell: get_depth(i)
+                Cell->>Cell: other->get_depth(i)
+                alt depth mismatch
+                    Cell-->>Client: td::Status::Error("depth mismatch")
+                end
+            end
+        end
+        Cell-->>Client: td::Status::OK()
+    end
+    
+    %% Cell Virtualization
+    Client->>Cell: virtualize(virt)
+    Cell->>VC: VirtualCell::create(virt, Ref<Cell>(this))
+    VC-->>Cell: VirtualCell instance
+    Cell-->>Client: VirtualCell reference
+
+    %% ========== Phase 6: Data Access and Retrieval ==========
+    Note over Client,CT: Phase 6: Data Access Operations (Getters)
+    
+    %% CellString Data Access
+    Client->>CST: size()
+    CST-->>Client: data_.size()
+    
+    Client->>CST: data()
+    CST-->>Client: data_.data()
+    
+    Client->>CST: as_slice()
+    CST-->>Client: td::Slice(data_)
+    
+    %% CellText Data Access
+    Client->>CT: size()
+    CT-->>Client: data_.size()
+    
+    Client->>CT: data()
+    CT-->>Client: data_.data()
+    
+    Client->>CT: as_slice()
+    CT-->>Client: td::Slice(data_)
+    
+    %% VmStateInterface Getters
+    Client->>VSI: get_root()
+    VSI-->>Client: Ref<Cell> (pure virtual)
+    
+    Client->>VSI: get_balance()
+    VSI-->>Client: td::RefInt256 (pure virtual)
+    
+    Client->>VSI: get_c7()
+    VSI-->>Client: Ref<Tuple> (pure virtual)
+
+    %% ========== Phase 7: Data Conversion and Building ==========
+    Note over Client,CT: Phase 7: Data Conversion and Builder Operations
+    
+    %% CellString to Builder Conversion
+    Client->>CST: move_as_builder(max_bytes)
+    alt data_.size() > max_bytes
+        CST-->>Client: Failure
+    else
+        CST->>CB: CellBuilder()
+        CST->>CB: store_bytes(data_)
+        CST-->>Client: CellBuilder
+    end
+    
+    %% CellText to Builder Conversion
+    Client->>CT: move_as_builder(max_bytes)
+    alt data_.size() > max_bytes
+        CT-->>Client: Failure
+    else
+        CT->>CB: CellBuilder()
+        CT->>CB: store_bytes(data_)
+        CT-->>Client: CellBuilder
+    end
+    
+    %% Dynamic Loading Operations
+    Client->>CST: load_from_slice(slice, max_bytes)
+    CST->>CS: slice.size()
+    alt size > max_bytes * 8
+        CST-->>Client: Failure
+    else
+        CST->>CS: slice.fetch_bytes(bytes)
+        CST->>CST: data_ = std::move(bytes)
+        CST-->>Client: Success
+    end
+    
+    Client->>CT: load_from_slice(slice, max_bytes)
+    CT->>CST: CellString temp
+    CT->>CST: temp.load_from_slice(slice, max_bytes)
+    alt load fails
+        CT-->>Client: Failure
+    else
+        CT->>CT: data_ = temp.move_as_string()
+        alt !td::check_utf8(data_)
+            CT-->>Client: Failure (invalid UTF-8)
+        else
+            CT-->>Client: Success
+        end
+    end
+
+    %% ========== Phase 8: State Management and Updates ==========
+    Note over Client,CT: Phase 8: State Updates and Setters
+    
+    %% VmStateInterface State Updates
+    Client->>VSI: set_root(new_root)
+    VSI->>VSI: Update root cell
+    VSI-->>Client: Success status
+    
+    Client->>VSI: set_balance(new_balance)
+    VSI->>VSI: Update balance
+    VSI-->>Client: Success status
+    
+    Client->>VSI: set_c7(new_c7)
+    VSI->>VSI: Update c7 register
+    VSI-->>Client: Success status
+    
+    %% State Commitment and Copying
+    Client->>VSI: commit()
+    VSI-->>Client: Ref<Cell> (pure virtual)
+    
+    Client->>VSI: make_copy()
+    VSI-->>Client: unique_ptr<VmStateInterface> (pure virtual)
+
+    %% ========== Phase 9: Cleanup and Resource Management ==========
+    Note over Client,CT: Phase 9: Cleanup and Resource Management
+    
+    %% CellBuilder Reset and Cleanup
+    Client->>CB: reset()
+    CB->>CB: Clear all refs and reset bits to 0
+    Note over CB: Clean up all references
+    
+    %% VmStateInterface Cleanup
+    Client->>VSI: ~VmStateInterface()
+    VSI->>VSI: Virtual destructor cleanup
+    
+    Note over Client,CT: All components properly cleaned up and resources released
+```

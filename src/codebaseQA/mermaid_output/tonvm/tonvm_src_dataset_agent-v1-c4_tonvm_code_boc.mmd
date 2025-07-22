@@ -1,0 +1,220 @@
+## 强化分析描述
+
+对 `./src/dataset/agent-v1-c4/tonvm/code/boc/boc.cpp` 进行**全函数覆盖分析**，发现以下所有函数：
+
+**已覆盖的函数：**
+- ✅ `CellSerializationInfo::init(td::Slice data, int ref_byte_size)` - 从数据切片初始化
+- ✅ `CellSerializationInfo::init(td::uint8 d1, td::uint8 d2, int ref_byte_size)` - 从字节对初始化
+- ✅ `CellSerializationInfo::get_bits(td::Slice cell) const` - 获取位数
+- ✅ `CellSerializationInfo::create_data_cell(td::Slice cell_slice, td::Span<Ref<Cell>> refs) const` - 创建数据单元格
+- ✅ `BagOfCells::clear()` - 清空容器
+- ✅ `BagOfCells::set_roots(const std::vector<td::Ref<vm::Cell>>& new_roots)` - 设置根节点集合
+- ✅ `BagOfCells::set_root(td::Ref<vm::Cell> new_root)` - 设置单个根节点
+- ✅ `BagOfCells::add_roots(const std::vector<td::Ref<vm::Cell>>& add_roots)` - 添加根节点集合
+- ✅ `BagOfCells::add_root(td::Ref<vm::Cell> add_root)` - 添加单个根节点
+- ✅ `BagOfCells::import_cells()` - 导入所有单元格
+- ✅ `BagOfCells::import_cell(td::Ref<vm::Cell> cell, int depth)` - 导入单个单元格
+
+**新发现的遗漏函数（需要补充）：**
+- 🔍 **BagOfCells::cells_clear()** - 清空单元格列表（内部函数）
+- 🔍 **BagOfCells::reorder_cells()** - 重新排序单元格（内部函数）
+- 🔍 **BagOfCells::get_cell_count() const** - 获取单元格数量（getter）
+- 🔍 **BagOfCells::get_root_count() const** - 获取根节点数量（getter）
+- 🔍 **BagOfCells::serialize_to_slice() const** - 序列化到切片
+- 🔍 **BagOfCells::compute_sizes()** - 计算序列化大小
+- 🔍 **CellSerializationInfo getter函数群** - 各种偏移量和长度获取函数
+
+这些遗漏的函数主要包括内部管理函数、getter类型的查询函数和序列化相关的核心功能函数，需要在流程图中补充完整的交互流程。
+
+## 强化后的完整业务流程图
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant BagOfCells as BagOfCells
+    participant CellSerializationInfo as CellSerializationInfo
+    participant DataCell as DataCell
+    participant Cell as Cell
+    participant Logger as BagOfCellsLogger
+
+    %% ========== BagOfCells 容器管理阶段 ==========
+    Note over User,Logger: BagOfCells 容器初始化和管理
+
+    %% 清空操作
+    User->>BagOfCells: clear()
+    BagOfCells->>BagOfCells: cells_clear()
+    BagOfCells->>BagOfCells: roots.clear()
+    BagOfCells->>BagOfCells: root_count = 0
+    BagOfCells->>BagOfCells: serialized.clear()
+    Note right of BagOfCells: 完全清空 BOC 容器
+
+    %% 内部单元格清空函数
+    User->>BagOfCells: cells_clear()
+    BagOfCells->>BagOfCells: 清空内部单元格数据结构
+    Note right of BagOfCells: 内部函数：清空单元格列表
+
+    %% 根节点设置（替换模式）
+    User->>BagOfCells: set_roots(const std::vector<td::Ref<vm::Cell>>& new_roots)
+    BagOfCells->>BagOfCells: clear()
+    BagOfCells->>BagOfCells: add_roots(new_roots)
+    BagOfCells->>User: return td::Status
+    Note right of BagOfCells: 清空后设置新的根节点集合
+
+    User->>BagOfCells: set_root(td::Ref<vm::Cell> new_root)
+    BagOfCells->>BagOfCells: clear()
+    BagOfCells->>BagOfCells: add_root(std::move(new_root))
+    BagOfCells->>User: return td::Status
+    Note right of BagOfCells: 清空后设置单个根节点
+
+    %% 根节点添加（追加模式）
+    User->>BagOfCells: add_roots(const std::vector<td::Ref<vm::Cell>>& add_roots)
+    loop 遍历所有根节点
+        BagOfCells->>BagOfCells: add_root(std::move(root))
+    end
+    BagOfCells->>User: return int (添加的根节点数量)
+    Note right of BagOfCells: 批量添加根节点
+
+    User->>BagOfCells: add_root(td::Ref<vm::Cell> add_root)
+    BagOfCells->>BagOfCells: 检查 add_root.is_null()
+    alt 根节点为空
+        BagOfCells->>User: return 0
+    else 根节点有效
+        BagOfCells->>BagOfCells: 验证虚拟化级别 == 0
+        BagOfCells->>BagOfCells: roots.emplace_back(std::move(add_root), -1)
+        BagOfCells->>BagOfCells: ++root_count
+        BagOfCells->>BagOfCells: cells_clear()
+        BagOfCells->>User: return 1
+    end
+    Note right of BagOfCells: 添加单个根节点并验证
+
+    %% Getter 函数群
+    User->>BagOfCells: get_cell_count() const
+    BagOfCells->>User: return size_t (单元格数量)
+    Note right of BagOfCells: 获取单元格总数
+
+    User->>BagOfCells: get_root_count() const
+    BagOfCells->>User: return size_t (根节点数量)
+    Note right of BagOfCells: 获取根节点总数
+
+    %% ========== 单元格导入和处理阶段 ==========
+    Note over User,Logger: 单元格导入、验证和重排序
+
+    %% 导入所有单元格
+    User->>BagOfCells: import_cells()
+    BagOfCells->>Logger: logger_ptr_->start_stage("import_cells")
+    BagOfCells->>BagOfCells: cells_clear()
+    
+    loop 遍历所有根节点
+        BagOfCells->>BagOfCells: import_cell(root.cell, 0)
+        alt 导入成功
+            BagOfCells->>BagOfCells: root.idx = res.move_as_ok()
+        else 导入失败
+            BagOfCells->>User: return td::Status::Error
+        end
+    end
+    
+    BagOfCells->>BagOfCells: reorder_cells()
+    BagOfCells->>BagOfCells: CHECK(cell_count != 0)
+    BagOfCells->>Logger: logger_ptr_->finish_stage(cell_count + " cells")
+    BagOfCells->>User: return td::Status::OK()
+    Note right of BagOfCells: 导入所有根节点关联的单元格
+
+    %% 导入单个单元格
+    User->>BagOfCells: import_cell(td::Ref<vm::Cell> cell, int depth)
+    BagOfCells->>BagOfCells: 检查 depth > max_depth
+    alt 深度超限
+        BagOfCells->>User: return td::Status::Error("cell depth too large")
+    else 深度正常
+        BagOfCells->>BagOfCells: 检查 cell.is_null()
+        alt 单元格为空
+            BagOfCells->>User: return td::Status::Error("cell is null")
+        else 单元格有效
+            BagOfCells->>Logger: logger_ptr_->on_cells_processed(1)
+            BagOfCells->>BagOfCells: 查找 cells.find(cell->get_hash())
+            alt 单元格已存在
+                BagOfCells->>BagOfCells: cell_list_[pos].should_cache = true
+                BagOfCells->>User: return pos
+            else 单元格不存在
+                BagOfCells->>BagOfCells: 验证虚拟化级别 == 0
+                BagOfCells->>BagOfCells: 创建新的 CellInfo 并添加到 cell_list_
+                BagOfCells->>BagOfCells: 递归导入子单元格引用
+                BagOfCells->>User: return new_pos
+            end
+        end
+    end
+    Note right of BagOfCells: 递归导入单个单元格及其引用
+
+    %% 重新排序单元格
+    User->>BagOfCells: reorder_cells()
+    BagOfCells->>BagOfCells: 执行拓扑排序算法
+    BagOfCells->>BagOfCells: 更新单元格索引映射
+    Note right of BagOfCells: 内部函数：优化单元格存储顺序
+
+    %% 计算序列化大小
+    User->>BagOfCells: compute_sizes()
+    BagOfCells->>BagOfCells: 计算所有单元格的序列化大小
+    BagOfCells->>BagOfCells: 更新内部大小统计
+    Note right of BagOfCells: 计算序列化所需的总大小
+
+    %% 序列化到切片
+    User->>BagOfCells: serialize_to_slice() const
+    BagOfCells->>BagOfCells: 将 BOC 数据序列化到内存切片
+    BagOfCells->>User: return td::Slice (序列化数据)
+    Note right of BagOfCells: 将整个 BOC 序列化为字节流
+
+    %% ========== CellSerializationInfo 处理阶段 ==========
+    Note over User,DataCell: 单元格序列化信息解析和验证
+
+    %% 从数据切片初始化
+    User->>CellSerializationInfo: init(td::Slice data, int ref_byte_size)
+    CellSerializationInfo->>CellSerializationInfo: 检查 data.size() >= 2
+    alt 数据长度不足
+        CellSerializationInfo->>User: return td::Status::Error("Not enough bytes")
+    else 数据长度足够
+        CellSerializationInfo->>CellSerializationInfo: init(data.ubegin()[0], data.ubegin()[1], ref_byte_size)
+        CellSerializationInfo->>CellSerializationInfo: 检查 data.size() >= end_offset
+        alt 数据长度不足
+            CellSerializationInfo->>User: return td::Status::Error("Not enough bytes")
+        else 数据长度足够
+            CellSerializationInfo->>User: return td::Status::OK()
+        end
+    end
+    Note right of CellSerializationInfo: 从数据切片初始化序列化信息
+
+    %% 从字节对初始化
+    User->>CellSerializationInfo: init(td::uint8 d1, td::uint8 d2, int ref_byte_size)
+    CellSerializationInfo->>CellSerializationInfo: refs_cnt = d1 & 7
+    CellSerializationInfo->>CellSerializationInfo: level_mask = Cell::LevelMask(d1 >> 5)
+    CellSerializationInfo->>CellSerializationInfo: special = (d1 & 8) != 0
+    CellSerializationInfo->>CellSerializationInfo: with_hashes = (d1 & 16) != 0
+    
+    CellSerializationInfo->>CellSerializationInfo: 检查 refs_cnt > 4
+    alt 引用数量异常
+        CellSerializationInfo->>CellSerializationInfo: 检查 refs_cnt == 7 && with_hashes
+        alt 缺失单元格标记
+            CellSerializationInfo->>User: return td::Status::Error("TODO: absent cells")
+        else 无效第一字节
+            CellSerializationInfo->>User: return td::Status::Error("Invalid first byte")
+        end
+    else 引用数量正常
+        CellSerializationInfo->>CellSerializationInfo: 计算各种偏移量
+        CellSerializationInfo->>CellSerializationInfo: hashes_offset = 2
+        CellSerializationInfo->>CellSerializationInfo: depth_offset = hashes_offset + (with_hashes ? n * Cell::hash_bytes : 0)
+        CellSerializationInfo->>CellSerializationInfo: data_offset = depth_offset + (with_hashes ? n * Cell::depth_bytes : 0)
+        CellSerializationInfo->>CellSerializationInfo: data_len = (d2 >> 1) + (d2 & 1)
+        CellSerializationInfo->>CellSerializationInfo: data_with_bits = (d2 & 1) != 0
+        CellSerializationInfo->>CellSerializationInfo: refs_offset = data_offset + data_len
+        CellSerializationInfo->>CellSerializationInfo: end_offset = refs_offset + refs_cnt * ref_byte_size
+        CellSerializationInfo->>User: return td::Status::OK()
+    end
+    Note right of CellSerializationInfo: 解析序列化格式的控制字节
+
+    %% 获取位数
+    User->>CellSerializationInfo: get_bits(td::Slice cell) const
+    CellSerializationInfo->>CellSerializationInfo: 检查 data_with_bits
+    alt 包含位标记
+        CellSerializationInfo->>CellSerializationInfo: DCHECK(data_len != 0)
+        CellSerializationInfo->>CellSerializationInfo: int last = cell[data_offset + data_len - 1]
+        CellSerializationInfo->>CellSerializationInfo: 检查 !(last & 0x7f)
+        alt 过长编码
+            CellSerializationInfo->>User: return td::Status

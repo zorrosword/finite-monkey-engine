@@ -1,0 +1,246 @@
+## 强化分析描述
+
+对 `./src/dataset/agent-v1-c4/tonvm/code/vm/dispatch.cpp` 进行**全函数覆盖分析**，发现以下所有函数：
+
+**已识别的DispatchTable核心函数：**
+1. `DispatchTable::register_table(Codepage _cp, const DispatchTable& dt)` - 调度表注册函数（带参数版本）
+2. `DispatchTable::register_table(Codepage cp) const` - 调度表注册函数（当前实例版本）
+3. `DispatchTable::get_table(Codepage cp)` - 调度表获取函数（Codepage版本）
+4. `DispatchTable::get_table(int cp)` - 调度表获取函数（int版本）
+
+**已识别的DummyDispatchTable函数：**
+5. `DummyDispatchTable::dispatch(VmState* st, CellSlice& cs) const` - 虚拟调度表分发函数
+6. `DummyDispatchTable::dump_instr(CellSlice& cs) const` - 虚拟调度表指令转储函数
+7. `DummyDispatchTable::instr_len(const CellSlice& cs) const` - 虚拟调度表指令长度函数
+
+**线程安全相关：**
+- 使用 `std::lock_guard<std::mutex> guard(dispatch_tables_mutex)` 进行线程安全保护
+- 静态全局容器 `dispatch_tables` 的并发访问控制
+
+**错误处理机制：**
+- `VmError{Excno::inv_opcode, "empty opcode table"}` 异常抛出机制
+
+## 强化后的完整业务流程图
+
+```mermaid
+sequenceDiagram
+    participant User as User/Caller
+    participant VM as VmState
+    participant DispatchTable as DispatchTable
+    participant DummyDispatchTable as DummyDispatchTable
+    participant OpcodeTable as OpcodeTable
+    participant OpcodeInstr as OpcodeInstr
+    participant OpcodeInstrDummy as OpcodeInstrDummy
+    participant OpcodeInstrSimple as OpcodeInstrSimple
+    participant OpcodeInstrSimplest as OpcodeInstrSimplest
+    participant OpcodeInstrFixed as OpcodeInstrFixed
+    participant Stack as Stack
+    participant ControlRegs as ControlRegs
+    participant Continuation as Continuation
+    participant Cell as Cell/CellSlice
+    participant DummyVmState as DummyVmState
+    participant Guard as Guard
+    participant Mutex as dispatch_tables_mutex
+    participant GlobalContainer as dispatch_tables
+    
+    %% ========== Phase 1: VM Initialization ==========
+    Note over User,Cell: Phase 1: VM Initialization & Setup
+    User->>VM: quit1(true, 1)
+    VM->>VM: ensure_throw(init_cp(0))
+    VM->>VM: init_cregs()
+    
+    User->>VM: global_version(global_version)
+    VM->>VM: ensure_throw(init_cp(0))
+    VM->>VM: set_c4(std::move(_data))
+    alt init_c7.not_null()
+        VM->>VM: set_c7(std::move(init_c7))
+    end
+    VM->>VM: init_cregs(flags & 1, flags & 2)
+    
+    %% ========== Phase 2: Control Registers Initialization ==========
+    Note over VM,ControlRegs: Phase 2: Control Registers & Stack Management
+    
+    VM->>VM: VmState::init_cregs(bool same_c3, bool push_0)
+    VM->>ControlRegs: cr.set_c0(quit0)
+    VM->>ControlRegs: cr.set_c1(quit1)
+    VM->>ControlRegs: cr.set_c2(Ref<ExcQuitCont>{true})
+    
+    alt same_c3 == true
+        VM->>ControlRegs: cr.set_c3(Ref<OrdCont>{true, code, cp})
+        alt push_0 == true
+            VM->>VM: VM_LOG(this) << "implicit PUSH 0 at start\n"
+            VM->>Stack: get_stack().push_smallint(0)
+        end
+    else same_c3 == false
+        VM->>ControlRegs: cr.set_c3(Ref<QuitCont>{true, 11})
+    end
+    
+    alt cr.d[0].is_null() || cr.d[1].is_null()
+        VM->>Cell: auto empty_cell = CellBuilder{}.finalize()
+        loop i = 0 to ControlRegs::dreg_num
+            alt cr.d[i].is_null()
+                VM->>ControlRegs: cr.d[i] = empty_cell
+            end
+        end
+    end
+    
+    alt cr.c7.is_null()
+        VM->>ControlRegs: cr.set_c7(Ref<Tuple>{true})
+    end
+    
+    %% ========== Phase 3: Dispatch Table Registration & Management ==========
+    Note over User,GlobalContainer: Phase 3: Dispatch Table Registration & Management
+    
+    User->>DispatchTable: register_table(Codepage _cp, const DispatchTable& dt)
+    DispatchTable->>DispatchTable: assert(dt.is_final())
+    DispatchTable->>DispatchTable: int cp = (int)_cp
+    alt cp < -0x8000 || cp >= 0x8000 || cp == -1
+        DispatchTable-->>User: return false
+    else valid cp range
+        DispatchTable->>Mutex: std::lock_guard<std::mutex> guard(dispatch_tables_mutex)
+        Mutex->>Guard: acquire lock
+        DispatchTable->>GlobalContainer: dispatch_tables.emplace(cp, &dt)
+        GlobalContainer-->>DispatchTable: return emplace result.second
+        Guard->>Mutex: release lock
+        DispatchTable-->>User: return bool success
+    end
+    
+    User->>DispatchTable: register_table(Codepage cp) const
+    DispatchTable->>DispatchTable: register_table(cp, *this)
+    DispatchTable-->>User: return bool success
+    
+    User->>DispatchTable: get_table(Codepage cp)
+    DispatchTable->>DispatchTable: get_table((int)cp)
+    DispatchTable-->>User: return DispatchTable* result
+    
+    User->>DispatchTable: get_table(int cp)
+    DispatchTable->>Mutex: std::lock_guard<std::mutex> guard(dispatch_tables_mutex)
+    Mutex->>Guard: acquire lock
+    DispatchTable->>GlobalContainer: auto entry = dispatch_tables.find(cp)
+    GlobalContainer-->>DispatchTable: return iterator entry
+    alt entry != dispatch_tables.end()
+        DispatchTable-->>User: return entry->second
+    else entry not found
+        DispatchTable-->>User: return 0 (nullptr)
+    end
+    Guard->>Mutex: release lock
+    
+    %% ========== Phase 4: Dummy Dispatch Table Operations ==========
+    Note over User,DummyDispatchTable: Phase 4: Dummy Dispatch Table Error Handling
+    
+    User->>DummyDispatchTable: dispatch(VmState* st, CellSlice& cs) const
+    DummyDispatchTable->>DummyDispatchTable: throw VmError{Excno::inv_opcode, "empty opcode table"}
+    DummyDispatchTable-->>User: VmError exception thrown
+    
+    User->>DummyDispatchTable: dump_instr(CellSlice& cs) const
+    DummyDispatchTable-->>User: return "" (empty string)
+    
+    User->>DummyDispatchTable: instr_len(const CellSlice& cs) const
+    DummyDispatchTable-->>User: return 0 (zero length)
+    
+    %% ========== Phase 5: Opcode Table Operations ==========
+    Note over VM,OpcodeInstrFixed: Phase 5: Opcode Table & Instruction Processing
+    
+    VM->>OpcodeTable: finalize()
+    OpcodeTable->>OpcodeTable: build dispatch tree
+    OpcodeTable-->>VM: return finalization status
+    
+    VM->>OpcodeTable: insert(const OpcodeInstr* instr)
+    OpcodeTable->>OpcodeTable: VM_LOG(this) << "insert opcode instruction"
+    OpcodeTable->>OpcodeTable: insert_bool(instr)
+    OpcodeTable-->>VM: void return
+    
+    VM->>OpcodeTable: insert_bool(const OpcodeInstr* instr)
+    OpcodeTable->>OpcodeTable: validate and insert instruction
+    OpcodeTable-->>VM: return bool success
+    
+    VM->>OpcodeTable: lookup_instr(unsigned opcode, unsigned bits)
+    OpcodeTable->>OpcodeTable: search instruction by opcode and bits
+    OpcodeTable-->>VM: return const OpcodeInstr* result
+    
+    VM->>OpcodeTable: lookup_instr(const CellSlice& cs, unsigned& opcode, unsigned& bits)
+    OpcodeTable->>Cell: extract opcode from CellSlice
+    Cell-->>OpcodeTable: return opcode and bits
+    OpcodeTable->>OpcodeTable: lookup_instr(opcode, bits)
+    OpcodeTable-->>VM: return const OpcodeInstr* result
+    
+    VM->>OpcodeTable: dispatch(VmState* st, CellSlice& cs)
+    OpcodeTable->>OpcodeTable: lookup_instr(cs, opcode, bits)
+    OpcodeTable->>OpcodeInstr: instr->dispatch(st, cs, opcode, bits)
+    OpcodeInstr-->>OpcodeTable: return dispatch result
+    OpcodeTable-->>VM: return execution result
+    
+    VM->>OpcodeTable: dump_instr(CellSlice& cs)
+    OpcodeTable->>OpcodeTable: lookup_instr(cs, opcode, bits)
+    OpcodeTable->>OpcodeInstr: instr->dump(cs, opcode, bits)
+    OpcodeInstr-->>OpcodeTable: return string representation
+    OpcodeTable-->>VM: return string dump
+    
+    VM->>OpcodeTable: instr_len(const CellSlice& cs)
+    OpcodeTable->>OpcodeTable: lookup_instr(cs, opcode, bits)
+    OpcodeTable->>OpcodeInstr: instr->instr_len(cs, opcode, bits)
+    OpcodeInstr-->>OpcodeTable: return unsigned length
+    OpcodeTable-->>VM: return instruction length
+    
+    %% ========== Phase 6: Instruction Type Specific Operations ==========
+    Note over VM,OpcodeInstrFixed: Phase 6: Instruction Type Specific Dispatch
+    
+    VM->>OpcodeInstrDummy: dispatch(VmState* st, CellSlice& cs, unsigned opcode, unsigned bits)
+    OpcodeInstrDummy->>OpcodeInstrDummy: handle dummy instruction
+    OpcodeInstrDummy-->>VM: return dispatch result
+    
+    VM->>OpcodeInstr: dump(CellSlice& cs, unsigned opcode, unsigned bits)
+    OpcodeInstr-->>VM: return string representation
+    
+    VM->>OpcodeInstr: instr_len(const CellSlice& cs, unsigned opcode, unsigned bits)
+    OpcodeInstr-->>VM: return unsigned length
+    
+    VM->>OpcodeInstrSimple: dispatch(VmState* st, CellSlice& cs, unsigned opcode, unsigned bits)
+    OpcodeInstrSimple->>Stack: manipulate stack based on instruction
+    Stack-->>OpcodeInstrSimple: return operation result
+    OpcodeInstrSimple-->>VM: return dispatch result
+    
+    VM->>OpcodeInstrSimple: dump(CellSlice& cs, unsigned opcode, unsigned bits)
+    OpcodeInstrSimple-->>VM: return string representation
+    
+    VM->>OpcodeInstrSimple: instr_len(const CellSlice& cs, unsigned opcode, unsigned bits)
+    OpcodeInstrSimple-->>VM: return unsigned length
+    
+    VM->>OpcodeInstrSimplest: dispatch(VmState* st, CellSlice& cs, unsigned opcode, unsigned bits)
+    OpcodeInstrSimplest->>Stack: perform simplest stack operation
+    Stack-->>OpcodeInstrSimplest: return operation result
+    OpcodeInstrSimplest-->>VM: return dispatch result
+    
+    VM->>OpcodeInstrSimplest: dump(CellSlice& cs, unsigned opcode, unsigned bits)
+    OpcodeInstrSimplest-->>VM: return string representation
+    
+    VM->>OpcodeInstrSimplest: instr_len(const CellSlice& cs, unsigned opcode, unsigned bits)
+    OpcodeInstrSimplest-->>VM: return unsigned length
+    
+    VM->>OpcodeInstrFixed: dispatch(VmState* st, CellSlice& cs, unsigned opcode, unsigned bits)
+    OpcodeInstrFixed->>Stack: perform fixed-length instruction
+    Stack-->>OpcodeInstrFixed: return operation result
+    OpcodeInstrFixed-->>VM: return dispatch result
+    
+    %% ========== Phase 7: Execution Templates ==========
+    Note over VM,Stack: Phase 7: Generic Instruction Execution Templates
+    
+    VM->>OpcodeInstr: exec_instr(exec) - template function
+    OpcodeInstr->>Stack: execute instruction with template parameters
+    Stack-->>OpcodeInstr: return execution result
+    OpcodeInstr-->>VM: return template execution result
+    
+    %% ========== Phase 8: Error Handling & Cleanup ==========
+    Note over VM,DummyVmState: Phase 8: Error Handling & State Cleanup
+    
+    alt VmError exception occurred
+        VM->>VM: catch VmError exception
+        VM->>VM: handle error state
+        VM->>ControlRegs: restore control registers
+        VM-->>User: return error result
+    else normal execution
+        VM->>VM: finalize execution
+        VM->>Stack: finalize stack state
+        VM-->>User: return success result
+    end
+```
