@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-VulnerabilityChecker 集成测试
+VulnerabilityChecker Integration Test
 
-这个测试模拟真实的漏洞检查流程，包括：
-1. 创建模拟的任务数据
-2. 测试完整的漏洞检查流程
-3. 验证各个处理器的协作
-4. 检查结果格式和内容
+This test simulates the real vulnerability checking process, including:
+1. Creating mock task data
+2. Testing complete vulnerability checking workflow
+3. Verifying processor collaboration
+4. Checking result format and content
 """
 
 import sys
