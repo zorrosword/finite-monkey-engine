@@ -1,7 +1,7 @@
 """
-漏洞检查工具模块
+Vulnerability Checking Utilities Module
 
-此模块包含漏洞检查所需的各种工具函数
+This module contains various utility functions required for vulnerability checking
 """
 
 from .check_utils import CheckUtils

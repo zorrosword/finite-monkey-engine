@@ -1,11 +1,11 @@
 """
-漏洞检查模块
+Vulnerability Checking Module
 
-此模块负责智能合约的漏洞验证和确认功能，包括：
-- 漏洞深度分析
-- 多轮确认机制
-- 上下文增强
-- 网络搜索辅助
+This module handles vulnerability verification and confirmation functionality for smart contracts, including:
+- Deep vulnerability analysis
+- Multi-round confirmation mechanism
+- Context enhancement
+- Internet search assistance
 """
 
 from .checker import VulnerabilityChecker

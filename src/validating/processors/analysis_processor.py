@@ -9,31 +9,31 @@ from openai_api.openai import common_ask_confirmation
 
 
 class AnalysisProcessor:
-    """分析处理器，负责执行具体的漏洞分析逻辑"""
+    """Analysis processor responsible for executing specific vulnerability analysis logic"""
     
     def __init__(self, context_manager: ContextManager):
         self.context_manager = context_manager
     
     def process_task_analysis(self, task, task_manager):
-        """处理单个任务的分析"""
-        # 用于收集所有分析结果
+        """Process analysis for a single task"""
+        # Collect all analysis results
         analysis_collection = []
         
         starttime = time.time()
         result = task.get_result(False)
         
-        print("\n🔍 开始漏洞确认流程...")
+        print("\n🔍 Starting vulnerability confirmation process...")
         
-        # 获取要分析的代码
+        # Get code to be analyzed
         code_to_be_tested = CheckUtils.get_code_to_analyze(task)
-        print(f"\n📊 分析代码类型: {'业务流程代码' if task.if_business_flow_scan=='1' else '函数代码'}")
+        print(f"\n📊 Analysis code type: {'Business flow code' if task.if_business_flow_scan=='1' else 'Function code'}")
         
-        # 第一轮分析
+        # First round analysis
         response_final, final_response = self._perform_initial_analysis(
             code_to_be_tested, result, analysis_collection
         )
         
-        # 如果初始分析显示无漏洞，直接结束
+        # If initial analysis shows no vulnerability, end directly
         if response_final == "no":
             formatted_results = CheckUtils.format_analysis_results(analysis_collection)
             CheckUtils.update_task_results(task_manager, task.id, result, response_final, final_response, formatted_results)
@@ -42,12 +42,12 @@ class AnalysisProcessor:
             CheckUtils.print_task_summary(endtime - starttime, 1, response_final)
             return
         
-        # 执行多轮确认
+        # Execute multi-round confirmation
         response_final, final_response = self._perform_multi_round_confirmation(
             code_to_be_tested, result, analysis_collection
         )
         
-        # 更新结果
+        # Update results
         formatted_results = CheckUtils.format_analysis_results(analysis_collection)
         CheckUtils.update_task_results(task_manager, task.id, result, response_final, final_response, formatted_results)
         
@@ -55,9 +55,9 @@ class AnalysisProcessor:
         CheckUtils.print_task_summary(endtime - starttime, len(analysis_collection), response_final)
     
     def _perform_initial_analysis(self, code_to_be_tested: str, result: str, analysis_collection: List) -> Tuple:
-        """执行初始分析"""
-        print("\n=== 第一轮分析开始 ===")
-        print("📝 正在分析潜在漏洞...")
+        """Execute initial analysis"""
+        print("\n=== First Round Analysis Start ===")
+        print("📝 Analyzing potential vulnerabilities...")
         prompt = PromptAssembler.assemble_vul_check_prompt(code_to_be_tested, result)
         
         initial_response = common_ask_confirmation(prompt)
@@ -70,147 +70,147 @@ class AnalysisProcessor:
         print(len(initial_response))
         print("-" * 80)
 
-        # 收集初始分析结果
+        # Collect initial analysis results
         analysis_collection.extend([
-            "=== 初始分析结果 ===",
+            "=== Initial Analysis Results ===",
             initial_response
         ])
 
-        # 处理初始响应
+        # Process initial response
         initial_result_status = CheckUtils.process_round_response(initial_response)
         analysis_collection.extend([
-            "=== 初始分析状态 ===",
+            "=== Initial Analysis Status ===",
             initial_result_status
         ])
 
-        # 提取所需信息
+        # Extract required information
         required_info = self.context_manager.extract_required_info(initial_response)
         if required_info:
-            analysis_collection.append("=== 需要进一步分析的信息 ===")
+            analysis_collection.append("=== Information Requiring Further Analysis ===")
             analysis_collection.extend(required_info)
 
         if CheckUtils.should_skip_early(initial_result_status):
             print("\n🛑 Initial analysis shows clear 'no vulnerability' - stopping further analysis")
             return "no", "Analysis stopped after initial round due to clear 'no vulnerability' result"
         
-        return None, None  # 继续多轮确认
+        return None, None  # Continue with multi-round confirmation
     
     def _perform_multi_round_confirmation(self, code_to_be_tested: str, result: str, analysis_collection: List) -> Tuple:
-        """执行多轮确认分析"""
-        # 设置最大确认轮数
+        """Execute multi-round confirmation analysis"""
+        # Set maximum confirmation rounds
         max_rounds = int(os.getenv("MAX_CONFIRMATION_ROUNDS", 3))
         request_per_round = int(os.getenv("REQUESTS_PER_CONFIRMATION_ROUND", 3))
         
-        # 按轮次收集结果 - 新的数据结构
-        round_results = []  # 每个元素是一轮的结果列表
+        # Collect results by rounds - new data structure
+        round_results = []  # Each element is a list of results from one round
         
-        # 每轮都从原始代码开始，保持轮间独立
+        # Each round starts from original code, maintaining independence between rounds
         base_code = code_to_be_tested
         
         for round_num in range(max_rounds):
-            print(f"\n=== 确认轮次 {round_num + 1}/{max_rounds} (独立轮次) ===")
+            print(f"\n=== Confirmation Round {round_num + 1}/{max_rounds} (Independent Round) ===")
             
-            # 当前轮次的结果
+            # Current round results
             current_round_results = []
             
-            # 每轮从基础代码开始，不依赖前轮结果
+            # Each round starts from base code, not dependent on previous round results
             current_code = base_code
             round_context_enhanced = False
             round_has_early_exit = False
             
-            # 轮内上下文增强和多次询问
+            # Intra-round context enhancement and multiple queries
             for request_num in range(request_per_round):
-                print(f"\n🔍 第 {round_num + 1} 轮 - 第 {request_num + 1} / {request_per_round} 次询问")
+                print(f"\n🔍 Round {round_num + 1} - Request {request_num + 1} / {request_per_round}")
                 
-                # 轮内上下文增强：从第2次询问开始可以增强上下文
+                # Intra-round context enhancement: can enhance context starting from 2nd request
                 if request_num > 0 and not round_context_enhanced:
                     current_code = self._enhance_context_within_round(
                         base_code, analysis_collection, round_num
                     )
                     round_context_enhanced = True
                 
-                # 使用当前上下文进行询问
+                # Use current context for query
                 sub_round_response = CheckUtils.perform_confirmation_round(
                     current_code, result, round_num, request_num
                 )
                 
-                # 收集分析结果
+                # Collect analysis results
                 analysis_collection.extend([
-                    f"=== 第 {round_num + 1} 轮 {request_num + 1} 次询问分析结果 ===",
+                    f"=== Round {round_num + 1} Request {request_num + 1} Analysis Results ===",
                     sub_round_response
                 ])
                 
-                # 处理响应结果
+                # Process response results
                 if len(sub_round_response) == 0:
-                    print(f"\n❌ 无效的响应: 第 {round_num + 1} 轮 {request_num + 1} 次询问结果为空")
+                    print(f"\n❌ Invalid response: Round {round_num + 1} Request {request_num + 1} result is empty")
                     continue
                     
                 sub_result_status = CheckUtils.process_round_response(sub_round_response)
                 analysis_collection.extend([
-                    f"=== 第 {round_num + 1} 轮 {request_num + 1} 次分析状态 ===",
+                    f"=== Round {round_num + 1} Request {request_num + 1} Analysis Status ===",
                     sub_result_status
                 ])
-                print(f"第 {round_num + 1} 轮第 {request_num + 1} 次分析状态: {sub_result_status}")
+                print(f"Round {round_num + 1} Request {request_num + 1} analysis status: {sub_result_status}")
                 
-                # 添加到当前轮次结果
+                # Add to current round results
                 current_round_results.append(sub_result_status)
                 
-                # 检查是否需要提前退出（但使用新逻辑时不立即退出）
+                # Check if early exit is needed (but don't exit immediately with new logic)
                 if CheckUtils.should_skip_early(sub_result_status):
-                    print(f"\n⚠️ 第 {round_num + 1} 轮第 {request_num + 1} 次发现'无漏洞'结果")
+                    print(f"\n⚠️ Round {round_num + 1} Request {request_num + 1} found 'no vulnerability' result")
                     round_has_early_exit = True
-                    # 注意：这里不立即退出，而是记录状态，让新逻辑来判断
+                    # Note: Don't exit immediately here, record status and let new logic decide
             
-            # 将当前轮次的结果添加到总结果中
-            if current_round_results:  # 只有当轮次有结果时才添加
+            # Add current round results to total results
+            if current_round_results:  # Only add when round has results
                 round_results.append(current_round_results)
-                print(f"\n📋 第 {round_num + 1} 轮完成，收集到 {len(current_round_results)} 个结果")
+                print(f"\n📋 Round {round_num + 1} completed, collected {len(current_round_results)} results")
                 
-                # 【新增】检查当前轮次是否满足强确认条件（3个yes）
+                # [NEW] Check if current round meets strong confirmation criteria (3 yes)
                 yes_count = sum(1 for r in current_round_results if "yes" in r or "confirmed" in r)
                 no_count = sum(1 for r in current_round_results if "no" in r and "vulnerability" in r)
                 
                 if yes_count >= 3:
-                    print(f"\n🎯 第 {round_num + 1} 轮收到 {yes_count} 个yes，满足强确认条件，直接判断漏洞存在!")
-                    print("🚀 提前终止后续分析，节省资源")
+                    print(f"\n🎯 Round {round_num + 1} received {yes_count} yes responses, meeting strong confirmation criteria, directly confirming vulnerability exists!")
+                    print("🚀 Terminating subsequent analysis early to save resources")
                     
-                    # 直接返回确认结果
-                    decision_reason = f"第{round_num + 1}轮强确认: {yes_count}个yes"
-                    final_response = f"=== 提前确认 ===\n第{round_num + 1}轮: {yes_count}个yes, {no_count}个no\n判断依据: {decision_reason}\n最终结果: yes"
+                    # Return confirmation result directly
+                    decision_reason = f"Round {round_num + 1} strong confirmation: {yes_count} yes responses"
+                    final_response = f"=== Early Confirmation ===\nRound {round_num + 1}: {yes_count} yes, {no_count} no\nDecision basis: {decision_reason}\nFinal result: yes"
                     
-                    # 添加最终结论到分析集合
+                    # Add final conclusion to analysis collection
                     analysis_collection.extend([
-                        "=== 最终结论 (提前确认) ===",
-                        "结果: yes",
-                        f"判断依据: {decision_reason}",
-                        "提前终止原因: 单轮满足强确认条件"
+                        "=== Final Conclusion (Early Confirmation) ===",
+                        "Result: yes",
+                        f"Decision basis: {decision_reason}",
+                        "Early termination reason: Single round meets strong confirmation criteria"
                     ])
                     
                     return "yes", final_response
             
-            # 如果本轮内出现no，记录但不立即退出（让新逻辑判断）
+            # If 'no' appears in this round, record but don't exit immediately (let new logic decide)
             if round_has_early_exit:
-                print(f"\n📝 第 {round_num + 1} 轮出现'无漏洞'结果，继续后续轮次以完整评估")
+                print(f"\n📝 Round {round_num + 1} shows 'no vulnerability' result, continuing subsequent rounds for complete evaluation")
         
-        # 使用新的按轮次分析方法
-        print(f"\n🔍 开始使用新的按轮次确认逻辑，共 {len(round_results)} 轮结果")
+        # Use new round-by-round analysis method
+        print(f"\n🔍 Starting new round-by-round confirmation logic with {len(round_results)} round results")
         return CheckUtils.collect_analysis_results_by_rounds(analysis_collection, round_results)
     
     def _enhance_context_within_round(self, base_code: str, analysis_collection: List, round_num: int) -> str:
-        """轮内上下文增强"""
-        print(f"\n📈 轮内上下文增强...")
+        """Intra-round context enhancement"""
+        print(f"\n📈 Intra-round context enhancement...")
         
-        # 基于本轮第一次的结果提取需要的信息
+        # Extract required information based on first result of this round
         if len(analysis_collection) >= 2:
             last_response_in_round = analysis_collection[-2]
             required_info = self.context_manager.extract_required_info(last_response_in_round)
             
             if required_info:
-                print(f"\n🔍 轮内需要额外信息: {len(required_info)} 项")
+                print(f"\n🔍 Intra-round additional information needed: {len(required_info)} items")
                 
-                # 轮内网络搜索
+                # Intra-round internet search
                 internet_info = self.context_manager.get_additional_internet_info(required_info)
-                # 轮内上下文获取
+                # Intra-round context retrieval
                 additional_context = self.context_manager.get_additional_context(required_info)
                 
                 enhanced_context = []
@@ -220,7 +220,7 @@ class AnalysisProcessor:
                         internet_info
                     ])
                     analysis_collection.extend([
-                        f"=== 第 {round_num + 1} 轮轮内网络搜索结果 ===",
+                        f"=== Round {round_num + 1} Intra-round Internet Search Results ===",
                         internet_info
                     ])
                 
@@ -230,13 +230,13 @@ class AnalysisProcessor:
                         additional_context
                     ])
                     analysis_collection.extend([
-                        f"=== 第 {round_num + 1} 轮轮内额外上下文 ===",
+                        f"=== Round {round_num + 1} Intra-round Additional Context ===",
                         additional_context
                     ])
                 
                 if enhanced_context:
                     enhanced_code = base_code + "\n\n" + "\n\n".join(enhanced_context)
-                    print(f"\n📦 轮内上下文增强完成 (总长度: {len(enhanced_code)} 字符)")
+                    print(f"\n📦 Intra-round context enhancement completed (total length: {len(enhanced_code)} characters)")
                     return enhanced_code
         
         return base_code 
