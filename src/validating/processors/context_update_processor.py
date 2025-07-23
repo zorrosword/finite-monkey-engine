@@ -1,4 +1,5 @@
 from typing import List
+import os
 from tqdm import tqdm
 
 from context.context_manager import ContextManager
@@ -23,19 +24,45 @@ class ContextUpdateProcessor:
             else:
                 code_to_be_tested = task.content
 
-            # Add retry logic
-            combined_text = self._get_context_with_retry(code_to_be_tested)
+            # Get context based on huge_project setting
+            combined_text = self._get_context_with_mode_aware_logic(code_to_be_tested)
             
             if not self._is_valid_context(combined_text):
-                print(f"❌ After multiple retries, still unable to get valid context, skipping this task")
+                print(f"❌ Unable to get valid context, skipping this task")
                 continue
                 
             # Update the business_flow_context for the task
             task_manager.update_business_flow_context(task.id, combined_text)
             task_manager.update_score(task.id, "1")
     
+    def _get_context_with_mode_aware_logic(self, code_to_be_tested: str) -> str:
+        """Get context based on huge_project mode setting"""
+        huge_project = eval(os.environ.get('HUGE_PROJECT', 'False'))
+        
+        if huge_project:
+            print("🚀 检测到 HUGE_PROJECT=True，只使用 LanceDB RAG 内容，跳过 call tree 上下文")
+            # In huge project mode, only use RAG content from LanceDB
+            related_functions = self.context_manager.get_related_functions(code_to_be_tested, 5)
+            if not related_functions:
+                print("⚠️ RAG 搜索未找到相关函数")
+                return ""
+            
+            # Directly use the content from RAG search results
+            rag_contents = []
+            for func in related_functions:
+                func_content = func.get('content', '')
+                if func_content.strip():
+                    rag_contents.append(f"// Function: {func.get('name', 'Unknown')}\n{func_content}")
+            
+            combined_text = '\n\n'.join(rag_contents)
+            print(f"✅ 从 RAG 获取到 {len(related_functions)} 个相关函数，总长度: {len(combined_text)} 字符")
+            return combined_text
+        else:
+            # Use original logic with call tree extraction and retry
+            return self._get_context_with_retry(code_to_be_tested)
+    
     def _get_context_with_retry(self, code_to_be_tested: str, max_retries: int = 3) -> str:
-        """Get context with retry mechanism"""
+        """Get context with retry mechanism (used in normal mode)"""
         retry_count = 0
         combined_text = ""
 
