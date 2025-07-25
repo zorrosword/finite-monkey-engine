@@ -38,11 +38,11 @@ class BusinessFlowUtils:
 "flows": [
 {{
 "name": "完整业务场景的自然语言描述",
-"steps": ["文件1.函数", "文件2.函数", "文件3.函数", "文件4.函数", "文件5.函数"]
+"steps": ["ERC20Token.transfer", "Vault.deposit", "RewardPool.stake", "Oracle.getPrice", "Liquidator.liquidate"]
 }},
 {{
 "name": "另一个完整业务场景描述", 
-"steps": ["文件1.函数", "文件2.函数", "文件3.函数"]
+"steps": ["UserManager.register", "AssetManager.withdraw", "SecurityChecker.validate"]
 }}
 ]
 }}
@@ -57,13 +57,15 @@ class BusinessFlowUtils:
 3. **避免过度细分**：不要为了技术细节而拆分业务流，相关的技术步骤应该归并到同一个业务流中
 4. **最少步骤数**：每个业务流应至少包含4-8个步骤，确保覆盖足够的业务逻辑
 5. **业务价值导向**：每个业务流都应该能回答"这个流程为用户/系统创造了什么价值"
-6. **步骤格式**：必须是"文件名.函数名"或"合约名.函数名"，中间用"."连接
+6. **步骤格式**：必须是"文件名.函数名"或"合约名.函数名"，中间用"."连接。**重要**：文件名不能包含任何后缀名（如.sol、.py、.cpp、.js、.ts等），只保留纯文件名
 7. **覆盖范围最大化**：尽可能将更多相关函数纳入到业务流中，减少孤立的函数
 8. **逻辑连贯性**：确保每个业务流内的步骤在逻辑上连贯，能够讲述一个完整的故事
 
 **示例思路**：
 - ❌ 错误：将"验证签名"、"检查余额"、"更新状态"分成3个独立业务流
 - ✅ 正确：将它们合并为"用户资产操作验证与执行流程"这一个完整业务流
+- ❌ 错误格式：["Token.sol.transfer", "Vault.py.deposit","Token.soltransfer", "Vault.pydeposit""dictops.cppexec_dict] （包含文件后缀）
+- ✅ 正确格式：["Token.transfer", "Vault.deposit"] （不包含文件后缀）
 
 请严格按照JSON格式输出，不要包含其他解释文字。"""
         
@@ -115,7 +117,7 @@ class BusinessFlowUtils:
     
     @staticmethod
     def clean_business_flows(flows: List[Dict]) -> List[Dict]:
-        """清洗业务流数据，确保格式正确
+        """使用AI prompt清洗业务流数据，确保格式正确
         
         Args:
             flows: 原始业务流列表
@@ -123,131 +125,112 @@ class BusinessFlowUtils:
         Returns:
             List[Dict]: 清洗后的业务流列表
         """
-        import re
         from openai_api.openai import common_ask_for_json
         
-        def clean_step(step: str) -> str:
-            """清洗单个步骤，确保格式为 文件名.函数名"""
-            # 移除路径，只保留文件名
-            if '/' in step or '\\' in step:
-                # 提取文件名部分
-                parts = re.split(r'[/\\]', step)
-                step = parts[-1]  # 取最后一部分作为文件名
-            
-            # 确保有且仅有一个点
-            if '.' not in step:
-                # 如果没有点，尝试智能分割
-                # 例如: "myFunction" -> "unknown.myFunction"
-                return f"unknown.{step}"
-            elif step.count('.') > 1:
-                # 如果有多个点，保留最后一个
-                parts = step.split('.')
-                filename = parts[0]
-                funcname = '.'.join(parts[1:])
-                # 移除文件扩展名
-                if filename.endswith(('.sol', '.py', '.js', '.ts', '.rs', '.go', '.java', '.c', '.cpp')):
-                    filename = re.sub(r'\.[^.]+$', '', filename)
-                return f"{filename}.{funcname}"
-            
-            # 移除文件扩展名
-            filename, funcname = step.split('.', 1)
-            if filename.endswith(('.sol', '.py', '.js', '.ts', '.rs', '.go', '.java', '.c', '.cpp')):
-                filename = re.sub(r'\.[^.]+$', '', filename)
-            
-            return f"{filename}.{funcname}"
+        if not flows:
+            return flows
         
-        def validate_format(flows_data: List[Dict]) -> bool:
-            """验证业务流格式是否正确"""
-            pattern = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*$')
-            
-            for flow in flows_data:
-                if 'steps' not in flow:
-                    return False
-                for step in flow['steps']:
-                    if not pattern.match(step):
-                        return False
-            return True
+        print(f"🧹 开始清洗 {len(flows)} 个业务流的格式...")
+        
+        # 使用AI进行智能清洗
+        clean_prompt = f"""请清洗以下业务流数据，确保所有步骤都符合标准格式。
+
+原始数据：
+{json.dumps(flows, indent=2, ensure_ascii=False)}
+
+**清洗要求**：
+1. **步骤格式必须是**："文件名.函数名"（如：Token.transfer, Vault.deposit）
+2. **移除所有文件后缀**：如 .sol、.py、.cpp、.js、.ts、.rs、.go、.java、.c 等
+3. **移除路径信息**：只保留纯文件名，如 "src/contracts/Token.sol" → "Token"
+4. **修复分隔符**：确保文件名和函数名之间只有一个"."
+5. **修复字符**：移除特殊字符，只保留字母、数字、下划线
+6. **处理缺失点号**：如果没有"."，将整个字符串视为函数名，文件名设为"unknown"
+7. **处理多个点号**：如有多个"."，保留第一个作为分隔符，其余作为函数名的一部分
+8. **保持业务流名称不变**：只清洗steps数组中的内容
+
+**清洗示例**：
+- "Token.sol.transfer" → "Token.transfer"
+- "src/Vault.py.deposit" → "Vault.deposit" 
+- "contracts/Manager.cpp.execute_action" → "Manager.execute_action"
+- "transferToken" → "unknown.transferToken"
+- "Token.sol.transfer.internal" → "Token.transfer.internal"
+- "Token..transfer" → "Token.transfer"
+- "Token transfer" → "Token.transfer"
+
+请返回清洗后的完整JSON数据，保持原有结构：
+{{
+  "flows": [
+    {{
+      "name": "业务流名称",
+      "steps": ["清洗后的步骤"]
+    }}
+  ]
+}}
+
+只返回JSON，不要其他解释文字。"""
         
         try:
-            # 初次清洗
-            cleaned_flows = []
-            for flow in flows:
-                cleaned_flow = {
-                    'name': flow.get('name', 'Unknown Flow'),
-                    'steps': [clean_step(step) for step in flow.get('steps', [])]
-                }
-                cleaned_flows.append(cleaned_flow)
+            response = common_ask_for_json(clean_prompt)
+            if not response:
+                print("❌ AI清洗无响应，返回原始数据")
+                return flows
             
-            # 验证格式
-            max_retries = 3
-            retry_count = 0
+            # 解析AI响应
+            cleaned_data = json.loads(response)
             
-            while not validate_format(cleaned_flows) and retry_count < max_retries:
-                retry_count += 1
-                print(f"⚠️ 业务流格式验证失败，第 {retry_count} 次尝试修复...")
-                
-                # 使用AI进行格式修复
-                repair_prompt = f"""请修复以下业务流数据的格式问题，确保每个step都严格符合"文件名.函数名"的格式：
-
-要求：
-1. 文件名和函数名之间必须用"."连接
-2. 文件名不能包含路径，只能是单独的文件名（不带扩展名）
-3. 文件名和函数名只能包含字母、数字和下划线，且必须以字母或下划线开头
-
-当前数据：
-{json.dumps(cleaned_flows, indent=2, ensure_ascii=False)}
-
-请返回修复后的JSON数据，格式完全相同：
-"""
-                
-                try:
-                    response = common_ask_for_json(repair_prompt)
-                    if response:
-                        repaired_data = json.loads(response)
-                        if isinstance(repaired_data, list):
-                            cleaned_flows = repaired_data
-                        elif isinstance(repaired_data, dict) and 'flows' in repaired_data:
-                            cleaned_flows = repaired_data['flows']
-                        else:
-                            # print(f"❌ AI修复返回格式错误")
-                            break
-                    else:
-                        print(f"❌ AI修复无响应")
-                        break
-                except Exception as e:
-                    print(f"❌ AI修复失败: {str(e)}")
-                    break
-            
-            # 最终验证
-            if validate_format(cleaned_flows):
-                print(f"✅ 业务流格式验证通过，共 {len(cleaned_flows)} 个业务流")
-                return cleaned_flows
+            # 兼容不同的响应格式
+            if isinstance(cleaned_data, list):
+                cleaned_flows = cleaned_data
+            elif isinstance(cleaned_data, dict):
+                if 'flows' in cleaned_data:
+                    cleaned_flows = cleaned_data['flows']
+                elif 'data' in cleaned_data:
+                    cleaned_flows = cleaned_data['data']
+                else:
+                    # 如果结构不对，尝试直接使用
+                    cleaned_flows = [cleaned_data] if cleaned_data else flows
             else:
-                print(f"⚠️ 返回清洗后的数据")
-                # 强制最后一次格式修复
-                final_cleaned = []
-                for flow in cleaned_flows:
-                    final_steps = []
-                    for step in flow.get('steps', []):
-                        # 强制格式化
-                        clean_step_final = re.sub(r'[^a-zA-Z0-9_.]', '', str(step))
-                        if '.' not in clean_step_final:
-                            clean_step_final = f"unknown.{clean_step_final}"
-                        elif clean_step_final.count('.') > 1:
-                            parts = clean_step_final.split('.')
-                            clean_step_final = f"{parts[0]}.{parts[-1]}"
-                        final_steps.append(clean_step_final)
-                    
-                    final_cleaned.append({
-                        'name': flow.get('name', 'Unknown Flow'),
-                        'steps': final_steps
-                    })
+                print("❌ AI响应格式不正确，返回原始数据")
+                return flows
+            
+            # 基本验证
+            if not isinstance(cleaned_flows, list):
+                print("❌ 清洗结果不是列表格式，返回原始数据")
+                return flows
+            
+            # 验证每个业务流的基本结构
+            valid_flows = []
+            for flow in cleaned_flows:
+                if isinstance(flow, dict) and 'name' in flow and 'steps' in flow:
+                    if isinstance(flow['steps'], list) and len(flow['steps']) > 0:
+                        # 确保所有步骤都包含"."
+                        valid_steps = []
+                        for step in flow['steps']:
+                            if isinstance(step, str) and '.' in step:
+                                valid_steps.append(step)
+                            elif isinstance(step, str):
+                                # 如果没有"."，添加unknown前缀
+                                valid_steps.append(f"unknown.{step}")
+                        
+                        if valid_steps:
+                            valid_flows.append({
+                                'name': flow['name'],
+                                'steps': valid_steps
+                            })
+            
+            if valid_flows:
+                print(f"✅ 成功清洗 {len(valid_flows)} 个业务流")
+                return valid_flows
+            else:
+                print("⚠️ 清洗后无有效业务流，返回原始数据")
+                return flows
                 
-                return final_cleaned
-                
+        except json.JSONDecodeError as e:
+            print(f"❌ AI响应JSON解析失败: {str(e)}")
+            return flows
         except Exception as e:
             print(f"❌ 清洗业务流数据失败: {str(e)}")
-            return flows  # 返回原始数据
+            return flows
     
     @staticmethod
     def load_mermaid_files(mermaid_output_dir: str, project_id: str) -> List[str]:
