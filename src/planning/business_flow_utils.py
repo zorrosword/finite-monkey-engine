@@ -37,11 +37,11 @@ class BusinessFlowUtils:
 {{
 "flows": [
 {{
-"name": "业务流1",
+"name": "业务流1的自然语言描述",
 "steps": ["文件1.函数", "文件2.函数", "文件3.函数"]
 }},
 {{
-"name": "业务流2", 
+"name": "业务流2的自然语言描述", 
 "steps": ["文件1.函数", "文件2.函数"]
 }}
 ]
@@ -54,9 +54,9 @@ class BusinessFlowUtils:
 要求：
 1. 从图中识别所有完整的业务流程
 2. 每个业务流应该包含一系列有序的步骤
-3. 步骤格式必须是"文件名.函数名"或"合约名.函数名"
-4. 提取实际的函数调用关系，不要包含通用描述
-5. 确保步骤顺序反映实际的执行流程
+3. 业务流之间可以有稍微的交叉，但**绝对不能**重复或高度重叠
+4. 步骤格式必须是"文件名.函数名"或"合约名.函数名"，中间必须是"."
+5. 确保步骤顺序反映实际的业务流程
 6. 函数名应该与代码中的实际函数名匹配
 
 请严格按照JSON格式输出，不要包含其他解释文字。"""
@@ -106,6 +106,142 @@ class BusinessFlowUtils:
             if response:
                 print(f"[DEBUG] 响应内容: {response[:200]}")
             return []
+    
+    @staticmethod
+    def clean_business_flows(flows: List[Dict]) -> List[Dict]:
+        """清洗业务流数据，确保格式正确
+        
+        Args:
+            flows: 原始业务流列表
+            
+        Returns:
+            List[Dict]: 清洗后的业务流列表
+        """
+        import re
+        from openai_api.openai import common_ask_for_json
+        
+        def clean_step(step: str) -> str:
+            """清洗单个步骤，确保格式为 文件名.函数名"""
+            # 移除路径，只保留文件名
+            if '/' in step or '\\' in step:
+                # 提取文件名部分
+                parts = re.split(r'[/\\]', step)
+                step = parts[-1]  # 取最后一部分作为文件名
+            
+            # 确保有且仅有一个点
+            if '.' not in step:
+                # 如果没有点，尝试智能分割
+                # 例如: "myFunction" -> "unknown.myFunction"
+                return f"unknown.{step}"
+            elif step.count('.') > 1:
+                # 如果有多个点，保留最后一个
+                parts = step.split('.')
+                filename = parts[0]
+                funcname = '.'.join(parts[1:])
+                # 移除文件扩展名
+                if filename.endswith(('.sol', '.py', '.js', '.ts', '.rs', '.go', '.java', '.c', '.cpp')):
+                    filename = re.sub(r'\.[^.]+$', '', filename)
+                return f"{filename}.{funcname}"
+            
+            # 移除文件扩展名
+            filename, funcname = step.split('.', 1)
+            if filename.endswith(('.sol', '.py', '.js', '.ts', '.rs', '.go', '.java', '.c', '.cpp')):
+                filename = re.sub(r'\.[^.]+$', '', filename)
+            
+            return f"{filename}.{funcname}"
+        
+        def validate_format(flows_data: List[Dict]) -> bool:
+            """验证业务流格式是否正确"""
+            pattern = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*$')
+            
+            for flow in flows_data:
+                if 'steps' not in flow:
+                    return False
+                for step in flow['steps']:
+                    if not pattern.match(step):
+                        return False
+            return True
+        
+        try:
+            # 初次清洗
+            cleaned_flows = []
+            for flow in flows:
+                cleaned_flow = {
+                    'name': flow.get('name', 'Unknown Flow'),
+                    'steps': [clean_step(step) for step in flow.get('steps', [])]
+                }
+                cleaned_flows.append(cleaned_flow)
+            
+            # 验证格式
+            max_retries = 3
+            retry_count = 0
+            
+            while not validate_format(cleaned_flows) and retry_count < max_retries:
+                retry_count += 1
+                print(f"⚠️ 业务流格式验证失败，第 {retry_count} 次尝试修复...")
+                
+                # 使用AI进行格式修复
+                repair_prompt = f"""请修复以下业务流数据的格式问题，确保每个step都严格符合"文件名.函数名"的格式：
+
+要求：
+1. 文件名和函数名之间必须用"."连接
+2. 文件名不能包含路径，只能是单独的文件名（不带扩展名）
+3. 文件名和函数名只能包含字母、数字和下划线，且必须以字母或下划线开头
+
+当前数据：
+{json.dumps(cleaned_flows, indent=2, ensure_ascii=False)}
+
+请返回修复后的JSON数据，格式完全相同：
+"""
+                
+                try:
+                    response = common_ask_for_json(repair_prompt)
+                    if response:
+                        repaired_data = json.loads(response)
+                        if isinstance(repaired_data, list):
+                            cleaned_flows = repaired_data
+                        elif isinstance(repaired_data, dict) and 'flows' in repaired_data:
+                            cleaned_flows = repaired_data['flows']
+                        else:
+                            # print(f"❌ AI修复返回格式错误")
+                            break
+                    else:
+                        print(f"❌ AI修复无响应")
+                        break
+                except Exception as e:
+                    print(f"❌ AI修复失败: {str(e)}")
+                    break
+            
+            # 最终验证
+            if validate_format(cleaned_flows):
+                print(f"✅ 业务流格式验证通过，共 {len(cleaned_flows)} 个业务流")
+                return cleaned_flows
+            else:
+                print(f"⚠️ 返回清洗后的数据")
+                # 强制最后一次格式修复
+                final_cleaned = []
+                for flow in cleaned_flows:
+                    final_steps = []
+                    for step in flow.get('steps', []):
+                        # 强制格式化
+                        clean_step_final = re.sub(r'[^a-zA-Z0-9_.]', '', str(step))
+                        if '.' not in clean_step_final:
+                            clean_step_final = f"unknown.{clean_step_final}"
+                        elif clean_step_final.count('.') > 1:
+                            parts = clean_step_final.split('.')
+                            clean_step_final = f"{parts[0]}.{parts[-1]}"
+                        final_steps.append(clean_step_final)
+                    
+                    final_cleaned.append({
+                        'name': flow.get('name', 'Unknown Flow'),
+                        'steps': final_steps
+                    })
+                
+                return final_cleaned
+                
+        except Exception as e:
+            print(f"❌ 清洗业务流数据失败: {str(e)}")
+            return flows  # 返回原始数据
     
     @staticmethod
     def load_mermaid_files(mermaid_output_dir: str, project_id: str) -> List[str]:
@@ -163,12 +299,15 @@ class BusinessFlowUtils:
         
         # 从每个mermaid文件中提取业务流
         for i, mermaid_content in enumerate(mermaid_contents, 1):
-            print(f"�� 处理第 {i} 个Mermaid文件...")
+            print(f"📄 处理第 {i} 个Mermaid文件...")
             flows = BusinessFlowUtils.extract_business_flows_from_mermaid(mermaid_content)
             
             if flows:
-                all_flows.extend(flows)
-                print(f"✅ 从第 {i} 个文件提取到 {len(flows)} 个业务流")
+                # 清洗业务流数据，确保格式正确
+                print(f"🧹 清洗第 {i} 个文件的业务流数据...")
+                cleaned_flows = BusinessFlowUtils.clean_business_flows(flows)
+                all_flows.extend(cleaned_flows)
+                print(f"✅ 从第 {i} 个文件提取并清洗到 {len(cleaned_flows)} 个业务流")
             else:
                 print(f"⚠️ 第 {i} 个文件未提取到业务流")
         
