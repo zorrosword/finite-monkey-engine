@@ -299,8 +299,7 @@ class BusinessFlowUtils:
                 print(f"✅ 从第 {i} 个文件提取并清洗到 {len(cleaned_flows)} 个业务流")
             else:
                 print(f"⚠️ 第 {i} 个文件未提取到业务流")
-        
-        print(f"🎉 总共提取到 {len(all_flows)} 个业务流")
+                print(f"🎉 总共提取到 {len(all_flows)} 个业务流")
         return all_flows
     
     @staticmethod

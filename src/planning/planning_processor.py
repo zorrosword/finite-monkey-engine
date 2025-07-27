@@ -242,7 +242,7 @@ class PlanningProcessor:
                 # 初始化RAG处理器
                 self.context_factory.initialize_rag_processor(
                     functions_to_check=self.project.functions_to_check,
-                    db_path="./lancedb",
+                    db_path="./src/codebaseQA/lancedb",
                     project_id=self.project.project_id
                 )
                 
@@ -293,18 +293,37 @@ class PlanningProcessor:
                     function_lookup['by_name'][pure_func_name] = []
                 function_lookup['by_name'][pure_func_name].append(func)
                 
+                # 清理合约名（去掉可能的文件扩展名）
+                clean_contract_name = contract_name
+                for ext in ['.cpp', '.sol', '.py', '.js', '.ts', '.c', '.h', '.hpp']:
+                    if clean_contract_name.endswith(ext):
+                        clean_contract_name = clean_contract_name[:-len(ext)]
+                        break
+                
                 # 按合约.函数名索引
-                contract_func_key = f"{contract_name}.{pure_func_name}"
+                contract_func_key = f"{clean_contract_name}.{pure_func_name}"
                 if contract_func_key not in function_lookup['by_contract_function']:
                     function_lookup['by_contract_function'][contract_func_key] = []
                 function_lookup['by_contract_function'][contract_func_key].append(func)
                 
-                # 按文件.函数名索引
-                file_name = os.path.basename(func['relative_file_path']).replace('.sol', '').replace('.py', '').replace('.js', '').replace('.ts', '')
+                # 按文件.函数名索引（提取纯文件名，不包含扩展名）
+                file_full_name = os.path.basename(func['relative_file_path'])
+                file_name = file_full_name
+                for ext in ['.cpp', '.sol', '.py', '.js', '.ts', '.c', '.h', '.hpp']:
+                    if file_name.endswith(ext):
+                        file_name = file_name[:-len(ext)]
+                        break
+                
                 file_func_key = f"{file_name}.{pure_func_name}"
                 if file_func_key not in function_lookup['by_file_function']:
                     function_lookup['by_file_function'][file_func_key] = []
                 function_lookup['by_file_function'][file_func_key].append(func)
+            else:
+                # 如果函数名中没有点号，直接作为纯函数名处理
+                pure_func_name = func_name
+                if pure_func_name not in function_lookup['by_name']:
+                    function_lookup['by_name'][pure_func_name] = []
+                function_lookup['by_name'][pure_func_name].append(func)
         
         return function_lookup
     
@@ -319,11 +338,42 @@ class PlanningProcessor:
             Dict: 匹配的函数对象，如果未找到返回None
         """
         import time
+        from datetime import datetime
         start_time = time.time()
         
         print(f"      🔍 开始查找函数: '{step}'")
         print(f"         📋 传统索引可用: {'是' if function_lookup else '否'}")
         print(f"         🤖 LanceDB可用: {'是' if hasattr(self.context_factory, 'rag_processor') and self.context_factory.rag_processor else '否'}")
+        
+        # 初始化匹配记录函数
+        def log_match_result(method_type: str, strategy: str, found_function: str, 
+                           distance: str = "N/A", elapsed_ms: float = 0, details: str = ""):
+            """记录匹配结果到文件"""
+            try:
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                project_id = getattr(self.project, 'project_id', 'unknown')
+                
+                log_entry = f"""
+=== 函数匹配记录 ===
+时间: {timestamp}
+项目ID: {project_id}
+查找步骤: '{step}'
+匹配方式: {method_type}
+匹配策略: {strategy}
+找到函数: {found_function}
+相似度距离: {distance}
+耗时: {elapsed_ms:.2f}ms
+详细信息: {details}
+{'='*50}
+"""
+                
+                # 写入日志文件
+                log_file_path = f"function_matching_log_{project_id}.txt"
+                with open(log_file_path, 'a', encoding='utf-8') as f:
+                    f.write(log_entry)
+                    
+            except Exception as e:
+                print(f"      ⚠️ 记录匹配日志失败: {str(e)}")
         
         # 🔄 优先使用传统的function_lookup方式进行精确查找
         if function_lookup:
@@ -340,6 +390,17 @@ class PlanningProcessor:
                     print(f"      ✅ 传统精确匹配(合约.函数): {step}")
                     print(f"         📊 匹配详情: 函数名={selected['name']}, 文件={selected.get('relative_file_path', 'N/A')}")
                     print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                    
+                    # 记录匹配日志
+                    log_match_result(
+                        method_type="传统查找",
+                        strategy="策略1: 合约.函数精确匹配",
+                        found_function=selected['name'],
+                        distance="N/A (精确匹配)",
+                        elapsed_ms=elapsed,
+                        details=f"文件: {selected.get('relative_file_path', 'N/A')}, 候选数: {len(candidates)}"
+                    )
+                    
                     return selected
             print(f"         ❌ 策略1失败: 无合约.函数匹配")
             
@@ -353,6 +414,17 @@ class PlanningProcessor:
                     print(f"      ✅ 传统精确匹配(文件.函数): {step}")
                     print(f"         📊 匹配详情: 函数名={selected['name']}, 文件={selected.get('relative_file_path', 'N/A')}")
                     print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                    
+                    # 记录匹配日志
+                    log_match_result(
+                        method_type="传统查找",
+                        strategy="策略2: 文件.函数精确匹配",
+                        found_function=selected['name'],
+                        distance="N/A (精确匹配)",
+                        elapsed_ms=elapsed,
+                        details=f"文件: {selected.get('relative_file_path', 'N/A')}, 候选数: {len(candidates)}"
+                    )
+                    
                     return selected
             print(f"         ❌ 策略2失败: 无文件.函数匹配")
             
@@ -380,6 +452,18 @@ class PlanningProcessor:
                         print(f"         📊 匹配详情: 函数名={best_candidate['name']}, 文件={best_candidate.get('relative_file_path', 'N/A')}")
                         print(f"         📊 候选数量: {len(candidates)} 个")
                         print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                        
+                        # 记录匹配日志  
+                        match_type = "精确合约匹配" if any(c.get('contract_name') == contract_or_file for c in candidates) else "首个函数名匹配"
+                        log_match_result(
+                            method_type="传统查找",
+                            strategy=f"策略3: 分解函数名匹配 ({match_type})",
+                            found_function=best_candidate['name'],
+                            distance="N/A (精确匹配)",
+                            elapsed_ms=elapsed,
+                            details=f"原始步骤: {step}, 分解: {contract_or_file}.{func_name}, 文件: {best_candidate.get('relative_file_path', 'N/A')}, 候选数: {len(candidates)}"
+                        )
+                        
                         return best_candidate
                 print(f"         ❌ 策略3失败: 函数名'{func_name}'无匹配")
             
@@ -394,6 +478,17 @@ class PlanningProcessor:
                     print(f"         📊 匹配详情: 函数名={selected['name']}, 文件={selected.get('relative_file_path', 'N/A')}")
                     print(f"         📊 候选数量: {len(candidates)} 个")
                     print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                    
+                    # 记录匹配日志
+                    log_match_result(
+                        method_type="传统查找",
+                        strategy="策略4: 直接函数名匹配",
+                        found_function=selected['name'],
+                        distance="N/A (精确匹配)",
+                        elapsed_ms=elapsed,
+                        details=f"文件: {selected.get('relative_file_path', 'N/A')}, 候选数: {len(candidates)}"
+                    )
+                    
                     return selected
             print(f"         ❌ 策略4失败: 直接名称无匹配")
             
@@ -429,6 +524,17 @@ class PlanningProcessor:
                             print(f"         📊 匹配详情: 文件={result.get('relative_file_path', 'N/A')}, 合约={result.get('contract_name', 'N/A')}")
                             print(f"         📊 相似度距离: {similarity_score}")
                             print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                            
+                            # 记录匹配日志
+                            log_match_result(
+                                method_type="LanceDB智能搜索",
+                                strategy="策略1: name embedding精确匹配",
+                                found_function=result.get('name'),
+                                distance=str(similarity_score),
+                                elapsed_ms=elapsed,
+                                details=f"文件: {result.get('relative_file_path', 'N/A')}, 合约: {result.get('contract_name', 'N/A')}, 候选总数: {len(name_search_results)}"
+                            )
+                            
                             return result
                             
                         if result.get('full_name') == step:
@@ -437,6 +543,17 @@ class PlanningProcessor:
                             print(f"         📊 匹配详情: 文件={result.get('relative_file_path', 'N/A')}, 合约={result.get('contract_name', 'N/A')}")
                             print(f"         📊 相似度距离: {similarity_score}")
                             print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                            
+                            # 记录匹配日志
+                            log_match_result(
+                                method_type="LanceDB智能搜索",
+                                strategy="策略1: full_name embedding精确匹配",
+                                found_function=result.get('full_name'),
+                                distance=str(similarity_score),
+                                elapsed_ms=elapsed,
+                                details=f"文件: {result.get('relative_file_path', 'N/A')}, 合约: {result.get('contract_name', 'N/A')}, 候选总数: {len(name_search_results)}"
+                            )
+                            
                             return result
                     
                     # 如果没有精确匹配，返回相似度最高的结果
@@ -447,6 +564,17 @@ class PlanningProcessor:
                     print(f"         📊 匹配详情: 文件={best_match.get('relative_file_path', 'N/A')}, 合约={best_match.get('contract_name', 'N/A')}")
                     print(f"         📊 相似度距离: {best_similarity}")
                     print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                    
+                    # 记录匹配日志
+                    log_match_result(
+                        method_type="LanceDB智能搜索",
+                        strategy="策略1: name embedding相似匹配",
+                        found_function=best_match.get('name'),
+                        distance=str(best_similarity),
+                        elapsed_ms=elapsed,
+                        details=f"原始查询: {step}, 文件: {best_match.get('relative_file_path', 'N/A')}, 合约: {best_match.get('contract_name', 'N/A')}, 候选总数: {len(name_search_results)}"
+                    )
+                    
                     return best_match
                 else:
                     print(f"         ❌ name embedding无结果")
@@ -475,6 +603,17 @@ class PlanningProcessor:
                                 print(f"         📊 匹配详情: 文件={result.get('relative_file_path', 'N/A')}")
                                 print(f"         📊 相似度距离: {similarity_score}")
                                 print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                                
+                                # 记录匹配日志
+                                log_match_result(
+                                    method_type="LanceDB智能搜索",
+                                    strategy="策略2: 分解搜索合约+函数匹配",
+                                    found_function=result.get('name'),
+                                    distance=str(similarity_score),
+                                    elapsed_ms=elapsed,
+                                    details=f"原始步骤: {step}, 分解: {contract_name}.{func_name}, 文件: {result.get('relative_file_path', 'N/A')}, 候选总数: {len(func_search_results)}"
+                                )
+                                
                                 return result
                         
                         # 如果没有合约匹配，返回第一个函数名匹配
@@ -485,6 +624,17 @@ class PlanningProcessor:
                         print(f"         📊 匹配详情: 文件={best_match.get('relative_file_path', 'N/A')}, 合约={best_match.get('contract_name', 'N/A')}")
                         print(f"         📊 相似度距离: {best_similarity}")
                         print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                        
+                        # 记录匹配日志
+                        log_match_result(
+                            method_type="LanceDB智能搜索",
+                            strategy="策略2: 分解搜索函数名匹配",
+                            found_function=best_match.get('name'),
+                            distance=str(best_similarity),
+                            elapsed_ms=elapsed,
+                            details=f"原始步骤: {step}, 查询函数名: {func_name}, 文件: {best_match.get('relative_file_path', 'N/A')}, 合约: {best_match.get('contract_name', 'N/A')}, 候选总数: {len(func_search_results)}"
+                        )
+                        
                         return best_match
                     else:
                         print(f"         ❌ 函数名'{func_name}'搜索无结果")
@@ -508,6 +658,17 @@ class PlanningProcessor:
                     print(f"         📊 匹配详情: 文件={best_match.get('relative_file_path', 'N/A')}, 合约={best_match.get('contract_name', 'N/A')}")
                     print(f"         📊 相似度距离: {best_similarity}")
                     print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                    
+                    # 记录匹配日志
+                    log_match_result(
+                        method_type="LanceDB智能搜索",
+                        strategy="策略3: 内容相似搜索匹配",
+                        found_function=best_match.get('name'),
+                        distance=str(best_similarity),
+                        elapsed_ms=elapsed,
+                        details=f"原始查询: {step}, 文件: {best_match.get('relative_file_path', 'N/A')}, 合约: {best_match.get('contract_name', 'N/A')}, 候选总数: {len(content_search_results)}"
+                    )
+                    
                     return best_match
                 else:
                     print(f"         ❌ 内容搜索无结果")
@@ -525,6 +686,17 @@ class PlanningProcessor:
         total_elapsed = (time.time() - start_time) * 1000
         print(f"      ❌ 所有搜索方式都未找到匹配函数: '{step}'")
         print(f"         ⏱️  总查找耗时: {total_elapsed:.2f}ms")
+        
+        # 记录未找到匹配的日志
+        log_match_result(
+            method_type="搜索失败",
+            strategy="所有策略均失败",
+            found_function="未找到",
+            distance="N/A",
+            elapsed_ms=total_elapsed,
+            details=f"传统索引可用: {'是' if function_lookup else '否'}, LanceDB可用: {'是' if hasattr(self.context_factory, 'rag_processor') and self.context_factory.rag_processor else '否'}"
+        )
+        
         return None
     
     def _process_all_functions(self, config: Dict, all_business_flow_data: Dict):

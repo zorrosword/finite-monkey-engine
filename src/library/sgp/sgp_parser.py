@@ -180,7 +180,7 @@ def find_tact_functions(text, filename, hash):
             'offset_start': 0,
             'offset_end': 0,
             'content': function_body,
-            'contract_name': filename.replace('.tact', ''),
+            'contract_name': os.path.splitext(filename)[0],
             'contract_code': contract_code,
             'modifiers': [modifier],
             'stateMutability': None,
@@ -873,26 +873,37 @@ def find_fa_functions(text, filename, hash):
 
 def find_c_cpp_functions(text, filename, hash):
     # 匹配C/C++函数定义的正则表达式
-    # 格式: [存储类说明符] [函数说明符] 返回类型 函数名(参数列表) [异常规范] {
+    # 支持普通函数、成员函数、构造函数、析构函数、操作符重载等
     regex = r"""
-        # 可选的修饰符 (static, extern, inline, constexpr等)
-        (?:(?:static|extern|inline|constexpr|virtual|override|final)\s+)*
+        # 可选的修饰符 (static, extern, inline, constexpr, virtual, explicit等)
+        (?:(?:static|extern|inline|constexpr|virtual|override|final|explicit)\s+)*
         
-        # 返回类型 (可能包含指针、引用、模板、命名空间等)
+        # 返回类型或构造函数 (这是可选的，因为构造函数没有返回类型)
         (?:
-            (?:const\s+|volatile\s+|unsigned\s+|signed\s+|long\s+|short\s+)*  # 类型修饰符
-            (?:[\w_][\w_:]*\s*(?:<[^<>]*(?:<[^<>]*>)*[^<>]*>)?\s*)          # 基本类型名(可能有模板)
-            (?:\s*\*|\s*&|\s*&&)*\s*                                        # 指针/引用修饰符
-        )
+            # 返回类型 (包含复杂模板、指针、引用等)
+            (?:
+                (?:const\s+|volatile\s+|unsigned\s+|signed\s+|long\s+|short\s+)*  # 类型修饰符
+                (?:[\w_][\w_:]*\s*(?:<[^<>{}]*>)?\s*)                              # 基本类型名和简单模板
+                (?:\s*\*|\s*&|\s*&&)*\s*                                           # 指针/引用修饰符
+            )\s+
+        )?
         
-        # 函数名
-        ([\w_][\w_]*)\s*
+        # 函数名 (支持类成员函数、析构函数、操作符重载、构造函数等)
+        (
+            (?:[\w_]+::)+[\w_]+                                           # 类成员函数 (Class::function)
+            |(?:[\w_]+::)*~[\w_]+                                         # 析构函数
+            |(?:[\w_]+::)*operator\s*(?:[+\-*/%^&|~!=<>]+|\(\)|\[\]|<<|>>|->|\+=|-=|\*=|/=|%=) # 操作符重载
+            |[\w_]+                                                       # 普通函数名
+        )\s*
         
-        # 参数列表
-        \([^)]*\)\s*
+        # 参数列表 (支持多行)
+        \([^{}]*\)\s*
         
-        # 可选的C++修饰符 (const, noexcept, throw等)
-        (?:const\s+|volatile\s+|noexcept\s*(?:\([^)]*\))?\s*|throw\s*\([^)]*\)\s*)*
+        # 可选的C++修饰符 (const, noexcept, throw, override, final等)
+        (?:const\s+|volatile\s+|noexcept\s*(?:\([^)]*\))?\s*|throw\s*\([^)]*\)\s*|override\s+|final\s+)*
+        
+        # 可选的初始化列表 (构造函数可能有)
+        (?::\s*[^{}]+?)?\s*
         
         # 函数体开始
         \{
@@ -997,13 +1008,13 @@ def find_c_cpp_functions(text, filename, hash):
 
         functions.append({
             'type': 'FunctionDefinition',
-            'name': 'special_' + func_name,
+            'name': 'special_' + func_name,  # 恢复special_前缀以保持架构一致性
             'start_line': start_line_number + 1,
             'end_line': end_line_number,
             'offset_start': 0,
             'offset_end': 0,
             'content': function_body,
-            'contract_name': filename.replace('.c', '').replace('.cpp', '').replace('.cxx', '').replace('.cc', '').replace('.C', ''),
+            'contract_name': os.path.splitext(filename)[0],  # 更可靠的扩展名移除方法
             'contract_code': contract_code,
             'modifiers': modifiers,
             'stateMutability': None,
