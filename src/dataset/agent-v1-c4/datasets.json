@@ -248,8 +248,8 @@
         "exclude_in_planning":"true",
         "exclude_directory":["exclude"]
     },
-    "openeden3":{
-        "path":"openeden",
+    "dexevm0727":{
+        "path":"dexevm",
         "files":[
         ],
         "functions":[],

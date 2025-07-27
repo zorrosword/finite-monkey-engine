@@ -105,12 +105,14 @@ class ContextFactory:
         """
         return self.context_manager.get_additional_internet_info(required_info)
     
-    def search_similar_functions(self, query: str, k: int = 5) -> List[Dict]:
+    # ========== 🆕 函数级别多种embedding搜索接口 ==========
+    
+    def search_functions_by_content(self, query: str, k: int = 5) -> List[Dict]:
         """
-        搜索相似函数
+        基于函数内容搜索相似函数
         
         Args:
-            query: 搜索查询
+            query: 搜索查询（通常是代码片段）
             k: 返回结果数量
             
         Returns:
@@ -119,22 +121,220 @@ class ContextFactory:
         if not self.rag_processor:
             return []
         
-        return self.rag_processor.search_similar_functions(query, k)
+        return self.rag_processor.search_functions_by_content(query, k)
+    
+    def search_functions_by_name(self, query: str, k: int = 5) -> List[Dict]:
+        """
+        基于函数名称搜索相似函数
+        
+        Args:
+            query: 搜索查询（合约名+函数名，如"Token.transfer"）
+            k: 返回结果数量
+            
+        Returns:
+            List[Dict]: 相似函数列表
+        """
+        if not self.rag_processor:
+            return []
+        
+        return self.rag_processor.search_functions_by_name(query, k)
+    
+    def search_functions_by_natural_language(self, query: str, k: int = 5) -> List[Dict]:
+        """
+        基于自然语言描述搜索相似函数
+        
+        Args:
+            query: 搜索查询（自然语言描述，如"transfer tokens between accounts"）
+            k: 返回结果数量
+            
+        Returns:
+            List[Dict]: 相似函数列表
+        """
+        if not self.rag_processor:
+            return []
+        
+        return self.rag_processor.search_functions_by_natural_language(query, k)
+    
+    # ========== 🆕 文件级别多种embedding搜索接口 ==========
+    
+    def search_files_by_content(self, query: str, k: int = 5) -> List[Dict]:
+        """
+        基于文件内容搜索相似文件
+        
+        Args:
+            query: 搜索查询（文件内容片段）
+            k: 返回结果数量
+            
+        Returns:
+            List[Dict]: 相似文件列表
+        """
+        if not self.rag_processor:
+            return []
+        
+        return self.rag_processor.search_files_by_content(query, k)
+    
+    def search_files_by_natural_language(self, query: str, k: int = 5) -> List[Dict]:
+        """
+        基于文件自然语言描述搜索相似文件
+        
+        Args:
+            query: 搜索查询（自然语言描述，如"ERC20 token implementation"）
+            k: 返回结果数量
+            
+        Returns:
+            List[Dict]: 相似文件列表
+        """
+        if not self.rag_processor:
+            return []
+        
+        return self.rag_processor.search_files_by_natural_language(query, k)
+    
+    def search_similar_files(self, query: str, k: int = 5) -> List[Dict]:
+        """
+        搜索相似文件（默认使用自然语言描述）
+        
+        Args:
+            query: 搜索查询（文件功能描述）
+            k: 返回结果数量
+            
+        Returns:
+            List[Dict]: 相似文件列表
+        """
+        return self.search_files_by_natural_language(query, k)
+    
+    # ========== 🆕 综合搜索接口 ==========
+    
+    def get_comprehensive_function_search_results(self, query: str, k: int = 3) -> Dict[str, List[Dict]]:
+        """
+        获取函数的综合搜索结果（使用函数表的3种embedding）
+        
+        Args:
+            query: 搜索查询
+            k: 每种类型返回的结果数量
+            
+        Returns:
+            Dict: 包含3种搜索结果的字典
+        """
+        if not self.rag_processor:
+            return {}
+        
+        results = {
+            'content_based': self.search_functions_by_content(query, k),
+            'name_based': self.search_functions_by_name(query, k),
+            'natural_language_based': self.search_functions_by_natural_language(query, k)
+        }
+        
+        return results
+    
+    def get_comprehensive_file_search_results(self, query: str, k: int = 3) -> Dict[str, List[Dict]]:
+        """
+        获取文件的综合搜索结果（使用文件表的2种embedding）
+        
+        Args:
+            query: 搜索查询
+            k: 每种类型返回的结果数量
+            
+        Returns:
+            Dict: 包含2种搜索结果的字典
+        """
+        if not self.rag_processor:
+            return {}
+        
+        results = {
+            'content_based': self.search_files_by_content(query, k),
+            'natural_language_based': self.search_files_by_natural_language(query, k)
+        }
+        
+        return results
+    
+    def get_comprehensive_search_results(self, query: str, k: int = 3) -> Dict[str, Any]:
+        """
+        获取全面的综合搜索结果（函数+文件的所有embedding类型）
+        
+        Args:
+            query: 搜索查询
+            k: 每种类型返回的结果数量
+            
+        Returns:
+            Dict: 包含所有类型搜索结果的字典
+        """
+        results = {
+            'functions': self.get_comprehensive_function_search_results(query, k),
+            'files': self.get_comprehensive_file_search_results(query, k)
+        }
+        
+        return results
+    
+    # ========== 兼容性方法（保持原有接口） ==========
+    
+    def search_similar_functions(self, query: str, k: int = 5) -> List[Dict]:
+        """
+        搜索相似函数（默认使用内容embedding）
+        
+        Args:
+            query: 搜索查询
+            k: 返回结果数量
+            
+        Returns:
+            List[Dict]: 相似函数列表
+        """
+        return self.search_functions_by_content(query, k)
+    
+    # ========== 数据获取方法 ==========
     
     def get_function_context(self, function_name: str) -> Optional[Dict]:
         """
-        获取特定函数的上下文
+        获取特定函数的上下文信息
         
         Args:
             function_name: 函数名
             
         Returns:
-            Dict: 函数上下文，如果未找到则返回None
+            Dict: 函数上下文（包含3种embedding），如果未找到则返回None
         """
         if not self.rag_processor:
             return None
         
         return self.rag_processor.get_function_context(function_name)
+    
+    def get_file_context(self, file_path: str) -> Optional[Dict]:
+        """
+        获取特定文件的上下文信息
+        
+        Args:
+            file_path: 文件路径
+            
+        Returns:
+            Dict: 文件上下文（包含2种embedding），如果未找到则返回None
+        """
+        if not self.rag_processor:
+            return None
+        
+        return self.rag_processor.get_file_by_path(file_path)
+    
+    def get_all_files(self) -> List[Dict]:
+        """
+        获取所有文件信息
+        
+        Returns:
+            List[Dict]: 所有文件列表
+        """
+        if not self.rag_processor:
+            return []
+        
+        return self.rag_processor.get_all_files()
+    
+    def get_file_description(self, file_path: str) -> Optional[Dict]:
+        """
+        获取文件的自然语言描述
+        
+        Args:
+            file_path: 文件路径
+            
+        Returns:
+            Dict: 文件描述信息，如果未找到则返回None
+        """
+        return self.get_file_context(file_path)
     
     def get_comprehensive_context(
         self, 
@@ -142,7 +342,8 @@ class ContextFactory:
         query_contents: List[str] = None,
         level: int = 3,
         include_semantic: bool = True,
-        include_internet: bool = False
+        include_internet: bool = False,
+        use_all_embedding_types: bool = False
     ) -> Dict[str, Any]:
         """
         获取综合上下文信息
@@ -153,6 +354,7 @@ class ContextFactory:
             level: 调用树层级
             include_semantic: 是否包含语义搜索
             include_internet: 是否包含网络搜索
+            use_all_embedding_types: 是否使用所有embedding类型进行搜索
             
         Returns:
             Dict: 综合上下文信息
@@ -163,14 +365,15 @@ class ContextFactory:
             'semantic_context': '',
             'internet_context': '',
             'function_details': None,
-            'similar_functions': []
+            'similar_functions': {},
+            'related_files': {}
         }
         
         # 获取调用树上下文
         if self.project_audit:
             context['call_tree_context'] = self.get_related_functions_by_level([function_name], level)
         
-        # 获取函数详情
+        # 获取函数详情（包含3种embedding的完整信息）
         context['function_details'] = self.get_function_context(function_name)
         
         # 获取语义上下文
@@ -183,7 +386,15 @@ class ContextFactory:
         
         # 获取相似函数
         if self.rag_processor:
-            context['similar_functions'] = self.search_similar_functions(function_name, k=5)
+            if use_all_embedding_types:
+                context['similar_functions'] = self.get_comprehensive_function_search_results(function_name, k=3)
+                # 同时搜索相关文件
+                if context['function_details']:
+                    file_path = context['function_details'].get('relative_file_path', '')
+                    if file_path:
+                        context['related_files'] = self.get_comprehensive_file_search_results(file_path, k=2)
+            else:
+                context['similar_functions'] = {'content_based': self.search_similar_functions(function_name, k=5)}
         
         return context
     
@@ -214,7 +425,7 @@ class ContextFactory:
     
     def get_file_level_context(self, file_path: str) -> List[Dict]:
         """
-        获取文件级别的上下文
+        获取文件级别的上下文（该文件中的所有函数）
         
         Args:
             file_path: 文件路径
@@ -271,10 +482,24 @@ class ContextFactory:
         
         return FunctionUtils.get_function_dependencies(target_func, all_functions)
     
+    # ========== 数据库管理方法 ==========
+    
+    def get_all_tables_info(self) -> Optional[Dict[str, Any]]:
+        """
+        获取所有LanceDB表的信息
+        
+        Returns:
+            Dict: 包含函数表和文件表的信息，如果RAG处理器未初始化则返回None
+        """
+        if not self.rag_processor:
+            return None
+        
+        return self.rag_processor.get_all_tables_info()
+    
     def cleanup(self):
         """清理资源"""
         if self.rag_processor:
-            self.rag_processor.delete_table()
+            self.rag_processor.delete_all_tables()
         
         # 清理其他资源
         self.context_manager = None

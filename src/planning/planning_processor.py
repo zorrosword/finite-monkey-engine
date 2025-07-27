@@ -187,7 +187,7 @@ class PlanningProcessor:
             return {}
     
     def _match_business_flow_steps_to_functions(self, raw_business_flows: List[Dict]) -> Dict[str, List[Dict]]:
-        """根据业务流步骤在functions_to_check中查找实际函数对象
+        """根据业务流步骤查找实际函数对象（优先使用LanceDB RAG，回退到functions_to_check）
         
         Args:
             raw_business_flows: 从mermaid提取的原始业务流
@@ -198,7 +198,10 @@ class PlanningProcessor:
         """
         print(f"\n🔍 开始匹配业务流步骤到实际函数...")
         
-        # 创建函数查找索引，便于快速查找
+        # 🆕 优先初始化 LanceDB RAG 处理器
+        self._ensure_rag_processor_initialized()
+        
+        # 创建函数查找索引作为回退机制
         function_lookup = self._build_function_lookup_index()
         
         matched_flows = {}
@@ -229,6 +232,37 @@ class PlanningProcessor:
                 print(f"   ⚠️ 业务流 '{flow_name}' 未匹配到任何函数")
         
         return matched_flows
+    
+    def _ensure_rag_processor_initialized(self):
+        """确保RAG处理器已经初始化"""
+        try:
+            if not hasattr(self.context_factory, 'rag_processor') or not self.context_factory.rag_processor:
+                print("🚀 初始化LanceDB RAG处理器用于业务流匹配...")
+                
+                # 初始化RAG处理器
+                self.context_factory.initialize_rag_processor(
+                    functions_to_check=self.project.functions_to_check,
+                    db_path="./lancedb",
+                    project_id=self.project.project_id
+                )
+                
+                if self.context_factory.rag_processor:
+                    print("✅ LanceDB RAG处理器初始化成功")
+                    
+                    # 获取表信息验证
+                    tables_info = self.context_factory.rag_processor.get_all_tables_info()
+                    if tables_info:
+                        print("📊 LanceDB表信息:")
+                        for table_name, info in tables_info.items():
+                            print(f"   - {table_name}: {info['row_count']} 条记录")
+                else:
+                    print("⚠️ LanceDB RAG处理器初始化失败，将使用传统查找方式")
+            else:
+                print("✅ LanceDB RAG处理器已经可用")
+                
+        except Exception as e:
+            print(f"⚠️ RAG处理器初始化过程中出现错误: {str(e)}")
+            print("   将继续使用传统的函数查找方式")
     
     def _build_function_lookup_index(self) -> Dict[str, List[Dict]]:
         """构建函数查找索引
@@ -274,7 +308,7 @@ class PlanningProcessor:
         
         return function_lookup
     
-    def _find_function_by_step(self, step: str, function_lookup: Dict) -> Dict:
+    def _find_function_by_step(self, step: str, function_lookup: Dict = None) -> Dict:
         """根据业务流步骤查找对应的函数对象
         
         Args:
@@ -284,31 +318,213 @@ class PlanningProcessor:
         Returns:
             Dict: 匹配的函数对象，如果未找到返回None
         """
-        # 策略1: 精确匹配 (合约.函数 或 文件.函数)
-        if step in function_lookup['by_contract_function']:
-            candidates = function_lookup['by_contract_function'][step]
-            if candidates:
-                return candidates[0]  # 返回第一个匹配
+        import time
+        start_time = time.time()
         
-        if step in function_lookup['by_file_function']:
-            candidates = function_lookup['by_file_function'][step]
-            if candidates:
-                return candidates[0]  # 返回第一个匹配
+        print(f"      🔍 开始查找函数: '{step}'")
+        print(f"         📋 传统索引可用: {'是' if function_lookup else '否'}")
+        print(f"         🤖 LanceDB可用: {'是' if hasattr(self.context_factory, 'rag_processor') and self.context_factory.rag_processor else '否'}")
         
-        # 策略2: 如果包含点号，尝试只匹配函数名部分
-        if '.' in step:
-            _, func_name = step.split('.', 1)
-            if func_name in function_lookup['by_name']:
-                candidates = function_lookup['by_name'][func_name]
+        # 🔄 优先使用传统的function_lookup方式进行精确查找
+        if function_lookup:
+            print(f"      📍 第一阶段: 传统精确查找")
+            print(f"         索引统计: 合约函数({len(function_lookup['by_contract_function'])}), 文件函数({len(function_lookup['by_file_function'])}), 纯函数名({len(function_lookup['by_name'])})")
+            
+            # 策略1: 精确匹配 (合约.函数)
+            print(f"         🎯 策略1: 合约.函数精确匹配 - '{step}'")
+            if step in function_lookup['by_contract_function']:
+                candidates = function_lookup['by_contract_function'][step]
                 if candidates:
-                    return candidates[0]  # 返回第一个匹配
+                    elapsed = (time.time() - start_time) * 1000
+                    selected = candidates[0]
+                    print(f"      ✅ 传统精确匹配(合约.函数): {step}")
+                    print(f"         📊 匹配详情: 函数名={selected['name']}, 文件={selected.get('relative_file_path', 'N/A')}")
+                    print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                    return selected
+            print(f"         ❌ 策略1失败: 无合约.函数匹配")
+            
+            # 策略2: 文件.函数匹配
+            print(f"         🎯 策略2: 文件.函数精确匹配 - '{step}'")
+            if step in function_lookup['by_file_function']:
+                candidates = function_lookup['by_file_function'][step]
+                if candidates:
+                    elapsed = (time.time() - start_time) * 1000
+                    selected = candidates[0]
+                    print(f"      ✅ 传统精确匹配(文件.函数): {step}")
+                    print(f"         📊 匹配详情: 函数名={selected['name']}, 文件={selected.get('relative_file_path', 'N/A')}")
+                    print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                    return selected
+            print(f"         ❌ 策略2失败: 无文件.函数匹配")
+            
+            # 策略3: 分解函数名匹配
+            if '.' in step:
+                contract_or_file, func_name = step.split('.', 1)
+                print(f"         🎯 策略3: 分解函数名匹配 - 容器='{contract_or_file}', 函数='{func_name}'")
+                if func_name in function_lookup['by_name']:
+                    candidates = function_lookup['by_name'][func_name]
+                    if candidates:
+                        elapsed = (time.time() - start_time) * 1000
+                        # 优先选择匹配合约名的候选
+                        best_candidate = None
+                        for candidate in candidates:
+                            if candidate.get('contract_name') == contract_or_file:
+                                best_candidate = candidate
+                                print(f"         🎯 找到精确合约匹配: {contract_or_file}.{func_name}")
+                                break
+                        
+                        if not best_candidate:
+                            best_candidate = candidates[0]
+                            print(f"         🎯 使用首个函数名匹配: {func_name}")
+                        
+                        print(f"      ✅ 传统函数名匹配: {func_name}")
+                        print(f"         📊 匹配详情: 函数名={best_candidate['name']}, 文件={best_candidate.get('relative_file_path', 'N/A')}")
+                        print(f"         📊 候选数量: {len(candidates)} 个")
+                        print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                        return best_candidate
+                print(f"         ❌ 策略3失败: 函数名'{func_name}'无匹配")
+            
+            # 策略4: 直接按函数名匹配
+            print(f"         🎯 策略4: 直接函数名匹配 - '{step}'")
+            if step in function_lookup['by_name']:
+                candidates = function_lookup['by_name'][step]
+                if candidates:
+                    elapsed = (time.time() - start_time) * 1000
+                    selected = candidates[0]
+                    print(f"      ✅ 传统直接匹配: {step}")
+                    print(f"         📊 匹配详情: 函数名={selected['name']}, 文件={selected.get('relative_file_path', 'N/A')}")
+                    print(f"         📊 候选数量: {len(candidates)} 个")
+                    print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                    return selected
+            print(f"         ❌ 策略4失败: 直接名称无匹配")
+            
+            traditional_elapsed = (time.time() - start_time) * 1000
+            print(f"      ⚠️ 传统查找全部失败，耗时 {traditional_elapsed:.2f}ms，切换到LanceDB智能搜索...")
+        else:
+            print(f"      ⚠️ 无传统索引，直接使用LanceDB智能搜索")
         
-        # 策略3: 直接按函数名匹配
-        if step in function_lookup['by_name']:
-            candidates = function_lookup['by_name'][step]
-            if candidates:
-                return candidates[0]  # 返回第一个匹配
+        # 🆕 回退到 LanceDB RAG 进行智能搜索
+        if hasattr(self.context_factory, 'rag_processor') and self.context_factory.rag_processor:
+            try:
+                lancedb_start = time.time()
+                print(f"      📍 第二阶段: LanceDB智能搜索")
+                
+                # 策略1: 使用 name embedding 进行精确匹配
+                print(f"         🎯 LanceDB策略1: name embedding搜索 - '{step}'")
+                name_search_results = self.context_factory.search_functions_by_name(step, k=5)
+                
+                if name_search_results:
+                    print(f"         📊 name embedding返回 {len(name_search_results)} 个候选")
+                    
+                    # 寻找精确匹配
+                    for i, result in enumerate(name_search_results):
+                        similarity_score = result.get('_distance', 'N/A')
+                        result_name = result.get('name', 'N/A')
+                        result_full_name = result.get('full_name', 'N/A')
+                        
+                        print(f"         候选{i+1}: {result_name} (距离={similarity_score}, full_name={result_full_name})")
+                        
+                        if result.get('name') == step:
+                            elapsed = (time.time() - start_time) * 1000
+                            print(f"      ✅ LanceDB精确匹配(name): {result.get('name')}")
+                            print(f"         📊 匹配详情: 文件={result.get('relative_file_path', 'N/A')}, 合约={result.get('contract_name', 'N/A')}")
+                            print(f"         📊 相似度距离: {similarity_score}")
+                            print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                            return result
+                            
+                        if result.get('full_name') == step:
+                            elapsed = (time.time() - start_time) * 1000
+                            print(f"      ✅ LanceDB精确匹配(full_name): {result.get('full_name')}")
+                            print(f"         📊 匹配详情: 文件={result.get('relative_file_path', 'N/A')}, 合约={result.get('contract_name', 'N/A')}")
+                            print(f"         📊 相似度距离: {similarity_score}")
+                            print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                            return result
+                    
+                    # 如果没有精确匹配，返回相似度最高的结果
+                    best_match = name_search_results[0]
+                    best_similarity = best_match.get('_distance', 'N/A')
+                    elapsed = (time.time() - start_time) * 1000
+                    print(f"      🎯 LanceDB相似匹配: {step} -> {best_match.get('name')}")
+                    print(f"         📊 匹配详情: 文件={best_match.get('relative_file_path', 'N/A')}, 合约={best_match.get('contract_name', 'N/A')}")
+                    print(f"         📊 相似度距离: {best_similarity}")
+                    print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                    return best_match
+                else:
+                    print(f"         ❌ name embedding无结果")
+                
+                # 策略2: 分解步骤搜索
+                if '.' in step:
+                    contract_name, func_name = step.split('.', 1)
+                    print(f"         🎯 LanceDB策略2: 分解搜索 - 合约='{contract_name}', 函数='{func_name}'")
+                    
+                    func_search_results = self.context_factory.search_functions_by_name(func_name, k=5)
+                    
+                    if func_search_results:
+                        print(f"         📊 函数名搜索返回 {len(func_search_results)} 个候选")
+                        
+                        # 优先选择匹配合约名的结果
+                        for i, result in enumerate(func_search_results):
+                            similarity_score = result.get('_distance', 'N/A')
+                            result_contract = result.get('contract_name', 'N/A')
+                            result_name = result.get('name', 'N/A')
+                            
+                            print(f"         候选{i+1}: {result_name} (合约={result_contract}, 距离={similarity_score})")
+                            
+                            if result.get('contract_name') == contract_name:
+                                elapsed = (time.time() - start_time) * 1000
+                                print(f"      ✅ LanceDB合约+函数匹配: {contract_name}.{func_name}")
+                                print(f"         📊 匹配详情: 文件={result.get('relative_file_path', 'N/A')}")
+                                print(f"         📊 相似度距离: {similarity_score}")
+                                print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                                return result
+                        
+                        # 如果没有合约匹配，返回第一个函数名匹配
+                        best_match = func_search_results[0]
+                        best_similarity = best_match.get('_distance', 'N/A')
+                        elapsed = (time.time() - start_time) * 1000
+                        print(f"      🎯 LanceDB函数名匹配: {func_name} -> {best_match.get('name')}")
+                        print(f"         📊 匹配详情: 文件={best_match.get('relative_file_path', 'N/A')}, 合约={best_match.get('contract_name', 'N/A')}")
+                        print(f"         📊 相似度距离: {best_similarity}")
+                        print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                        return best_match
+                    else:
+                        print(f"         ❌ 函数名'{func_name}'搜索无结果")
+                
+                # 策略3: 使用内容搜索作为最后的备选
+                print(f"         🎯 LanceDB策略3: 内容相似搜索 - '{step}'")
+                content_search_results = self.context_factory.search_functions_by_content(step, k=3)
+                
+                if content_search_results:
+                    print(f"         📊 内容搜索返回 {len(content_search_results)} 个候选")
+                    
+                    for i, result in enumerate(content_search_results):
+                        similarity_score = result.get('_distance', 'N/A')
+                        result_name = result.get('name', 'N/A')
+                        print(f"         候选{i+1}: {result_name} (距离={similarity_score})")
+                    
+                    best_match = content_search_results[0]
+                    best_similarity = best_match.get('_distance', 'N/A')
+                    elapsed = (time.time() - start_time) * 1000
+                    print(f"      🔍 LanceDB内容匹配: {step} -> {best_match.get('name')}")
+                    print(f"         📊 匹配详情: 文件={best_match.get('relative_file_path', 'N/A')}, 合约={best_match.get('contract_name', 'N/A')}")
+                    print(f"         📊 相似度距离: {best_similarity}")
+                    print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                    return best_match
+                else:
+                    print(f"         ❌ 内容搜索无结果")
+                
+                lancedb_elapsed = (time.time() - lancedb_start) * 1000
+                print(f"         ❌ LanceDB所有策略失败，耗时 {lancedb_elapsed:.2f}ms")
+                    
+            except Exception as e:
+                lancedb_elapsed = (time.time() - lancedb_start) * 1000
+                print(f"      ⚠️ LanceDB搜索异常: {str(e)}")
+                print(f"         ⏱️  异常前耗时: {lancedb_elapsed:.2f}ms")
+        else:
+            print(f"      ⚠️ LanceDB不可用 (rag_processor未初始化)")
         
+        total_elapsed = (time.time() - start_time) * 1000
+        print(f"      ❌ 所有搜索方式都未找到匹配函数: '{step}'")
+        print(f"         ⏱️  总查找耗时: {total_elapsed:.2f}ms")
         return None
     
     def _process_all_functions(self, config: Dict, all_business_flow_data: Dict):
