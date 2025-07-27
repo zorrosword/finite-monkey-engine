@@ -39,79 +39,98 @@ def scan_project(project, db_engine):
     switch_business_code = eval(os.environ.get('SWITCH_BUSINESS_CODE', 'True'))
     
     if switch_business_code:
-        output_dir = f"src/codebaseQA/mermaid_output/{project.id}"
+        # 🆕 优先检查JSON文件是否存在
+        json_dir = f"src/codebaseQA/json/{project.id}"
+        existing_json_files = []
+        if os.path.exists(json_dir):
+            for file_name in os.listdir(json_dir):
+                if file_name.endswith('.json'):
+                    existing_json_files.append(file_name)
         
-        # 🆕 检查是否已存在mmd文件
-        print("🔍 检查mermaid_output目录中是否已存在Mermaid文件...")
-        existing_mmd_files = []
-        if os.path.exists(output_dir):
-            for file_name in os.listdir(output_dir):
-                if file_name.endswith('.mmd') and project.id in file_name:
-                    existing_mmd_files.append(file_name)
-        
-        if existing_mmd_files:
-            print(f"✅ 发现已存在的Mermaid文件:")
-            for mmd_file in existing_mmd_files:
-                print(f"   - {mmd_file}")
+        if existing_json_files:
+            print(f"✅ 发现JSON业务流文件，跳过Mermaid生成:")
+            for json_file in existing_json_files:
+                print(f"   - {json_file}")
             
-            print("🎯 使用已存在的Mermaid文件，跳过重新生成")
+            print("🎯 将直接使用JSON文件中的业务流数据")
             
-            # 将现有的mermaid信息保存到project_audit
-            project_audit.mermaid_result = None  # 标记为使用已存在文件
-            project_audit.mermaid_output_dir = output_dir
-            
+            # 跳过mermaid生成，直接设置相关属性
+            project_audit.mermaid_result = None
+            project_audit.mermaid_output_dir = None
         else:
-            print("🎨 未发现已存在的Mermaid文件，开始生成新的业务流程图...")
-            try:
-                # 收集所有代码文件内容
-                files_content = {}
-                for func in project_audit.functions_to_check:
-                    file_path = func['relative_file_path']
-                    if file_path not in files_content:
-                        files_content[file_path] = func['contract_code']
+            output_dir = f"src/codebaseQA/mermaid_output/{project.id}"
+            
+            # 检查是否已存在mmd文件
+            print("🔍 未发现JSON文件，检查mermaid_output目录中是否已存在Mermaid文件...")
+            existing_mmd_files = []
+            if os.path.exists(output_dir):
+                for file_name in os.listdir(output_dir):
+                    if file_name.endswith('.mmd') and project.id in file_name:
+                        existing_mmd_files.append(file_name)
+        
+            if existing_mmd_files:
+                print(f"✅ 发现已存在的Mermaid文件:")
+                for mmd_file in existing_mmd_files:
+                    print(f"   - {mmd_file}")
                 
-                # 使用智能分析生成mermaid图
-                mermaid_result = smart_business_flow_analysis_from_content(
-                    files_content, 
-                    project.id,
-                    enable_reinforcement=True
-                )
+                print("🎯 使用已存在的Mermaid文件，跳过重新生成")
                 
-                # 保存mermaid文件
-                os.makedirs(output_dir, exist_ok=True)
-                
-                if mermaid_result.analysis_strategy == "folder_based":
-                    # 大项目：保存多个文件夹级别的mermaid图
-                    for folder_path, folder_result in mermaid_result.folder_analyses.items():
-                        folder_name = folder_path.replace('/', '_').replace('\\', '_')
-                        mermaid_file = f"{output_dir}/{project.id}_{folder_name}.mmd"
-                        with open(mermaid_file, 'w', encoding='utf-8') as f:
-                            f.write(folder_result.folder_mermaid_graph)
-                        print(f"✅ 保存文件夹级别Mermaid图: {mermaid_file}")
-                    
-                    # 保存全局概览图
-                    global_mermaid_file = f"{output_dir}/{project.id}_global_overview.mmd"
-                    with open(global_mermaid_file, 'w', encoding='utf-8') as f:
-                        f.write(mermaid_result.global_mermaid_graph)
-                    print(f"✅ 保存全局概览Mermaid图: {global_mermaid_file}")
-                else:
-                    # 小项目：保存单个mermaid图
-                    mermaid_file = f"{output_dir}/{project.id}_business_flow.mmd"
-                    with open(mermaid_file, 'w', encoding='utf-8') as f:
-                        f.write(mermaid_result.final_mermaid_graph)
-                    print(f"✅ 保存业务流程Mermaid图: {mermaid_file}")
-                
-                # 将mermaid结果保存到project_audit以供后续使用
-                project_audit.mermaid_result = mermaid_result
+                # 将现有的mermaid信息保存到project_audit
+                project_audit.mermaid_result = None  # 标记为使用已存在文件
                 project_audit.mermaid_output_dir = output_dir
                 
-                print("🎨 Mermaid业务流程图生成完成！")
-                
-            except Exception as e:
-                print(f"❌ 生成Mermaid图时出错: {str(e)}")
-                # 即使mermaid生成失败，也继续后续流程
-                project_audit.mermaid_result = None
-                project_audit.mermaid_output_dir = None
+            else:
+                print("🎨 未发现已存在的Mermaid文件，开始生成新的业务流程图...")
+                try:
+                    # 收集所有代码文件内容
+                    files_content = {}
+                    for func in project_audit.functions_to_check:
+                        file_path = func['relative_file_path']
+                        if file_path not in files_content:
+                            files_content[file_path] = func['contract_code']
+                    
+                    # 使用智能分析生成mermaid图
+                    mermaid_result = smart_business_flow_analysis_from_content(
+                        files_content, 
+                        project.id,
+                        enable_reinforcement=True
+                    )
+                    
+                    # 保存mermaid文件
+                    os.makedirs(output_dir, exist_ok=True)
+                    
+                    if mermaid_result.analysis_strategy == "folder_based":
+                        # 大项目：保存多个文件夹级别的mermaid图
+                        for folder_path, folder_result in mermaid_result.folder_analyses.items():
+                            folder_name = folder_path.replace('/', '_').replace('\\', '_')
+                            mermaid_file = f"{output_dir}/{project.id}_{folder_name}.mmd"
+                            with open(mermaid_file, 'w', encoding='utf-8') as f:
+                                f.write(folder_result.folder_mermaid_graph)
+                            print(f"✅ 保存文件夹级别Mermaid图: {mermaid_file}")
+                        
+                        # 保存全局概览图
+                        global_mermaid_file = f"{output_dir}/{project.id}_global_overview.mmd"
+                        with open(global_mermaid_file, 'w', encoding='utf-8') as f:
+                            f.write(mermaid_result.global_mermaid_graph)
+                        print(f"✅ 保存全局概览Mermaid图: {global_mermaid_file}")
+                    else:
+                        # 小项目：保存单个mermaid图
+                        mermaid_file = f"{output_dir}/{project.id}_business_flow.mmd"
+                        with open(mermaid_file, 'w', encoding='utf-8') as f:
+                            f.write(mermaid_result.final_mermaid_graph)
+                        print(f"✅ 保存业务流程Mermaid图: {mermaid_file}")
+                    
+                    # 将mermaid结果保存到project_audit以供后续使用
+                    project_audit.mermaid_result = mermaid_result
+                    project_audit.mermaid_output_dir = output_dir
+                    
+                    print("🎨 Mermaid业务流程图生成完成！")
+                    
+                except Exception as e:
+                    print(f"❌ 生成Mermaid图时出错: {str(e)}")
+                    # 即使mermaid生成失败，也继续后续流程
+                    project_audit.mermaid_result = None
+                    project_audit.mermaid_output_dir = None
     else:
         print("🔄 SWITCH_BUSINESS_CODE=False，跳过Mermaid生成，使用传统扫描模式")
         # 不启用业务流模式时，不生成mermaid文件

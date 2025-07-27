@@ -86,7 +86,7 @@ class PlanningProcessor:
                     else:
                         print("🎨 尝试从新生成的Mermaid文件中提取业务流...")
                     
-                    mermaid_business_flows = self._extract_business_flows_from_mermaid()
+                    mermaid_business_flows = self._extract_business_flows()
                     
                     if mermaid_business_flows:
                         print("✅ 成功从Mermaid文件提取业务流，使用基于mermaid的业务流")
@@ -117,24 +117,35 @@ class PlanningProcessor:
                 return {}
         return {}
     
-    def _extract_business_flows_from_mermaid(self) -> Dict[str, List[Dict]]:
-        """从mermaid文件中提取业务流，并将步骤匹配到实际函数
+    def _extract_business_flows(self) -> Dict[str, List[Dict]]:
+        """从JSON文件或mermaid文件中提取业务流，并将步骤匹配到实际函数
         
         Returns:
             Dict[str, List[Dict]]: 业务流名称到实际函数对象列表的映射
         """
         try:
-            # 1. 从所有mermaid文件中提取原始业务流JSON
-            raw_business_flows = BusinessFlowUtils.extract_all_business_flows_from_mermaid_files(
-                self.project.mermaid_output_dir, 
+            # 1. 优先尝试从JSON文件加载业务流
+            json_dir = "src/codebaseQA/json"
+            raw_business_flows = BusinessFlowUtils.load_business_flows_from_json_files(
+                json_dir, 
                 self.project.project_id
             )
             
+            # 2. 如果JSON文件中没有数据，则尝试从Mermaid文件提取
             if not raw_business_flows:
-                print("❌ 未从Mermaid文件中提取到任何业务流")
+                print("📄 JSON文件中无业务流数据，尝试从Mermaid文件提取...")
+                raw_business_flows = BusinessFlowUtils.extract_all_business_flows_from_mermaid_files(
+                    self.project.mermaid_output_dir, 
+                    self.project.project_id
+                )
+            else:
+                print(f"✅ 成功从JSON文件加载业务流数据")
+            
+            if not raw_business_flows:
+                print("❌ 未从JSON文件或Mermaid文件中找到任何业务流")
                 return {}
             
-            print(f"\n🎯 从Mermaid文件提取的原始业务流详情：")
+            print(f"\n🎯 加载的原始业务流详情：")
             print("="*80)
             for i, flow in enumerate(raw_business_flows, 1):
                 flow_name = flow.get('name', f'未命名业务流{i}')

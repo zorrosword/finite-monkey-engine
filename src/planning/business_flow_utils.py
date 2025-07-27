@@ -303,6 +303,100 @@ class BusinessFlowUtils:
         return all_flows
     
     @staticmethod
+    def load_business_flows_from_json_files(json_dir: str, project_id: str) -> List[Dict]:
+        """直接从JSON文件加载业务流数据
+        
+        Args:
+            json_dir: JSON文件目录 (如: src/codebaseQA/json)
+            project_id: 项目ID
+            
+        Returns:
+            List[Dict]: 所有加载的业务流列表
+        """
+        all_flows = []
+        
+        # 构建项目JSON目录路径
+        project_json_dir = os.path.join(json_dir, project_id)
+        
+        if not os.path.exists(project_json_dir):
+            print(f"❌ 项目JSON目录不存在: {project_json_dir}")
+            return all_flows
+        
+        # 查找所有JSON文件
+        json_files = []
+        for file_name in os.listdir(project_json_dir):
+            if file_name.endswith('.json'):
+                json_files.append(os.path.join(project_json_dir, file_name))
+        
+        if not json_files:
+            print(f"❌ 在目录 {project_json_dir} 中未找到JSON文件")
+            return all_flows
+        
+        print(f"🔍 开始从 {len(json_files)} 个JSON文件中加载业务流...")
+        
+        # 从每个JSON文件中加载业务流
+        for i, json_file in enumerate(json_files, 1):
+            file_name = os.path.basename(json_file)
+            print(f"📄 处理第 {i} 个JSON文件: {file_name}")
+            
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    json_data = json.load(f)
+                
+                # 处理不同的JSON格式
+                flows = []
+                if isinstance(json_data, dict):
+                    if 'flows' in json_data:
+                        # 标准格式: {"flows": [...]}
+                        flows = json_data.get('flows', [])
+                    elif 'name' in json_data and 'steps' in json_data:
+                        # 单个业务流格式: {"name": "...", "steps": [...]}
+                        flows = [json_data]
+                    else:
+                        print(f"⚠️ JSON文件格式不识别: {file_name}")
+                        continue
+                elif isinstance(json_data, list):
+                    # 直接是业务流数组格式: [{"name": "...", "steps": [...]}, ...]
+                    flows = json_data
+                else:
+                    print(f"⚠️ JSON文件格式错误: {file_name}")
+                    continue
+                
+                if flows:
+                    # 验证业务流格式
+                    valid_flows = []
+                    for flow in flows:
+                        if isinstance(flow, dict) and 'name' in flow and 'steps' in flow:
+                            if isinstance(flow['steps'], list) and len(flow['steps']) > 0:
+                                valid_flows.append(flow)
+                            else:
+                                print(f"⚠️ 业务流 '{flow.get('name', '未命名')}' 的steps为空或格式错误")
+                        else:
+                            print(f"⚠️ 业务流格式错误，缺少name或steps字段")
+                    
+                    if valid_flows:
+                        # JSON情况下不需要AI清洗，直接使用验证过的业务流
+                        # print(f"🧹 清洗第 {i} 个文件的业务流数据...")
+                        # cleaned_flows = BusinessFlowUtils.clean_business_flows(valid_flows)
+                        # all_flows.extend(cleaned_flows)
+                        # print(f"✅ 从第 {i} 个文件加载并清洗到 {len(cleaned_flows)} 个业务流")
+                        
+                        all_flows.extend(valid_flows)
+                        print(f"✅ 从第 {i} 个文件直接加载到 {len(valid_flows)} 个业务流")
+                    else:
+                        print(f"⚠️ 第 {i} 个文件中无有效业务流")
+                else:
+                    print(f"⚠️ 第 {i} 个文件未找到业务流数据")
+                    
+            except json.JSONDecodeError as e:
+                print(f"❌ JSON解析错误 {file_name}: {str(e)}")
+            except Exception as e:
+                print(f"❌ 读取JSON文件失败 {file_name}: {str(e)}")
+        
+        print(f"🎉 总共从JSON文件加载到 {len(all_flows)} 个业务流")
+        return all_flows
+    
+    @staticmethod
     def match_functions_from_business_flows(business_flows: List[Dict], functions_to_check: List[Dict]) -> Dict[str, List[Dict]]:
         """根据业务流中的函数匹配functions_to_check中的具体函数
         
