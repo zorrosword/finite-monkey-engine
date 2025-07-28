@@ -32,6 +32,9 @@ class RAGProcessor:
         self.table_name_function = f"lancedb_function_{project_id}" if project_id else "lancedb_function"
         self.table_name_file = f"lancedb_file_{project_id}" if project_id else "lancedb_file"
         
+        # 为了向后兼容，提供一个默认的table_name属性，指向函数表
+        self.table_name = self.table_name_function
+        
         # 创建schemas
         self._create_schemas()
         
