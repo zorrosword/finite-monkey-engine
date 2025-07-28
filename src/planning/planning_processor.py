@@ -78,72 +78,47 @@ class PlanningProcessor:
         # 只有在非文件级别扫描且开启业务流扫描时才获取业务流数据
         if config['switch_business_code']:
             try:
-                # 🆕 新功能：尝试从mermaid文件中提取业务流
-                if hasattr(self.project, 'mermaid_output_dir') and self.project.mermaid_output_dir:
-                    # 检查是否使用已存在的mmd文件
-                    if hasattr(self.project, 'mermaid_result') and self.project.mermaid_result is None:
-                        print("🎯 检测到使用已存在的Mermaid文件，从现有文件中提取业务流...")
-                    else:
-                        print("🎨 尝试从新生成的Mermaid文件中提取业务流...")
-                    
-                    mermaid_business_flows = self._extract_business_flows()
-                    
-                    if mermaid_business_flows:
-                        print("✅ 成功从Mermaid文件提取业务流，使用基于mermaid的业务流")
-                        return {
-                            'use_mermaid_flows': True,
-                            'mermaid_business_flows': mermaid_business_flows,
-                            'all_business_flow': {},
-                            'all_business_flow_line': {},
-                            'all_business_flow_context': {}
-                        }
-                    else:
-                        print("⚠️ 从Mermaid文件提取业务流失败，回退到传统方式")
+                # 从JSON文件中提取业务流
+                print("📄 从JSON文件提取业务流...")
+                json_business_flows = self._extract_business_flows()
                 
-                # 传统方式：从context_factory获取业务流
-                print("🔄 使用传统方式获取业务流...")
-                all_business_flow, all_business_flow_line, all_business_flow_context = self.context_factory.get_business_flow_context(
-                    self.project.functions_to_check
-                )
-                return {
-                    'use_mermaid_flows': False,
-                    'mermaid_business_flows': {},
-                    'all_business_flow': all_business_flow,
-                    'all_business_flow_line': all_business_flow_line,
-                    'all_business_flow_context': all_business_flow_context
-                }
+                if json_business_flows:
+                    print("✅ 成功从JSON文件提取业务流")
+                    return {
+                        'use_json_flows': True,
+                        'json_business_flows': json_business_flows,
+                        'all_business_flow': {},
+                        'all_business_flow_line': {},
+                        'all_business_flow_context': {}
+                    }
+                else:
+                    print("⚠️ 从JSON文件提取业务流失败")
+                    return {}
+                    
             except Exception as e:
                 print(f"获取业务流时出错: {str(e)}")
                 return {}
         return {}
     
     def _extract_business_flows(self) -> Dict[str, List[Dict]]:
-        """从JSON文件或mermaid文件中提取业务流，并将步骤匹配到实际函数
+        """从JSON文件中提取业务流，并将步骤匹配到实际函数
         
         Returns:
             Dict[str, List[Dict]]: 业务流名称到实际函数对象列表的映射
         """
         try:
-            # 1. 优先尝试从JSON文件加载业务流
+            # 从JSON文件加载业务流
             json_dir = "src/codebaseQA/json"
             raw_business_flows = BusinessFlowUtils.load_business_flows_from_json_files(
                 json_dir, 
                 self.project.project_id
             )
             
-            # 2. 如果JSON文件中没有数据，则尝试从Mermaid文件提取
             if not raw_business_flows:
-                print("📄 JSON文件中无业务流数据，尝试从Mermaid文件提取...")
-                raw_business_flows = BusinessFlowUtils.extract_all_business_flows_from_mermaid_files(
-                    self.project.mermaid_output_dir, 
-                    self.project.project_id
-                )
-            else:
-                print(f"✅ 成功从JSON文件加载业务流数据")
-            
-            if not raw_business_flows:
-                print("❌ 未从JSON文件或Mermaid文件中找到任何业务流")
+                print("❌ 未从JSON文件中找到任何业务流")
                 return {}
+            
+            print(f"✅ 成功从JSON文件加载业务流数据")
             
             print(f"\n🎯 加载的原始业务流详情：")
             print("="*80)
@@ -157,7 +132,7 @@ class PlanningProcessor:
                     print(f"     {j}. {step}")
             print("="*80)
             
-            # 2. 🆕 关键逻辑：根据业务流步骤在functions_to_check中查找实际函数
+            # 根据业务流步骤在functions_to_check中查找实际函数
             matched_flows = self._match_business_flow_steps_to_functions(raw_business_flows)
             
             if matched_flows:
@@ -716,226 +691,52 @@ class PlanningProcessor:
         if config['switch_file_code']:
             self._process_all_files(config)
         else:
-            # 🆕 使用基于mermaid的业务流处理模式
-            print("🎨 使用基于Mermaid的业务流处理模式")
-            self._process_mermaid_business_flows(config, all_business_flow_data)
+            # 使用基于JSON的业务流处理模式
+            print("📄 使用基于JSON的业务流处理模式")
+            self._process_json_business_flows(config, all_business_flow_data)
     
-    def _process_mermaid_business_flows(self, config: Dict, all_business_flow_data: Dict):
-        """基于Mermaid业务流的整体处理模式"""
-        mermaid_flows = all_business_flow_data.get('mermaid_business_flows', {})
+    def _process_json_business_flows(self, config: Dict, all_business_flow_data: Dict):
+        """基于JSON业务流的整体处理模式"""
+        json_flows = all_business_flow_data.get('json_business_flows', {})
         
-        if not mermaid_flows:
-            print("❌ 未找到Mermaid业务流，跳过业务流处理")
+        if not json_flows:
+            print("❌ 未找到JSON业务流，跳过业务流处理")
             return
         
-        print(f"\n🔄 开始处理 {len(mermaid_flows)} 个Mermaid业务流...")
+        print(f"\n🔄 开始处理 {len(json_flows)} 个JSON业务流...")
         
-        # 记录所有被业务流覆盖的函数（包括扩展后的）
+        # 记录所有被业务流覆盖的函数
         all_covered_functions = set()
-        all_expanded_functions = []
+        all_business_flow_functions = []
         
-        # 对每个业务流进行上下文扩展和任务创建
-        for flow_name, flow_functions in mermaid_flows.items():
+        # 对每个业务流进行任务创建（不进行上下文扩展）
+        for flow_name, flow_functions in json_flows.items():
             print(f"\n📊 处理业务流: '{flow_name}'")
-            print(f"   原始函数数: {len(flow_functions)}")
+            print(f"   函数数: {len(flow_functions)}")
             
-            # 1. 扩展业务流上下文
-            expanded_functions = self._expand_business_flow_context(flow_functions, flow_name, config)
-            
-            print(f"   扩展后函数数: {len(expanded_functions)}")
-            
-            # 记录扩展后的函数
-            all_expanded_functions.extend(expanded_functions)
-            for func in expanded_functions:
+            # 记录函数
+            all_business_flow_functions.extend(flow_functions)
+            for func in flow_functions:
                 all_covered_functions.add(func['name'])
             
-            # 2. 构建完整的业务流代码
-            business_flow_code = self._build_business_flow_code_from_functions(expanded_functions)
-            line_info_list = self._build_line_info_from_functions(expanded_functions)
+            # 构建业务流代码
+            business_flow_code = self._build_business_flow_code_from_functions(flow_functions)
+            line_info_list = self._build_line_info_from_functions(flow_functions)
             
             print(f"   业务流代码长度: {len(business_flow_code)} 字符")
             
-            # 3. 为业务流中的每个函数创建任务
+            # 为业务流中的每个函数创建任务
             self._create_tasks_for_business_flow(
-                expanded_functions, business_flow_code, line_info_list, 
+                flow_functions, business_flow_code, line_info_list, 
                 flow_name, config
             )
-        
-        # 🆕 在FINE_GRAINED模式下分析业务流关联性并构造复合业务流
-        if config['scan_mode'] == "COMMON_PROJECT_FINE_GRAINED":
-            print(f"\n🔗 Fine Grained模式：分析业务流关联性...")
-            compound_flows = self._analyze_business_flow_relationships(mermaid_flows, config)
-            
-            if compound_flows:
-                print(f"✅ 构造了 {len(compound_flows)} 个复合业务流")
                 
-                # 为每个复合业务流创建任务
-                for compound_name, compound_functions in compound_flows.items():
-                    print(f"\n🔄 处理复合业务流: '{compound_name}'")
-                    
-                    # 扩展复合业务流上下文
-                    expanded_compound = self._expand_business_flow_context(compound_functions, compound_name, config)
-                    
-                    # 记录扩展后的函数
-                    all_expanded_functions.extend(expanded_compound)
-                    for func in expanded_compound:
-                        all_covered_functions.add(func['name'])
-                    
-                    # 构建复合业务流代码
-                    compound_code = self._build_business_flow_code_from_functions(expanded_compound)
-                    compound_line_info = self._build_line_info_from_functions(expanded_compound)
-                    
-                    print(f"   复合业务流代码长度: {len(compound_code)} 字符")
-                    
-                    # 为复合业务流创建任务
-                    self._create_tasks_for_business_flow(
-                        expanded_compound, compound_code, compound_line_info,
-                        compound_name, config
-                    )
-        
-        # 🆕 添加业务流覆盖度分析日志
-        self._log_business_flow_coverage(all_covered_functions, all_expanded_functions)
+        # 添加业务流覆盖度分析日志
+        self._log_business_flow_coverage(all_covered_functions, all_business_flow_functions)
     
 
     
-    def _expand_business_flow_context(self, flow_functions: List[Dict], flow_name: str, config: Dict = None) -> List[Dict]:
-        """扩展业务流的上下文，使用call tree和rag进行1层扩展
-        
-        Args:
-            flow_functions: 业务流中的原始函数列表
-            flow_name: 业务流名称
-            config: 配置信息
-            
-        Returns:
-            List[Dict]: 扩展后的函数列表（已去重）
-        """
-        print(f"   🔍 开始扩展业务流 '{flow_name}' 的上下文...")
-        
-        # 🆕 检查 huge_project 开关
-        if config and config.get('huge_project', False):
-            print(f"   🚀 检测到 huge_project=True，跳过上下文扩展，直接使用原始函数")
-            return flow_functions
-        
-        # 存储所有扩展后的函数，使用set去重
-        expanded_functions_set = set()
-        expanded_functions_list = []
-        
-        # 首先添加原始函数
-        for func in flow_functions:
-            func_key = f"{func['name']}_{func['start_line']}_{func['end_line']}"
-            if func_key not in expanded_functions_set:
-                expanded_functions_set.add(func_key)
-                expanded_functions_list.append(func)
-        
-        print(f"      原始函数: {len(expanded_functions_list)} 个")
-        
-        # 1. 使用call tree扩展上下文
-        call_tree_expanded = self._expand_via_call_tree(flow_functions)
-        added_via_call_tree = 0
-        
-        for func in call_tree_expanded:
-            func_key = f"{func['name']}_{func['start_line']}_{func['end_line']}"
-            if func_key not in expanded_functions_set:
-                expanded_functions_set.add(func_key)
-                expanded_functions_list.append(func)
-                added_via_call_tree += 1
-        
-        print(f"      Call Tree扩展: +{added_via_call_tree} 个函数")
-        
-        # 2. 使用RAG扩展上下文
-        rag_expanded = self._expand_via_rag(flow_functions)
-        added_via_rag = 0
-        
-        for func in rag_expanded:
-            func_key = f"{func['name']}_{func['start_line']}_{func['end_line']}"
-            if func_key not in expanded_functions_set:
-                expanded_functions_set.add(func_key)
-                expanded_functions_list.append(func)
-                added_via_rag += 1
-        
-        print(f"      RAG扩展: +{added_via_rag} 个函数")
-        print(f"      总计: {len(expanded_functions_list)} 个函数 (去重后)")
-        
-        return expanded_functions_list
-    
-    def _expand_via_call_tree(self, functions: List[Dict]) -> List[Dict]:
-        """使用call tree扩展函数上下文（1层）"""
-        expanded_functions = []
-        
-        if not hasattr(self.project, 'call_trees') or not self.project.call_trees:
-            print("      ⚠️ 未找到call trees，跳过call tree扩展")
-            return expanded_functions
-        
-        # 从context.function_utils导入函数处理工具
-        from context.function_utils import FunctionUtils
-        
-        # 提取函数名列表
-        function_names = []
-        for func in functions:
-            if '.' in func['name']:
-                pure_func_name = func['name'].split('.', 1)[1]
-                function_names.append(pure_func_name)
-        
-        if not function_names:
-            return expanded_functions
-        
-        try:
-            # 使用FunctionUtils获取相关函数，返回格式为pairs
-            related_text, function_pairs = FunctionUtils.extract_related_functions_by_level(
-                self.project, function_names, level=1, return_pairs=True
-            )
-            
-            # 将相关函数转换为函数对象
-            for func_name, func_content in function_pairs:
-                # 在functions_to_check中查找对应的函数对象
-                for check_func in self.project.functions_to_check:
-                    if check_func['name'].endswith('.' + func_name) and check_func['content'] == func_content:
-                        expanded_functions.append(check_func)
-                        break
-            
-        except Exception as e:
-            print(f"      ❌ Call tree扩展失败: {str(e)}")
-        
-        return expanded_functions
-    
-    def _expand_via_rag(self, functions: List[Dict]) -> List[Dict]:
-        """使用RAG扩展函数上下文"""
-        expanded_functions = []
-        
-        try:
-            # 检查是否有RAG处理器
-            if not hasattr(self.context_factory, 'rag_processor') or not self.context_factory.rag_processor:
-                print("      ⚠️ 未找到RAG处理器，跳过RAG扩展")
-                return expanded_functions
-            
-            # 为每个函数查找相似函数
-            for func in functions:
-                func_content = func.get('content', '')
-                if len(func_content) > 50:  # 只对有足够内容的函数进行RAG查询
-                    try:
-                        similar_functions = self.context_factory.search_similar_functions(
-                            func['name'], k=3  # 每个函数查找3个相似函数
-                        )
-                        
-                        # 将相似函数转换为函数对象
-                        for similar_func_data in similar_functions:
-                            # 在functions_to_check中查找对应的函数对象
-                            similar_func_name = similar_func_data.get('name', '')
-                            for check_func in self.project.functions_to_check:
-                                if check_func['name'] == similar_func_name:
-                                    expanded_functions.append(check_func)
-                                    break
-                                    
-                    except Exception as e:
-                        print(f"      ⚠️ 函数 {func['name']} RAG查询失败: {str(e)}")
-                        continue
-        
-        except Exception as e:
-            print(f"      ❌ RAG扩展失败: {str(e)}")
-        
-        return expanded_functions
-    
-    def _create_tasks_for_business_flow(self, expanded_functions: List[Dict], 
+    def _create_tasks_for_business_flow(self, flow_functions: List[Dict], 
                                       business_flow_code: str, line_info_list: List[Dict],
                                       flow_name: str, config: Dict):
         """为业务流创建任务（整个业务流一个任务，而不是每个函数一个任务）"""
@@ -943,7 +744,7 @@ class PlanningProcessor:
         print(f"   📝 为业务流 '{flow_name}' 创建任务...")
         
         # 选择一个代表性函数作为任务的主要函数（通常是第一个函数）
-        representative_function = expanded_functions[0] if expanded_functions else None
+        representative_function = flow_functions[0] if flow_functions else None
         if not representative_function:
             print("   ❌ 业务流中无有效函数，跳过任务创建")
             return
@@ -957,7 +758,7 @@ class PlanningProcessor:
         )
         
         print(f"   📋 生成的业务类型: {business_type_str}")
-        print(f"   📊 业务流包含 {len(expanded_functions)} 个函数")
+        print(f"   📊 业务流包含 {len(flow_functions)} 个函数")
         
         # 为整个业务流创建任务（不是为每个函数创建）
         tasks_created = 0
@@ -973,7 +774,7 @@ class PlanningProcessor:
             tasks_created += 1
         
         print(f"   ✅ 为业务流 '{flow_name}' 成功创建 {tasks_created} 个任务")
-        print(f"      每个任务包含整个业务流的 {len(expanded_functions)} 个函数的完整上下文")
+        print(f"      每个任务包含整个业务流的 {len(flow_functions)} 个函数的完整上下文")
     
     def _process_all_files(self, config: Dict):
         """处理所有文件 - 文件级别扫描"""

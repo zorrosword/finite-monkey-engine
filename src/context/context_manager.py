@@ -24,7 +24,7 @@ class ContextManager:
             
         query_embedding = common_get_embedding(query)
         table = self.lancedb.open_table(self.lance_table_name)
-        return table.search(query_embedding).limit(k).to_list()
+        return table.search(query_embedding, vector_column_name="content_embedding").limit(k).to_list()
     
     def extract_required_info(self, claude_response: str) -> List[str]:
         """从Claude的响应中提取需要进一步调查的信息"""
@@ -139,4 +139,4 @@ class ContextManager:
     
     def is_valid_context(self, context: str) -> bool:
         """检查上下文是否有效"""
-        return len(str(context).strip()) >= 10 
+        return len(str(context).strip()) >= 10
