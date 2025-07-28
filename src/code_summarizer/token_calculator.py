@@ -23,12 +23,10 @@ class TokenCalculator:
     
     # 不同模型的token限制
     MODEL_LIMITS = {
-        'claude-3-5-sonnet-20241022': 200000,  # Claude 3.5 Sonnet (主要模型)
-        'claude-sonnet-4-20250514': 200000,    # Claude 4 Sonnet (备用)
+        'x-ai/grok-4': 128000,                 # x-ai/grok-4 via OpenRouter (主要模型)
         'gpt-4.1': 128000,                     # GPT-4 Turbo
         'gpt-4o-mini': 128000,                 # GPT-4o mini
         'gpt-4o': 128000,                      # GPT-4o
-        'deepseek-reasoner': 32000,            # DeepSeek
         'default': 8000                        # 默认保守值
     }
     
@@ -314,7 +312,7 @@ class TokenCalculator:
         print(f"   💡 建议: {usage.recommendation}")
 
 # 便捷函数
-def quick_token_check(text: str, model: str = "claude-3-5-sonnet-20241022") -> TokenUsage:
+def quick_token_check(text: str, model: str = "x-ai/grok-4") -> TokenUsage:
     """快速检查文本的token使用情况"""
     calculator = TokenCalculator()
     return calculator.calculate_prompt_tokens(text, model)
@@ -325,7 +323,7 @@ def estimate_file_tokens(file_content: str) -> int:
     return calculator.estimate_tokens(file_content)
 
 def suggest_optimal_batching(files_content: Dict[str, str], 
-                           model: str = "claude-3-5-sonnet-20241022") -> Tuple[int, List[List[str]]]:
+                           model: str = "x-ai/grok-4") -> Tuple[int, List[List[str]]]:
     """建议最优的文件分批方案"""
     calculator = TokenCalculator()
-    return calculator.suggest_batch_size(files_content, model) 
+    return calculator.suggest_batch_size(files_content, model)  

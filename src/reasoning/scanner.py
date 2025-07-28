@@ -6,7 +6,7 @@ from tqdm import tqdm
 from .utils.dialogue_manager import DialogueHistory
 from .utils.scan_utils import ScanUtils
 from prompt_factory.vul_prompt_common import VulPromptCommon
-from openai_api.openai import ask_vul, ask_claude
+from openai_api.openai import ask_vul, ask_grok4_via_openrouter
 
 
 class VulnerabilityScanner:
@@ -154,7 +154,7 @@ class VulnerabilityScanner:
         print(f"\n📝 基础提示词长度: {len(prompt)} 字符")
         
         # 发送请求并获取响应
-        response_vul = ask_claude(prompt)
+        response_vul = ask_grok4_via_openrouter(prompt)
         print(f"\n✨ 本轮响应长度: {len(response_vul) if response_vul else 0} 字符")
         
         # 保存对话历史
@@ -165,4 +165,4 @@ class VulnerabilityScanner:
         # 处理响应
         response_vul = ScanUtils.process_scan_response(response_vul)
         task_manager.update_result(task.id, response_vul, "", "")
-        print("\n" + "="*50 + "\n") 
+        print("\n" + "="*50 + "\n")  
