@@ -239,108 +239,11 @@ def ask_vul(prompt):
         print(f"vul API调用失败。错误: {str(e)}")
         return ""
 def ask_claude(prompt):
-    model = os.environ.get('CLAUDE_MODEL', 'claude-opus-4-20250514')
-    api_key = os.environ.get('OPENAI_API_KEY','sk-0fzQWrcTc0DASaFT7Q0V0e7c24ZyHMKYgIDpXWrry8XHQAcj')
-    api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
-    
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {api_key}'
-    }
-
-    data = {
-        'model': model,
-        'messages': [
-            {
-                'role': 'user',
-                'content': prompt
-            }
-        ]
-    }
-
-    try:
-        response = requests.post(f'http://{api_base}/v1/chat/completions', 
-                               headers=headers, 
-                               json=data)
-        response.raise_for_status()
-        response_data = response.json()
-        if 'choices' in response_data and len(response_data['choices']) > 0:
-            return response_data['choices'][0]['message']['content']
-        else:
-            return ""
-    except requests.exceptions.RequestException as e:
-        print(f"Claude API调用失败。错误: {str(e)}")
-        return ""
+    return ask_grok4_via_openrouter(prompt)
 def ask_claude_37(prompt):
-    model = 'claude-3-7-sonnet-20250219'
-    # print("prompt:",prompt)
-    api_key = os.environ.get('OPENAI_API_KEY')
-    api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
-    # print("api_base:",api_base)
-    # print("api_key:",api_key)
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {api_key}'
-    }
-
-    data = {
-        'model': model,
-        'messages': [
-            {
-                'role': 'user',
-                'content': prompt
-            }
-        ]
-    }
-
-    try:
-        response = requests.post(f'https://{api_base}/v1/chat/completions', 
-                               headers=headers, 
-                               json=data)
-        response.raise_for_status()
-        response_data = response.json()
-        if 'choices' in response_data and len(response_data['choices']) > 0:
-            return response_data['choices'][0]['message']['content']
-        else:
-            return ""
-    except requests.exceptions.RequestException as e:
-        print(f"claude3.7 API调用失败。错误: {str(e)}")
-        return ""
+    return ask_grok4_via_openrouter(prompt)
 def ask_deepseek(prompt):
-    model = 'deepseek-reasoner'
-    # print("prompt:",prompt)
-    api_key = os.environ.get('JSON_MODEL_API_KEY')
-    api_base = os.environ.get('JSON_MODEL_API_BASE', '4.0.wokaai.com')
-    # print("api_base:",api_base)
-    # print("api_key:",api_key)
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {api_key}'
-    }
-
-    data = {
-        'model': model,
-        'messages': [
-            {
-                'role': 'user',
-                'content': prompt
-            }
-        ]
-    }
-
-    try:
-        response = requests.post(f'https://{api_base}/v1/chat/completions', 
-                               headers=headers, 
-                               json=data)
-        response.raise_for_status()
-        response_data = response.json()
-        if 'choices' in response_data and len(response_data['choices']) > 0:
-            return response_data['choices'][0]['message']['content']
-        else:
-            return ""
-    except requests.exceptions.RequestException as e:
-        print(f"wokaai deepseek API调用失败。错误: {str(e)}")
-        return ""
+    return ask_grok4_via_openrouter(prompt)
 def cut_reasoning_content(input):
     if "</think>" not in input:
         print("No </think> tag found in input")
@@ -384,13 +287,11 @@ def ask_o3_mini_json(prompt):
     except requests.exceptions.RequestException as e:
         print(f"wokaai o3-mini API调用失败。错误: {str(e)}")
         return ""
-def ask_grok3_deepsearch(prompt):
-    model = 'grok-3-deepsearch'
-    # print("prompt:",prompt)
+def ask_grok4_via_openrouter(prompt):
+    model = 'x-ai/grok-4'
     api_key = os.environ.get('OPENAI_API_KEY')
-    api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
-    # print("api_base:",api_base)
-    # print("api_key:",api_key)
+    api_base = os.environ.get('OPENAI_API_BASE', 'api.openai-proxy.org')
+    
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {api_key}'
@@ -417,7 +318,7 @@ def ask_grok3_deepsearch(prompt):
         else:
             return ""
     except requests.exceptions.RequestException as e:
-        print(f"wokaai deepseek API调用失败。错误: {str(e)}")
+        print(f"x-ai/grok-4 via OpenRouter API call failed. Error: {str(e)}")
         return ""
 def ask_o4_mini(prompt):
     model = 'o4-mini'
@@ -490,15 +391,7 @@ def ask_o3_mini(prompt):
         print(f"wokaai deepseek API调用失败。错误: {str(e)}")
         return ""
 def common_ask(prompt):
-    model_type = os.environ.get('AZURE_OR_OPENAI', 'CLAUDE')
-    if model_type == 'AZURE':
-        return azure_openai(prompt)
-    elif model_type == 'CLAUDE':
-        return ask_claude(prompt)
-    elif model_type == 'DEEPSEEK':
-        return ask_deepseek(prompt)
-    else:
-        return ask_openai_common(prompt)
+    return ask_grok4_via_openrouter(prompt)
 
 def clean_text(text: str) -> str:
     return str(text).replace(" ", "").replace("\n", "").replace("\r", "")
@@ -506,38 +399,32 @@ def clean_text(text: str) -> str:
 def common_get_embedding(text: str):
     api_key = os.getenv('EMBEDDING_API_KEY')
     if not api_key:
-        raise ValueError("EMBEDDING_API_BASE environment variable is not set")
+        raise ValueError("EMBEDDING_API_KEY environment variable is not set")
 
-    api_base = os.getenv('EMBEDDING_API_BASE', 'api.openai.com')
-    model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-large")
+    model = os.getenv("EMBEDDING_MODEL", "gemini-embedding-001")
     
     headers = {
-        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
 
     cleaned_text = clean_text(text)
     
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:embedContent?key={api_key}"
+    
     data = {
-        "input": cleaned_text,
-        "model": model,
-        "encoding_format": "float"
+        "content": {
+            "parts": [{"text": cleaned_text}]
+        }
     }
 
     try:
-        response = requests.post(f'https://{api_base}/v1/embeddings', json=data, headers=headers)
+        response = requests.post(url, json=data, headers=headers)
         response.raise_for_status()
         embedding_data = response.json()
-        return embedding_data['data'][0]['embedding']
+        return embedding_data['embedding']['values']
     except requests.exceptions.RequestException as e:
-        print(f"Error: {e}")
-        return list(np.zeros(3072))  # 返回长度为3072的全0数组
+        print(f"Gemini embedding API error: {e}")
+        return list(np.zeros(768))  # Gemini embeddings are 768-dimensional
 
 def common_ask_confirmation(prompt):
-    model_type = os.environ.get('CONFIRMATION_MODEL')
-    if model_type == 'CLAUDE':
-        return ask_claude(prompt)
-    elif model_type == 'DEEPSEEK':
-        return ask_deepseek(prompt)
-    else:
-        return ask_openai_common(prompt)
+    return ask_grok4_via_openrouter(prompt)

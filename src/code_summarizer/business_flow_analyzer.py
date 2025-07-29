@@ -61,7 +61,7 @@ class CompleteBusinessFlowResult:
 class BusinessFlowAnalyzer:
     """业务流程分析器 - 增量式分析和流程图生成"""
     
-    def __init__(self, model: str = "claude-3-5-sonnet-20241022"):
+    def __init__(self, model: str = "x-ai/grok-4"):
         """初始化业务流程分析器
         
         Args:
@@ -1374,7 +1374,7 @@ sequenceDiagram
 # 便捷函数
 def analyze_business_flow(files_content: Dict[str, str], 
                          project_name: str,
-                         model: str = "claude-3-5-sonnet-20241022") -> CompleteBusinessFlowResult:
+                         model: str = "x-ai/grok-4") -> CompleteBusinessFlowResult:
     """便捷的业务流程分析函数
     
     Args:
@@ -1398,7 +1398,7 @@ def analyze_business_flow(files_content: Dict[str, str],
 def analyze_business_flow_from_path(project_path: str, 
                                   project_name: str = None,
                                   file_extensions: List[str] = ['.sol', '.py', '.js', '.ts'],
-                                  model: str = "claude-3-5-sonnet-20241022") -> CompleteBusinessFlowResult:
+                                  model: str = "x-ai/grok-4") -> CompleteBusinessFlowResult:
     """从项目路径分析业务流程
     
     Args:

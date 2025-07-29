@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from typing import List, Dict
 
 from prompt_factory.core_prompt import CorePrompt
-from openai_api.openai import common_get_embedding, ask_claude, ask_grok3_deepsearch
+from openai_api.openai import common_get_embedding, ask_claude, ask_grok4_via_openrouter
 
 
 class ContextManager:
@@ -30,7 +30,7 @@ class ContextManager:
         """从Claude的响应中提取需要进一步调查的信息"""
         prompt = CorePrompt.extract_required_info_prompt()
         
-        extraction_result = ask_claude(prompt.format(response=claude_response))
+        extraction_result = ask_grok4_via_openrouter(prompt.format(response=claude_response))
         if not extraction_result or extraction_result.isspace():
             return []
         
@@ -105,7 +105,7 @@ class ContextManager:
         search_results = []
         for query in required_info:
             try:
-                result = ask_grok3_deepsearch(query)
+                result = ask_grok4_via_openrouter(query)
                 if result:
                     search_results.append(result)
             except Exception as e:
@@ -139,4 +139,4 @@ class ContextManager:
     
     def is_valid_context(self, context: str) -> bool:
         """检查上下文是否有效"""
-        return len(str(context).strip()) >= 10 
+        return len(str(context).strip()) >= 10        

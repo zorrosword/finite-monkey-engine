@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 from prompt_factory.prompt_assembler import PromptAssembler
 from prompt_factory.vul_prompt_common import VulPromptCommon
-from openai_api.openai import ask_vul, ask_deepseek, ask_claude, cut_reasoning_content
+from openai_api.openai import ask_vul, ask_grok4_via_openrouter, cut_reasoning_content
 
 
 class ScanUtils:
@@ -21,7 +21,7 @@ class ScanUtils:
         elif scan_mode == "CHECKLIST":
             print("📋Generating checklist...")
             prompt = PromptAssembler.assemble_checklists_prompt(code_to_be_tested)
-            response_checklist = cut_reasoning_content(ask_deepseek(prompt))
+            response_checklist = cut_reasoning_content(ask_grok4_via_openrouter(prompt))
             print("[DEBUG🐞]📋response_checklist length: ", len(response_checklist))
             print(f"[DEBUG🐞]📋response_checklist: {response_checklist[:50]}...")
             return PromptAssembler.assemble_checklists_prompt_for_scan(code_to_be_tested, response_checklist)
@@ -117,4 +117,4 @@ class ScanUtils:
         if dialogue_history:
             history_text = "\n\nPreviously Found Vulnerabilities:\n" + "\n".join(dialogue_history)
             prompt += history_text + "\n\nExcluding these vulnerabilities, please continue searching for other potential vulnerabilities."
-        return prompt 
+        return prompt  
