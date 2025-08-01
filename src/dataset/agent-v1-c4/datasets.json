@@ -241,15 +241,15 @@
         "exclude_in_planning":"false",
         "exclude_directory":[]
     },
-    "zklink07121":{
-        "path":"zklink",
+    "pendle0731111":{
+        "path":"pendle",
         "files":[],
         "functions":[],
         "exclude_in_planning":"true",
         "exclude_directory":["exclude"]
     },
-    "dexevm0727":{
-        "path":"dexevm",
+    "fishcake":{
+        "path":"fishcake",
         "files":[
         ],
         "functions":[],

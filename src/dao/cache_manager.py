@@ -1,5 +1,5 @@
 from sqlalchemy.orm import sessionmaker
-from library.utils import str_hash
+from .utils import str_hash
 from dao.entity import CacheEntry
 
 # 缓存管理类
@@ -36,21 +36,4 @@ class CacheManager:
         self._operate_in_session(do_clear_cache)
 
 
-def test_cache_mgr(engine):
-    cache_manager = CacheManager(engine)
 
-    # cache_manager.set_cache("key1", "value1")
-    # cache_manager.set_cache("key2", "value2")
-
-    cached_value = cache_manager.get_cache("key1")
-    print(cached_value) 
-
-    cache_manager.set_cache("key1", "value1 - 22")
-    cached_value = cache_manager.get_cache("key1")
-    print(cached_value) 
-
-    # cache_manager.clear_cache()
-
-
-if __name__ == "__main__":
-    test_cache_mgr()

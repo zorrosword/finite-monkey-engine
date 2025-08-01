@@ -49,7 +49,7 @@ def create_mock_task_manager():
     ]
     
     task_manager.get_task_list.return_value = tasks
-    task_manager.update_business_flow_context = Mock()
+
     task_manager.update_score = Mock()
     task_manager.update_result = Mock()
     task_manager.update_category = Mock()
@@ -125,11 +125,8 @@ def test_context_update_flow():
             # 创建VulnerabilityChecker
             checker = VulnerabilityChecker(mock_project_audit, mock_lancedb, "test_table")
             
-            # 运行上下文更新
-            checker.context_update_processor.update_business_flow_context(task_manager)
-            
-            # 验证调用
-            assert task_manager.update_business_flow_context.call_count >= 0  # 可能没有需要更新的任务
+            # 上下文更新功能已删除
+            # 现在直接测试分析功能
             print("✅ 上下文更新流程测试通过")
             
             return True

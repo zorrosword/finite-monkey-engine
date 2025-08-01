@@ -4,7 +4,60 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from typing import List, Dict, Tuple
-from library.sgp.utilities.contract_extractor import extract_modifiers_from_code, extract_state_variables_from_code, group_functions_by_contract
+
+# 原先导入的sgp模块函数已被删除，提供简化替代实现
+def extract_modifiers_from_code(code: str) -> List[str]:
+    """提取代码中的修饰符（简化实现）"""
+    # 简化实现：查找常见的Solidity修饰符
+    import re
+    modifiers = []
+    
+    # 查找修饰符定义
+    modifier_pattern = r'modifier\s+(\w+)'
+    matches = re.findall(modifier_pattern, code)
+    modifiers.extend(matches)
+    
+    return modifiers
+
+def extract_state_variables_from_code(code: str) -> List[Dict]:
+    """提取代码中的状态变量（简化实现）"""
+    # 简化实现：查找基本的状态变量声明
+    import re
+    variables = []
+    
+    # 基本的状态变量模式（非常简化）
+    var_pattern = r'(uint|int|bool|address|string|bytes)\s+(?:public|private|internal)?\s*(\w+)'
+    matches = re.findall(var_pattern, code)
+    
+    for var_type, var_name in matches:
+        variables.append({
+            'type': var_type,
+            'name': var_name,
+            'code': f"{var_type} {var_name}"
+        })
+    
+    return variables
+
+def group_functions_by_contract(functions_to_check: List[Dict]) -> Dict[str, List[Dict]]:
+    """按合约分组函数（简化实现）"""
+    grouped = {}
+    
+    for func in functions_to_check:
+        # 尝试从函数信息中获取合约名
+        contract_name = func.get('contract_name', 'Unknown')
+        if not contract_name or contract_name == 'Unknown':
+            # 尝试从函数名中推断合约名
+            func_name = func.get('name', '')
+            if '.' in func_name:
+                contract_name = func_name.split('.')[0]
+            else:
+                contract_name = 'Global'
+        
+        if contract_name not in grouped:
+            grouped[contract_name] = []
+        grouped[contract_name].append(func)
+    
+    return grouped
 
 
 class BusinessFlowProcessor:
@@ -191,9 +244,10 @@ class BusinessFlowProcessor:
             return json.dumps(data)
         else:
             try:
-                # 调用真正的OpenAI API获取业务流 - 使用懒加载避免循环导入
-                from planning.business_flow_utils import BusinessFlowUtils
-                return BusinessFlowUtils.ask_openai_for_business_flow(function_name, contract_code)
+                # 使用简化的业务流生成 - ask_openai_for_business_flow已删除
+                # 返回基于函数名的简单业务流
+                simple_flow = {function_name: [function_name]}
+                return json.dumps(simple_flow)
             except Exception as e:
                 print(f"获取业务流时出错: {str(e)}")
                 return ""
@@ -282,7 +336,7 @@ class BusinessFlowProcessor:
         # 添加状态变量
         state_variables = extract_state_variables_from_code(contract_info['contract_code_without_comment'])
         if state_variables:
-            state_vars_text = "\n".join(state_variables)
+            state_vars_text = "\n".join([f"{v['type']} {v['name']}" for v in state_variables])
             enhanced_code = "// State Variables:\n" + state_vars_text + "\n\n" + enhanced_code
         
         # 添加修饰符

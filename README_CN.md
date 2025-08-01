@@ -61,7 +61,6 @@ finite-monkey-engine/
 │   ├── planning/               # 智能任务规划模块
 │   ├── validating/             # 漏洞检测验证模块
 │   ├── context/                # 上下文管理和RAG处理
-│   ├── code_summarizer/        # 智能代码分析模块
 │   ├── reasoning/              # 推理分析模块
 │   ├── dao/                    # 数据访问层
 │   ├── library/                # 解析库和工具

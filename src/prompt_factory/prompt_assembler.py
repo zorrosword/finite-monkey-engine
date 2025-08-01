@@ -91,15 +91,7 @@ class PromptAssembler:
                     +PeripheryPrompt.jailbreak_prompt()
                     
         return ret_prompt
-    def assemble_prompt_for_checklist_pipeline(code, checklist):
-        ret_prompt = code+"\n"\
-                    +PeripheryPrompt.role_set_solidity_common()+"\n"\
-                    +PeripheryPrompt.task_set_blockchain_common()+"\n"\
-                    +CorePrompt.core_prompt_assembled()+"\n"\
-                    +checklist+"\n"\
-                    +PeripheryPrompt.guidelines()+"\n"\
-                    +PeripheryPrompt.jailbreak_prompt()
-        return ret_prompt
+        
     def assemble_prompt_for_specific_project(code, business_type):
         # combined_vul_prompt = PromptAssembler._get_vul_prompts(business_type)
         combined_vul_prompt = PromptAssembler._get_checklist_from_knowledge(business_type)
@@ -159,6 +151,35 @@ class PromptAssembler:
         
         The 'brief of response' should contain a concise summary of the analysis,
         and the 'result' should reflect the final conclusion about the vulnerability's existence."""
+
+    @staticmethod
+    def confirmation_analysis_prompt(task_content: str, comprehensive_analysis: str) -> str:
+        """构建确认分析提示"""
+        return f"""
+你是一个专业的智能合约安全审计专家。请对以下综合分析结果进行确认评估。
+
+**原始任务内容:**
+{task_content}
+
+**综合分析结果:**
+{comprehensive_analysis}
+
+**确认要求:**
+1. 仔细审查分析结果的准确性和完整性
+2. 验证漏洞判断是否合理
+3. 检查分析逻辑是否严密
+4. 确认风险评级是否恰当
+
+**请以JSON格式回复你的确认结果:**
+{{"brief_of_response": "你的简要分析总结", "result": "yes/no/not_sure"}}
+
+其中:
+- "brief_of_response": 对分析结果的简要总结和评价
+- "result": 
+  - "yes": 确认存在漏洞
+  - "no": 确认不存在漏洞  
+  - "not_sure": 需要更多信息或分析不确定
+"""
 
 if __name__=="__main__":
     prompt = PromptAssembler()

@@ -25,18 +25,15 @@ class ProjectTaskMgr(object):
         return self._operate_in_session(self._query_task_by_project_id, id)
     def _query_task_by_project_id(self, session, id):
         return session.query(Project_Task).filter_by(project_id=id).all()
-    def update_score(self,id,score):
-        self._operate_in_session(self._update_score,id,score)
-    def _update_score(self,session,id,score):
-        session.query(Project_Task).filter_by(id=id).update({Project_Task.score: score})
-        session.commit()
-    def update_business_flow_context(self,id,context):
-        self._operate_in_session(self._update_business_flow_context,id,context)
-    def _update_business_flow_context(self,session,id,context):
-        session.query(Project_Task).filter_by(id=id).update({Project_Task.business_flow_context: context})
-        session.commit()
-    def add_task(self, name, content, keyword, business_type, sub_business_type, function_type, rule, result='', result_gpt4='', score='0.00', category='', contract_code='', risklevel='',similarity_with_rule='',description='',start_line='',end_line='',relative_file_path='',absolute_file_path='', recommendation='',title='',business_flow_code='',business_flow_lines='',business_flow_context='',if_business_flow_scan='', **kwargs):
-        task = Project_Task(self.project_id, name, content, keyword, business_type, sub_business_type, function_type, rule, result, result_gpt4, score, category, contract_code, risklevel,similarity_with_rule,description,start_line,end_line,relative_file_path,absolute_file_path, recommendation,title,business_flow_code,business_flow_lines,business_flow_context,if_business_flow_scan)
+    # update_score方法已删除，因为score字段不再存在
+    # update_business_flow_context方法已删除，因为business_flow_context字段不再存在
+    def save_task(self, task: Project_Task, **kwargs):
+        """保存Project_Task实例到数据库"""
+        self._operate_in_session(self._add_task, task, **kwargs)
+    
+    def add_task(self, name, content, rule, rule_key='', result='', contract_code='', start_line='', end_line='', relative_file_path='', absolute_file_path='', recommendation='', business_flow_code='', scan_record='', short_result='', **kwargs):
+        """使用V3版本的参数创建任务"""
+        task = Project_Task(self.project_id, name, content, rule, rule_key, result, contract_code, start_line, end_line, relative_file_path, absolute_file_path, recommendation, business_flow_code, scan_record, short_result)
         self._operate_in_session(self._add_task, task, **kwargs)
 
     def _add_task(self, session, task, commit=True):
@@ -60,39 +57,43 @@ class ProjectTaskMgr(object):
         return self._operate_in_session(self._get_task_list_by_id, id)
     def _get_task_list_by_id(self, session, id):
         return list(session.query(Project_Task).filter_by(project_id=id).all())
-    def update_result(self, id, result, result_CN,result_assumation):
-        self._operate_in_session(self._update_result, id, result, result_CN,result_assumation)
+    def update_result(self, id, result):
+        self._operate_in_session(self._update_result, id, result)
 
-    def _update_result(self, session, id, result, result_CN,result_assumation):
-        session.query(Project_Task).filter_by(id=id).update({Project_Task.result: result, Project_Task.result_gpt4: result_CN,Project_Task.category:result_assumation})
+    def _update_result(self, session, id, result):
+        session.query(Project_Task).filter_by(id=id).update({Project_Task.result: result})
         session.commit()
-    def update_similarity_generated_referenced_score(self, id, similarity_with_rule):
-        self._operate_in_session(self._update_similarity_generated_referenced_score, id, similarity_with_rule)
-
-    def _update_similarity_generated_referenced_score(self, session, id, similarity_with_rule):
-        session.query(Project_Task).filter_by(id=id).update({Project_Task.similarity_with_rule: similarity_with_rule})
-        session.commit()
-    def update_category(self, id, category):
-        self._operate_in_session(self._update_category, id, category)
-    def _update_category(self, session, id, category):
-        session.query(Project_Task).filter_by(id=id).update({Project_Task.category: category})
-        session.commit()
-    def update_description(self, id, description):
-        self._operate_in_session(self._update_description, id, description)
-    def _update_description(self, session, id, description):
-        session.query(Project_Task).filter_by(id=id).update({Project_Task.description: description})
-        session.commit()
+    # update_similarity_generated_referenced_score方法已删除，因为similarity_with_rule字段不再存在
+    # update_category方法已删除，因为category字段不再存在
+    # update_description方法已删除，因为description字段不再存在
 
     def update_recommendation(self, id, recommendation):
         self._operate_in_session(self._update_recommendation, id, recommendation)
     def _update_recommendation(self, session, id, recommendation):
         session.query(Project_Task).filter_by(id=id).update({Project_Task.recommendation: recommendation})
         session.commit()
-    def update_title(self, id, title):
-        self._operate_in_session(self._update_title, id, title)
-    def _update_title(self, session, id, title):
-        session.query(Project_Task).filter_by(id=id).update({Project_Task.title: title})
+    
+    def update_rule_key(self, id, rule_key):
+        """更新任务的rule_key"""
+        self._operate_in_session(self._update_rule_key, id, rule_key)
+    def _update_rule_key(self, session, id, rule_key):
+        session.query(Project_Task).filter_by(id=id).update({Project_Task.rule_key: rule_key})
         session.commit()
+    
+    def update_scan_record(self, id, scan_record):
+        """更新任务的scan_record"""
+        self._operate_in_session(self._update_scan_record, id, scan_record)
+    def _update_scan_record(self, session, id, scan_record):
+        session.query(Project_Task).filter_by(id=id).update({Project_Task.scan_record: scan_record})
+        session.commit()
+    
+    def update_short_result(self, id, short_result):
+        """更新任务的short_result"""
+        self._operate_in_session(self._update_short_result, id, short_result)
+    def _update_short_result(self, session, id, short_result):
+        session.query(Project_Task).filter_by(id=id).update({Project_Task.short_result: short_result})
+        session.commit()
+    # update_title方法已删除，因为title字段不再存在
         
     def import_file(self, filename):
         reader = csv.DictReader(open(filename, 'r', encoding='utf-8'))
@@ -123,9 +124,10 @@ class ProjectTaskMgr(object):
         return writer
 
     def merge_results(self, function_rules):
+        # merge_results方法需要根据新的字段结构调整
         rule_map = {}
         for rule in function_rules:
-            keys = [rule['name'], rule['content'], rule['BusinessType'], rule['Sub-BusinessType'], rule['FunctionType'], rule['KeySentence']]
+            keys = [rule.get('name', ''), rule.get('content', ''), rule.get('rule_key', '')]
             key = "/".join(keys)
             rule_map[key] = rule
 

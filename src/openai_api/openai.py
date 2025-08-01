@@ -5,6 +5,9 @@ import numpy as np
 import requests
 from openai import OpenAI
 
+# 导入模型管理器
+from .model_manager import get_model
+
 class JSONExtractError(Exception):
     def __init__(self, ErrorInfo):
         super().__init__(self)
@@ -96,7 +99,7 @@ def ask_openai_common(prompt):
             "Authorization": f"Bearer {api_key}"
         }
         data = {
-            "model": os.environ.get('OPENAI_MODEL'),  # Replace with your actual OpenAI model
+            "model": get_model('openai_general'),  # 使用模型管理器获取OpenAI模型
             "messages": [
                 {
                     "role": "user",
@@ -120,7 +123,7 @@ def ask_openai_for_json(prompt):
         "Authorization": f"Bearer {api_key}"
     }
     data = {
-        "model": os.environ.get('OPENAI_MODEL'),
+        "model": get_model('openai_general'),
         "response_format": { "type": "json_object" },
         "messages": [
             {
@@ -206,7 +209,7 @@ def common_ask_for_json(prompt):
     else:
         return ask_openai_for_json(prompt)
 def ask_vul(prompt):
-    model = os.environ.get('VUL_MODEL', 'o4-mini')
+    model = get_model('vulnerability_detection')
     api_key = os.environ.get('OPENAI_API_KEY')
     api_base = os.environ.get('OPENAI_API_BASE')
     
@@ -239,7 +242,7 @@ def ask_vul(prompt):
         print(f"vul API调用失败。错误: {str(e)}")
         return ""
 def ask_claude(prompt):
-    model = os.environ.get('CLAUDE_MODEL', 'claude-opus-4-20250514')
+    model = get_model('claude_general')
     api_key = os.environ.get('OPENAI_API_KEY','sk-0fzQWrcTc0DASaFT7Q0V0e7c24ZyHMKYgIDpXWrry8XHQAcj')
     api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
     
@@ -544,7 +547,7 @@ def common_ask_confirmation(prompt):
 
 def ask_claude_for_code_analysis(prompt):
     """专门用于代码分析和总结的Claude函数"""
-    model = os.environ.get('CLAUDE_MODEL', 'claude-3-5-sonnet-20241022')  # 使用可用的Claude模型
+    model = get_model('claude_code_analysis')  # 使用代码分析专用Claude模型
     api_key = os.environ.get('OPENAI_API_KEY', 'sk-4GquOBLR9GFUHXsUMcZXTXnEY53h2hUjAbc8bONO0k3xCr87')
     api_base = os.environ.get('OPENAI_API_BASE', 'api.openai-proxy.org')
     
@@ -581,7 +584,7 @@ def ask_claude_for_code_analysis(prompt):
 
 def ask_claude_for_mermaid_generation(prompt):
     """专门用于生成Mermaid图的Claude函数"""
-    model = os.environ.get('CLAUDE_MODEL', 'claude-3-5-sonnet-20241022')
+    model = get_model('claude_mermaid_generation')
     api_key = os.environ.get('OPENAI_API_KEY', 'sk-4GquOBLR9GFUHXsUMcZXTXnEY53h2hUjAbc8bONO0k3xCr87')
     api_base = os.environ.get('OPENAI_API_BASE', 'api.openai-proxy.org')
     
@@ -622,7 +625,7 @@ def ask_claude_for_mermaid_generation(prompt):
 
 def ask_claude_for_batch_analysis(files_content, analysis_type="overview"):
     """批量分析多个文件的关系"""
-    model = os.environ.get('CLAUDE_MODEL', 'claude-3-5-sonnet-20241022')
+    model = get_model('claude_batch_analysis')
     api_key = os.environ.get('OPENAI_API_KEY', 'sk-4GquOBLR9GFUHXsUMcZXTXnEY53h2hUjAbc8bONO0k3xCr87')
     api_base = os.environ.get('OPENAI_API_BASE', 'api.openai-proxy.org')
     
@@ -674,4 +677,240 @@ def ask_claude_for_batch_analysis(files_content, analysis_type="overview"):
             return ""
     except requests.exceptions.RequestException as e:
         print(f"Claude批量分析API调用失败。错误: {str(e)}")
+        return ""
+
+
+# ========== 漏洞检测多轮分析专用函数 ==========
+
+def ask_agent_initial_analysis(prompt):
+    """
+    代理初始分析 - 执行初步漏洞检测分析
+    环境变量: AGENT_INITIAL_MODEL (默认: claude-3-haiku-20240307)
+    """
+    model = get_model('agent_initial_analysis')
+    api_key = os.environ.get('OPENAI_API_KEY')
+    api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
+
+    data = {
+        'model': model,
+        'messages': [
+            {
+                'role': 'user',
+                'content': prompt
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(f'https://{api_base}/v1/chat/completions', 
+                               headers=headers, 
+                               json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            return response_data['choices'][0]['message']['content']
+        else:
+            return ""
+    except requests.exceptions.RequestException as e:
+        print(f"代理初始分析API调用失败。错误: {str(e)}")
+        return ""
+
+
+def ask_agent_json_extraction(prompt):
+    """
+    代理JSON提取 - 从自然语言中提取结构化JSON
+    环境变量: AGENT_JSON_MODEL (默认: gpt-4o-mini)
+    """
+    model = get_model('agent_json_extraction')
+    api_key = os.environ.get('OPENAI_API_KEY')
+    api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
+
+    data = {
+        'model': model,
+        'messages': [
+            {
+                'role': 'user',
+                'content': prompt
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(f'https://{api_base}/v1/chat/completions', 
+                               headers=headers, 
+                               json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            return response_data['choices'][0]['message']['content']
+        else:
+            return ""
+    except requests.exceptions.RequestException as e:
+        print(f"代理JSON提取API调用失败。错误: {str(e)}")
+        return ""
+
+
+def ask_agent_info_query(prompt):
+    """
+    代理信息查询 - 确定需要什么类型的额外信息
+    环境变量: AGENT_INFO_QUERY_MODEL (默认: claude-3-sonnet-20240229)
+    """
+    model = get_model('agent_info_query')
+    api_key = os.environ.get('OPENAI_API_KEY')
+    api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
+
+    data = {
+        'model': model,
+        'messages': [
+            {
+                'role': 'user',
+                'content': prompt
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(f'https://{api_base}/v1/chat/completions', 
+                               headers=headers, 
+                               json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            return response_data['choices'][0]['message']['content']
+        else:
+            return ""
+    except requests.exceptions.RequestException as e:
+        print(f"代理信息查询API调用失败。错误: {str(e)}")
+        return ""
+
+
+def ask_agent_info_extraction(prompt):
+    """
+    代理信息提取 - 从自然语言中提取信息类型和查询内容
+    环境变量: AGENT_INFO_EXTRACT_MODEL (默认: gpt-4o-mini)
+    """
+    model = get_model('agent_info_extraction')
+    api_key = os.environ.get('OPENAI_API_KEY')
+    api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
+
+    data = {
+        'model': model,
+        'messages': [
+            {
+                'role': 'user',
+                'content': prompt
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(f'https://{api_base}/v1/chat/completions', 
+                               headers=headers, 
+                               json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            return response_data['choices'][0]['message']['content']
+        else:
+            return ""
+    except requests.exceptions.RequestException as e:
+        print(f"代理信息提取API调用失败。错误: {str(e)}")
+        return ""
+
+
+def ask_agent_final_analysis(prompt):
+    """
+    代理最终分析 - 基于所有收集的信息做最终判断
+    环境变量: AGENT_FINAL_MODEL (默认: claude-opus-4-20250514)
+    """
+    model = get_model('agent_final_analysis')
+    api_key = os.environ.get('OPENAI_API_KEY')
+    api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
+
+    data = {
+        'model': model,
+        'messages': [
+            {
+                'role': 'user',
+                'content': prompt
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(f'https://{api_base}/v1/chat/completions', 
+                               headers=headers, 
+                               json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            return response_data['choices'][0]['message']['content']
+        else:
+            return ""
+    except requests.exceptions.RequestException as e:
+        print(f"代理最终分析API调用失败。错误: {str(e)}")
+        return ""
+
+
+def ask_agent_final_extraction(prompt):
+    """
+    代理最终提取 - 从最终分析中提取结构化结果
+    环境变量: AGENT_FINAL_EXTRACT_MODEL (默认: gpt-4o-mini)
+    """
+    model = get_model('agent_final_extraction')
+    api_key = os.environ.get('OPENAI_API_KEY')
+    api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
+
+    data = {
+        'model': model,
+        'messages': [
+            {
+                'role': 'user',
+                'content': prompt
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(f'https://{api_base}/v1/chat/completions', 
+                               headers=headers, 
+                               json=data)
+        response.raise_for_status()
+        response_data = response.json()
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            return response_data['choices'][0]['message']['content']
+        else:
+            return ""
+    except requests.exceptions.RequestException as e:
+        print(f"代理最终提取API调用失败。错误: {str(e)}")
         return ""

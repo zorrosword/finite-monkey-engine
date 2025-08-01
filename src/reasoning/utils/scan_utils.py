@@ -25,10 +25,6 @@ class ScanUtils:
             print("[DEBUG🐞]📋response_checklist length: ", len(response_checklist))
             print(f"[DEBUG🐞]📋response_checklist: {response_checklist[:50]}...")
             return PromptAssembler.assemble_checklists_prompt_for_scan(code_to_be_tested, response_checklist)
-        elif scan_mode == "CHECKLIST_PIPELINE":
-            checklist = task.description
-            print(f"[DEBUG🐞]📋Using checklist from task description: {checklist[:50]}...")
-            return PromptAssembler.assemble_prompt_for_checklist_pipeline(code_to_be_tested, checklist)
         elif scan_mode == "COMMON_PROJECT":
             return PromptAssembler.assemble_prompt_common(code_to_be_tested)
         elif scan_mode == "COMMON_PROJECT_FINE_GRAINED":
@@ -70,7 +66,7 @@ class ScanUtils:
     @staticmethod
     def is_task_already_scanned(task) -> bool:
         """检查任务是否已经扫描过"""
-        result = task.get_result(False)
+        result = task.get_result()
         return result is not None and len(result) > 0 and str(result).strip() != "NOT A VUL IN RES no"
     
     @staticmethod

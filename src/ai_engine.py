@@ -1,6 +1,7 @@
 import os
 from typing import List
 
+from planning.planning import Planning
 from reasoning import VulnerabilityScanner
 from validating import VulnerabilityChecker
 
@@ -15,7 +16,7 @@ class AiEngine(object):
     - 计划处理：执行项目分析计划
     """
 
-    def __init__(self, planning, taskmgr, lancedb, lance_table_name, project_audit):
+    def __init__(self, planning: Planning, taskmgr, lancedb, lance_table_name, project_audit):
         """
         初始化AI引擎
         

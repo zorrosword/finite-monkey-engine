@@ -1,9 +1,11 @@
 from typing import List, Dict, Any, Optional, Tuple
 from .context_manager import ContextManager
-from .call_tree_builder import CallTreeBuilder
 from .rag_processor import RAGProcessor
 from .business_flow_processor import BusinessFlowProcessor
 from .function_utils import FunctionUtils
+
+# 直接使用Tree-sitter版本的CallTreeBuilder
+from tree_sitter_parsing import TreeSitterCallTreeBuilder as CallTreeBuilder
 
 
 class ContextFactory:
@@ -26,7 +28,7 @@ class ContextFactory:
         self.rag_processor = None  # 延迟初始化
         self.business_flow_processor = BusinessFlowProcessor(project_audit) if project_audit else None
         
-    def initialize_rag_processor(self, functions_to_check: List[Dict], db_path: str = "./lancedb", project_id: str = None):
+    def initialize_rag_processor(self, functions_to_check: List[Dict], db_path: str = "./lancedb", project_id: str = None, call_trees: List[Dict] = None):
         """
         初始化RAG处理器
         
@@ -34,8 +36,13 @@ class ContextFactory:
             functions_to_check: 需要处理的函数列表
             db_path: 数据库路径
             project_id: 项目ID
+            call_trees: 调用树数据（可选）
         """
-        self.rag_processor = RAGProcessor(functions_to_check, db_path, project_id)
+        # 如果没有传递call_trees，尝试从project_audit获取
+        if call_trees is None and self.project_audit:
+            call_trees = getattr(self.project_audit, 'call_trees', [])
+        
+        self.rag_processor = RAGProcessor(functions_to_check, db_path, project_id, call_trees)
     
     def build_call_trees(self, functions_to_check: List[Dict], max_workers: int = 1) -> List[Dict]:
         """

@@ -1,0 +1,5 @@
+{
+    "python.analysis.extraPaths": [
+        "./src/tree_sitter"
+    ]
+}

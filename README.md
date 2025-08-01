@@ -57,7 +57,6 @@ finite-monkey-engine/
 │   ├── planning/           # Task planning and business flow analysis
 │   ├── validating/         # Vulnerability detection and validation
 │   ├── context/            # Context management and RAG processing
-│   ├── code_summarizer/    # AI-powered code analysis and summarization
 │   ├── reasoning/          # Analysis reasoning and dialogue management
 │   ├── dao/                # Data access objects and entity management
 │   ├── library/            # Parsing libraries and utilities

@@ -21,7 +21,6 @@ class ConfirmationProcessor:
 
         # Define number of threads in thread pool, get from env
         max_threads = int(os.getenv("MAX_THREADS_OF_CONFIRMATION", 5))
-
         with ThreadPoolExecutor(max_workers=max_threads) as executor:
             futures = [
                 executor.submit(self._process_single_task_check, task, task_manager) 

@@ -39,20 +39,27 @@ class RAGProcessor:
         self._create_schemas()
         
         # 检查表是否存在
-        tables_exist = (
-            self._table_exists(self.table_name_function) and
-            self._table_exists(self.table_name_file)
-        )
+        function_table_exists = self._table_exists(self.table_name_function)
+        file_table_exists = self._table_exists(self.table_name_file)
+        tables_exist = function_table_exists and file_table_exists
         
-        # 检查函数数据量是否匹配
-        functions_count_match = self._check_data_count(self.table_name_function, len(functions_to_check))
+        # 只有在表存在的情况下才检查数据量
+        functions_count_match = False
+        files_count_match = False
         
-        # 检查文件数据量是否匹配
-        unique_files = list(set(func['relative_file_path'] for func in functions_to_check))
-        files_count_match = self._check_data_count(self.table_name_file, len(unique_files))
+        if function_table_exists:
+            functions_count_match = self._check_data_count(self.table_name_function, len(functions_to_check))
+        else:
+            print(f"表 {self.table_name_function} 不存在，需要创建")
+            
+        if file_table_exists:
+            unique_files = list(set(func['relative_file_path'] for func in functions_to_check))
+            files_count_match = self._check_data_count(self.table_name_file, len(unique_files))
+        else:
+            print(f"表 {self.table_name_file} 不存在，需要创建")
         
         if tables_exist and functions_count_match and files_count_match:
-            print(f"All tables already exist with correct data count. Skipping processing.")
+            print(f"所有表已存在且数据量正确，跳过处理")
             return
 
         self._create_all_databases(functions_to_check)
@@ -121,10 +128,16 @@ class RAGProcessor:
         try:
             table = self.db.open_table(table_name)
             actual_count = table.count_rows()
-            print(f"Table {table_name} exists with {actual_count} rows, expected {expected_count}")
-            return actual_count == expected_count
+            print(f"表 {table_name} 存在 {actual_count} 行数据，期望 {expected_count} 行")
+            if actual_count == expected_count:
+                print(f"✅ 表 {table_name} 数据量匹配")
+                return True
+            else:
+                print(f"⚠️ 表 {table_name} 数据量不匹配，需要重建")
+                return False
         except Exception as e:
-            print(f"Error checking data count for {table_name}: {str(e)}")
+            # 这里不应该执行到，因为调用者已经检查了表存在性
+            print(f"⚠️ 检查表 {table_name} 数据量时发生错误: {str(e)}")
             return False
 
     def _translate_to_natural_language(self, content: str, function_name: str) -> str:

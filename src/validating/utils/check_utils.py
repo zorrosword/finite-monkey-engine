@@ -11,20 +11,36 @@ class CheckUtils:
     def get_code_to_analyze(task) -> str:
         """Get code to be analyzed"""
         function_code = task.content
-        if_business_flow_scan = task.if_business_flow_scan
         business_flow_code = task.business_flow_code
-        business_flow_context = task.business_flow_context
         
-        return business_flow_code + "\n" + business_flow_context if if_business_flow_scan == "1" else function_code
+        # 从scan_record中获取business_flow_context
+        business_flow_context = ""
+        if task.scan_record:
+            try:
+                import json
+                scan_data = json.loads(task.scan_record)
+                business_flow_context = scan_data.get('business_flow_context', '')
+            except:
+                pass
+        
+        # 如果有business_flow_code，使用它加上上下文，否则使用function_code
+        if business_flow_code and len(business_flow_code.strip()) > 0:
+            result = business_flow_code
+            if business_flow_context:
+                result += "\n" + business_flow_context
+            return result
+        else:
+            return function_code
     
     @staticmethod
     def is_task_already_processed(task) -> bool:
-        """Check if task has already been processed"""
-        result_CN = task.get_result_CN()
-        category_mark = task.get_category()
+        """Check if task has already been processed based on short_result"""
+        short_result = task.get_short_result()
         
-        return (result_CN is not None and len(result_CN) > 0 and result_CN != "None" and
-                category_mark is not None and len(category_mark) > 0)
+        # 基于short_result是否有值来判断任务是否已处理
+        return (short_result is not None and 
+                len(str(short_result).strip()) > 0 and 
+                str(short_result) != "None")
     
     @staticmethod
     def process_round_response(round_response: str) -> str:
@@ -183,11 +199,24 @@ class CheckUtils:
         return formatted_results.replace('\x00', '')
     
     @staticmethod
-    def update_task_results(task_manager, task_id: int, result: str, response_final: str, 
-                           final_response: str, formatted_results: str):
+    def update_task_results(task_manager, task_id: int, result: str, formatted_results: str = ""):
         """Update task results to database"""
-        task_manager.update_result(task_id, result, response_final, final_response)
-        task_manager.update_category(task_id, formatted_results)
+        task_manager.update_result(task_id, result)
+        
+        # 如果有formatted_results，将其保存到scan_record中
+        if formatted_results:
+            # 获取任务并更新scan_record
+            tasks = [t for t in task_manager.get_task_list() if t.id == task_id]
+            if tasks:
+                task = tasks[0]
+                try:
+                    import json
+                    scan_data = json.loads(task.scan_record) if task.scan_record else {}
+                except:
+                    scan_data = {}
+                scan_data['formatted_results'] = formatted_results
+                scan_data['processed'] = True
+                task_manager.update_scan_record(task_id, json.dumps(scan_data, ensure_ascii=False))
     
     @staticmethod
     def should_skip_early(result_status: str) -> bool:

@@ -1,0 +1,237 @@
+2025-08-01 10:09:16 | INFO     | logging_config       | setup_logging   | ================================================================================
+2025-08-01 10:09:16 | INFO     | logging_config       | setup_logging   | 🚀 Finite Monkey Engine 日志系统启动
+2025-08-01 10:09:16 | INFO     | logging_config       | setup_logging   | 📁 日志文件路径: logs/finite_monkey_engine_20250801_100916.log
+2025-08-01 10:09:16 | INFO     | logging_config       | setup_logging   | 📊 日志级别: INFO
+2025-08-01 10:09:16 | INFO     | logging_config       | setup_logging   | 🕐 启动时间: 2025-08-01 10:09:16
+2025-08-01 10:09:16 | INFO     | logging_config       | setup_logging   | ================================================================================
+2025-08-01 10:09:16 | INFO     | main                 | <module>        | 🎯 程序启动参数:
+2025-08-01 10:09:16 | INFO     | main                 | <module>        |    Python版本: 3.9.6 (default, Nov 11 2024, 03:15:38) 
+[Clang 16.0.0 (clang-1600.0.26.6)]
+2025-08-01 10:09:16 | INFO     | main                 | <module>        |    工作目录: /Users/xueyue/Desktop/projects/finite-monkey-engine
+2025-08-01 10:09:16 | INFO     | main                 | <module>        |    环境变量已加载
+2025-08-01 10:09:16 | INFO     | main                 | <module>        | 运行模式: test
+2025-08-01 10:09:16 | INFO     | main                 | log_section_start | ============================================================
+2025-08-01 10:09:16 | INFO     | main                 | log_section_start | 🔥 开始执行: 测试模式执行
+2025-08-01 10:09:16 | INFO     | main                 | log_section_start | ============================================================
+2025-08-01 10:09:16 | INFO     | main                 | log_step        | 🔹 初始化数据库连接
+2025-08-01 10:09:16 | INFO     | main                 | <module>        | 数据库URL: postgresql://postgres:1234@127.0.0.1:5432/postgres
+2025-08-01 10:09:16 | INFO     | main                 | log_success     | ✅ 成功: 数据库连接创建完成
+2025-08-01 10:09:16 | INFO     | main                 | log_step        | 🔹 加载数据集
+2025-08-01 10:09:16 | INFO     | main                 | <module>        | 数据集路径: ./src/dataset/agent-v1-c4
+2025-08-01 10:09:16 | INFO     | main                 | log_success     | ✅ 成功: 数据集加载完成
+2025-08-01 10:09:16 | INFO     | main                 | log_success     |    详情: 找到 30 个项目
+2025-08-01 10:09:16 | INFO     | main                 | <module>        | 目标项目ID: pendle0731111
+2025-08-01 10:09:16 | INFO     | main                 | log_success     | ✅ 成功: 项目对象创建完成
+2025-08-01 10:09:16 | INFO     | main                 | <module>        | 扫描模式: COMMON_PROJECT_FINE_GRAINED
+2025-08-01 10:09:16 | INFO     | main                 | <module>        | 执行命令: detect_vul
+2025-08-01 10:09:16 | INFO     | scan_project         | log_section_start | ============================================================
+2025-08-01 10:09:16 | INFO     | scan_project         | log_section_start | 🔥 开始执行: 项目扫描
+2025-08-01 10:09:16 | INFO     | scan_project         | log_section_start | 📝 描述: 项目ID: pendle0731111, 路径: ./src/dataset/agent-v1-c4/pendle
+2025-08-01 10:09:16 | INFO     | scan_project         | log_section_start | ============================================================
+2025-08-01 10:09:16 | INFO     | scan_project         | log_step        | 🔹 Tree-sitter解析项目
+2025-08-01 10:09:16 | INFO     | scan_project         | log_step        |    详情: 项目路径: ./src/dataset/agent-v1-c4/pendle
+2025-08-01 10:09:16 | INFO     | ProjectAudit[pendle0731111] | __init__        | 初始化项目审计器: pendle0731111
+2025-08-01 10:09:16 | INFO     | ProjectAudit[pendle0731111] | __init__        | 项目路径: ./src/dataset/agent-v1-c4/pendle
+2025-08-01 10:09:16 | INFO     | ProjectAudit[pendle0731111] | log_step        | 🔹 创建项目过滤器
+2025-08-01 10:09:16 | INFO     | ProjectAudit[pendle0731111] | log_step        | 🔹 开始解析项目文件
+2025-08-01 10:09:16 | INFO     | ProjectAudit[pendle0731111] | log_success     | ✅ 成功: 项目文件解析完成
+2025-08-01 10:09:16 | INFO     | ProjectAudit[pendle0731111] | log_data_info   | 📊 总函数数: 16个
+2025-08-01 10:09:16 | INFO     | ProjectAudit[pendle0731111] | log_data_info   | 📊 待检查函数数: 16个
+2025-08-01 10:09:16 | INFO     | ProjectAudit[pendle0731111] | parse           | HUGE_PROJECT设置: False
+2025-08-01 10:09:16 | INFO     | ProjectAudit[pendle0731111] | log_step        | 🔹 开始构建调用树
+2025-08-01 10:09:17 | INFO     | ProjectAudit[pendle0731111] | log_success     | ✅ 成功: 调用树构建完成
+2025-08-01 10:09:17 | INFO     | ProjectAudit[pendle0731111] | log_data_info   | 📊 构建的调用树: 16个
+2025-08-01 10:09:17 | INFO     | ProjectAudit[pendle0731111] | log_step        | 🔹 开始构建 call graph
+2025-08-01 10:09:17 | INFO     | ProjectAudit[pendle0731111] | _build_call_graphs | 分析 solidity 项目目录: src/dataset/agent-v1-c4/pendle
+2025-08-01 10:09:17 | INFO     | ProjectAudit[pendle0731111] | _build_call_graphs | 发现 22 个调用关系
+2025-08-01 10:09:17 | INFO     | ProjectAudit[pendle0731111] | log_success     | ✅ 成功: Call graph 构建完成
+2025-08-01 10:09:17 | INFO     | ProjectAudit[pendle0731111] | log_data_info   | 📊 构建的调用关系: 22个
+2025-08-01 10:09:17 | INFO     | scan_project         | log_success     | ✅ 成功: 项目解析完成
+2025-08-01 10:09:17 | INFO     | scan_project         | log_success     |    详情: 耗时: 0.08秒
+2025-08-01 10:09:17 | INFO     | scan_project         | log_data_info   | 📊 解析的函数: 16个
+2025-08-01 10:09:17 | INFO     | scan_project         | log_data_info   | 📊 调用树: 16个
+2025-08-01 10:09:17 | INFO     | scan_project         | log_data_info   | 📊 调用图: 22个
+2025-08-01 10:09:17 | INFO     | scan_project         | log_step        | 🔹 初始化RAG处理器
+2025-08-01 10:09:17 | INFO     | scan_project         | log_success     | ✅ 成功: RAG处理器初始化完成
+2025-08-01 10:09:17 | INFO     | scan_project         | log_success     |    详情: 耗时: 0.03秒
+2025-08-01 10:09:17 | INFO     | scan_project         | log_data_info   | 📊 基于tree-sitter解析的函数构建RAG: 16个
+2025-08-01 10:09:17 | INFO     | scan_project         | log_data_info   | 📊 使用调用树构建关系型RAG: 16个
+2025-08-01 10:09:17 | INFO     | scan_project         | log_data_info   | 📊 集成调用图(Call Graph): 22个
+2025-08-01 10:09:17 | INFO     | scan_project         | log_data_info   | 📊 Call Graph统计: {'total_edges': 22, 'languages': {'solidity': 22}, 'call_types': {'direct': 22}, 'unique_functions_count': 18}个
+2025-08-01 10:09:17 | INFO     | scan_project         | log_step        | 🔹 检查业务流模式配置
+2025-08-01 10:09:17 | INFO     | scan_project         | scan_project    | SWITCH_BUSINESS_CODE: False
+2025-08-01 10:09:17 | INFO     | scan_project         | log_step        | 🔹 使用传统扫描模式
+2025-08-01 10:09:17 | INFO     | scan_project         | log_step        |    详情: SWITCH_BUSINESS_CODE=False
+2025-08-01 10:09:17 | INFO     | scan_project         | log_step        | 🔹 创建任务管理器
+2025-08-01 10:09:17 | INFO     | scan_project         | log_success     | ✅ 成功: 任务管理器创建完成
+2025-08-01 10:09:17 | INFO     | scan_project         | log_step        | 🔹 创建规划处理器
+2025-08-01 10:09:17 | INFO     | scan_project         | log_success     | ✅ 成功: 规划处理器创建完成
+2025-08-01 10:09:17 | INFO     | scan_project         | log_step        | 🔹 初始化规划器的RAG功能
+2025-08-01 10:09:17 | INFO     | scan_project         | log_success     | ✅ 成功: 规划器RAG功能初始化完成
+2025-08-01 10:09:17 | INFO     | scan_project         | log_step        | 🔹 创建AI引擎
+2025-08-01 10:09:17 | INFO     | scan_project         | scan_project    | LanceDB表名: lancedb_function_pendle0731111
+2025-08-01 10:09:17 | INFO     | scan_project         | log_success     | ✅ 成功: AI引擎创建完成
+2025-08-01 10:09:17 | INFO     | scan_project         | log_step        | 🔹 执行项目规划
+2025-08-01 10:09:17 | INFO     | scan_project         | log_success     | ✅ 成功: 项目规划完成
+2025-08-01 10:09:17 | INFO     | scan_project         | log_success     |    详情: 耗时: 0.01秒
+2025-08-01 10:09:17 | INFO     | scan_project         | log_step        | 🔹 执行漏洞扫描
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.batchTransfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.batchTransfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.batchTransfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transferFrom 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.batchTransfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transferFrom 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transferFrom 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.mint 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transferFrom 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.mint 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.mint 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.mint 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.mint 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.emergencyWithdraw 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.emergencyWithdraw 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.emergencyWithdraw 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.emergencyWithdraw 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.emergencyWithdraw 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.pause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.pause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.pause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.pause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.unpause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.unpause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.unpause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.unpause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.unpause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.balanceOf 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.balanceOf 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.unpause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.balanceOf 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.balanceOf 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.allowance 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.allowance 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.allowance 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.allowance 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.allowance 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.allowance 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.batchTransfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.batchTransfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.batchTransfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.batchTransfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transferFrom 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transferFrom 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transferFrom 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transferFrom 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.mint 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.mint 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.mint 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.mint 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.mint 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.unpause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.mint 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.emergencyWithdraw 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.emergencyWithdraw 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.emergencyWithdraw 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.emergencyWithdraw 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.pause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.pause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.pause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.pause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.unpause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.unpause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.unpause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.unpause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.balanceOf 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.unpause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.balanceOf 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.balanceOf 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.balanceOf 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.allowance 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.balanceOf 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.allowance 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.allowance 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.allowance 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.allowance 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.unpause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.mint 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.batchTransfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.unpause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.pause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.batchTransfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transferFrom 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.batchTransfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transferFrom 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.batchTransfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transferFrom 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transferFrom 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.mint 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.mint 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.balanceOf 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.emergencyWithdraw 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.emergencyWithdraw 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.emergencyWithdraw 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.pause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.pause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.pause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.unpause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.unpause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.balanceOf 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.balanceOf 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.balanceOf 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.allowance 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.pause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.batchTransfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transferFrom 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.allowance 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.batchTransfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.batchTransfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.batchTransfer 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transferFrom 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transferFrom 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.mint 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.mint 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.emergencyWithdraw 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.emergencyWithdraw 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.pause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.transferFrom 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.emergencyWithdraw 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.pause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.emergencyWithdraw 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.pause 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.balanceOf 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.allowance 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.allowance 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.balanceOf 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.balanceOf 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | VulnerabilityScanner[pendle0731111] | _process_single_task_standard_with_rag | 任务 VulnerableToken.allowance 已经扫描过，跳过
+2025-08-01 10:09:20 | INFO     | scan_project         | log_success     | ✅ 成功: 漏洞扫描完成
+2025-08-01 10:09:20 | INFO     | scan_project         | log_success     |    详情: 耗时: 3.05秒
+2025-08-01 10:09:20 | INFO     | scan_project         | log_section_end | ------------------------------------------------------------
+2025-08-01 10:09:20 | INFO     | scan_project         | log_section_end | ✅ 完成执行: 项目扫描
+2025-08-01 10:09:20 | INFO     | scan_project         | log_section_end | ⏱️  执行时间: 3.49秒
+2025-08-01 10:09:20 | INFO     | scan_project         | log_section_end | ------------------------------------------------------------
+2025-08-01 10:09:20 | INFO     | main                 | <module>        | 扫描模式 'COMMON_PROJECT_FINE_GRAINED' 需要执行漏洞验证
+2025-08-01 10:09:21 | INFO     | check_function_vul   | log_section_start | ============================================================
+2025-08-01 10:09:21 | INFO     | check_function_vul   | log_section_start | 🔥 开始执行: 漏洞验证
+2025-08-01 10:09:21 | INFO     | check_function_vul   | log_section_start | 📝 描述: 项目ID: pendle0731111
+2025-08-01 10:09:21 | INFO     | check_function_vul   | log_section_start | ============================================================
+2025-08-01 10:09:21 | INFO     | check_function_vul   | log_step        | 🔹 创建项目任务管理器
+2025-08-01 10:09:21 | INFO     | check_function_vul   | log_success     | ✅ 成功: 项目任务管理器创建完成
+2025-08-01 10:09:21 | INFO     | check_function_vul   | log_step        | 🔹 初始化漏洞检查器
+2025-08-01 10:09:22 | INFO     | check_function_vul   | log_success     | ✅ 成功: 漏洞检查器初始化完成
+2025-08-01 10:09:22 | INFO     | check_function_vul   | log_step        | 🔹 执行漏洞验证

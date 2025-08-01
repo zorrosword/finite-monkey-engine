@@ -5,1391 +5,591 @@ import sys
 import os
 import os.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from tqdm import tqdm
 from dao.entity import Project_Task
 from openai_api.openai import common_ask_for_json
 from prompt_factory.core_prompt import CorePrompt
 from prompt_factory.vul_prompt_common import VulPromptCommon
+import json
 from .business_flow_utils import BusinessFlowUtils
 from .config_utils import ConfigUtils
-from context import ContextFactory
+
+# 直接使用tree_sitter_parsing而不是通过context
+from tree_sitter_parsing import TreeSitterProjectAudit, parse_project, TreeSitterProjectFilter
 
 
 class PlanningProcessor:
-    """规划处理器，负责处理规划相关的复杂逻辑"""
+    """规划处理器，负责基于public函数downstream深度扫描的新planning逻辑"""
     
-    def __init__(self, project, taskmgr, checklist_generator=None):
-        self.project = project
+    def __init__(self, project_audit, taskmgr):
+        """
+        直接接受项目审计结果，而不是通过ContextFactory间接获取
+        
+        Args:
+            project_audit: TreeSitterProjectAudit实例，包含解析后的项目数据
+            taskmgr: 任务管理器
+        """
+        self.project_audit = project_audit
         self.taskmgr = taskmgr
-        self.checklist_generator = checklist_generator
-        self.context_factory = ContextFactory(project)
+        
+        # 从project_audit获取核心数据
+        self.functions = project_audit.functions
+        self.functions_to_check = project_audit.functions_to_check
+        self.call_trees = project_audit.call_trees
+        
         # 为COMMON_PROJECT_FINE_GRAINED模式添加计数器
         self.fine_grained_counter = 0
+        
+        # RAG功能（可选，如果需要的话）
+        self.rag_processor = None
     
-    def do_planning(self):
-        """执行规划的核心逻辑"""
-        print("Begin do planning...")
-        
-        # 准备规划工作
-        config = self._prepare_planning()
-        if config is None:
-            return  # 已有任务，直接返回
-        
-        # 获取所有业务流
-        all_business_flow_data = self._get_business_flows_if_needed(config)
-        
-        # 处理每个函数
-        self._process_all_functions(config, all_business_flow_data)
-    
-    def _prepare_planning(self) -> Dict:
-        """准备规划工作"""
-        # 获取扫描配置
-        config = ConfigUtils.get_scan_configuration()
-        
-        # 检查现有任务
-        tasks = self.taskmgr.get_task_list_by_id(self.project.project_id)
-        if len(tasks) > 0:
-            return None
-        
-        # 过滤测试函数
-        self._filter_test_functions()
-        
-        return config
-    
-    def _filter_test_functions(self):
-        """过滤掉测试函数"""
-        functions_to_remove = []
-        for function in self.project.functions_to_check:
-            name = function['name']
-            if "test" in name:
-                functions_to_remove.append(function)
-        
-        for function in functions_to_remove:
-            self.project.functions_to_check.remove(function)
-    
-    def _get_business_flows_if_needed(self, config: Dict) -> Dict:
-        """如果需要的话获取所有业务流"""
-        # 如果开启了文件级别扫描，则不需要业务流数据
-        if config['switch_file_code']:
-            print("🔄 文件级别扫描模式：跳过业务流数据获取")
-            return {}
-        
-        # 只有在非文件级别扫描且开启业务流扫描时才获取业务流数据
-        if config['switch_business_code']:
-            try:
-                # 从JSON文件中提取业务流
-                print("📄 从JSON文件提取业务流...")
-                json_business_flows = self._extract_business_flows()
-                
-                if json_business_flows:
-                    print("✅ 成功从JSON文件提取业务流")
-                    return {
-                        'use_json_flows': True,
-                        'json_business_flows': json_business_flows,
-                        'all_business_flow': {},
-                        'all_business_flow_line': {},
-                        'all_business_flow_context': {}
-                    }
-                else:
-                    print("⚠️ 从JSON文件提取业务流失败")
-                    return {}
-                    
-            except Exception as e:
-                print(f"获取业务流时出错: {str(e)}")
-                return {}
-        return {}
-    
-    def _extract_business_flows(self) -> Dict[str, List[Dict]]:
-        """从JSON文件中提取业务流，并将步骤匹配到实际函数
-        
-        Returns:
-            Dict[str, List[Dict]]: 业务流名称到实际函数对象列表的映射
-        """
+    def initialize_rag_processor(self, lancedb_path, project_id):
+        """初始化RAG处理器（可选功能）"""
         try:
-            # 从JSON文件加载业务流
-            json_dir = "src/codebaseQA/json"
-            raw_business_flows = BusinessFlowUtils.load_business_flows_from_json_files(
-                json_dir, 
-                self.project.project_id
-            )
-            
-            if not raw_business_flows:
-                print("❌ 未从JSON文件中找到任何业务流")
-                return {}
-            
-            print(f"✅ 成功从JSON文件加载业务流数据")
-            
-            print(f"\n🎯 加载的原始业务流详情：")
-            print("="*80)
-            for i, flow in enumerate(raw_business_flows, 1):
-                flow_name = flow.get('name', f'未命名业务流{i}')
-                steps = flow.get('steps', [])
-                print(f"\n📋 业务流 #{i}: {flow_name}")
-                print(f"   步骤数量: {len(steps)}")
-                print(f"   步骤详情:")
-                for j, step in enumerate(steps, 1):
-                    print(f"     {j}. {step}")
-            print("="*80)
-            
-            # 根据业务流步骤在functions_to_check中查找实际函数
-            matched_flows = self._match_business_flow_steps_to_functions(raw_business_flows)
-            
-            if matched_flows:
-                print(f"\n🎉 业务流步骤匹配结果详情：")
-                print("="*80)
-                
-                total_flows = len(matched_flows)
-                total_functions = sum(len(functions) for functions in matched_flows.values())
-                
-                print(f"✅ 成功匹配 {total_flows} 个业务流，共 {total_functions} 个函数")
-                
-                # 详细打印每个匹配的业务流
-                for flow_name, functions in matched_flows.items():
-                    print(f"\n📊 业务流: '{flow_name}'")
-                    print(f"   匹配函数数: {len(functions)}")
-                    print(f"   函数详情:")
-                    
-                    for i, func in enumerate(functions, 1):
-                        print(f"     {i}. {func['name']}")
-                        print(f"        📁 文件: {func['relative_file_path']}")
-                        print(f"        📍 行号: {func['start_line']}-{func['end_line']}")
-                        print(f"        🏢 合约: {func['contract_name']}")
-                        # 显示函数内容的前50字符
-                        content_preview = func.get('content', '')[:50].replace('\n', ' ')
-                        print(f"        📝 内容预览: {content_preview}{'...' if len(func.get('content', '')) > 50 else ''}")
-                
-                print("="*80)
-                
-                return matched_flows
-            else:
-                print("❌ 业务流步骤匹配失败，未找到对应的函数")
-                return {}
-                
+            from context.rag_processor import RAGProcessor
+            # 正确传递参数：functions_to_check作为第一个参数，并传递调用树数据
+            call_trees = getattr(self.project_audit, 'call_trees', [])
+            self.rag_processor = RAGProcessor(self.functions_to_check, lancedb_path, project_id, call_trees)
+            print("✅ RAG处理器初始化完成")
+            print(f"📊 基于 {len(self.functions_to_check)} 个tree-sitter解析的函数构建RAG")
+            print(f"🔗 使用 {len(call_trees)} 个调用树构建关系型RAG")
+        except ImportError:
+            print("⚠️  RAG处理器不可用，将使用简化搜索")
+            self.rag_processor = None
         except Exception as e:
-            print(f"❌ 从Mermaid提取业务流时发生错误: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return {}
+            print(f"⚠️  RAG处理器初始化失败: {e}")
+            self.rag_processor = None
     
-    def _match_business_flow_steps_to_functions(self, raw_business_flows: List[Dict]) -> Dict[str, List[Dict]]:
-        """根据业务流步骤查找实际函数对象（优先使用LanceDB RAG，回退到functions_to_check）
-        
-        Args:
-            raw_business_flows: 从mermaid提取的原始业务流
-            格式: [{"name": "flow1", "steps": ["Token.transfer", "DEX.swap"]}, ...]
-            
-        Returns:
-            Dict[str, List[Dict]]: 业务流名称到实际函数对象列表的映射
-        """
-        print(f"\n🔍 开始匹配业务流步骤到实际函数...")
-        
-        # 🆕 优先初始化 LanceDB RAG 处理器
-        self._ensure_rag_processor_initialized()
-        
-        # 创建函数查找索引作为回退机制
-        function_lookup = self._build_function_lookup_index()
-        
-        matched_flows = {}
-        
-        for flow in raw_business_flows:
-            flow_name = flow.get('name', 'Unknown Flow')
-            steps = flow.get('steps', [])
-            
-            print(f"\n🔄 处理业务流: '{flow_name}' ({len(steps)} 个步骤)")
-            
-            matched_functions = []
-            for step_index, step in enumerate(steps, 1):
-                print(f"   步骤 {step_index}: {step}")
-                
-                # 在functions_to_check中查找匹配的函数
-                matched_func = self._find_function_by_step(step, function_lookup)
-                
-                if matched_func:
-                    matched_functions.append(matched_func)
-                    print(f"     ✅ 匹配到: {matched_func['name']} ({matched_func['relative_file_path']})")
-                else:
-                    print(f"     ❌ 未找到匹配的函数")
-            
-            if matched_functions:
-                matched_flows[flow_name] = matched_functions
-                print(f"   ✅ 业务流 '{flow_name}' 成功匹配 {len(matched_functions)} 个函数")
-            else:
-                print(f"   ⚠️ 业务流 '{flow_name}' 未匹配到任何函数")
-        
-        return matched_flows
-    
-    def _ensure_rag_processor_initialized(self):
-        """确保RAG处理器已经初始化"""
-        try:
-            if not hasattr(self.context_factory, 'rag_processor') or not self.context_factory.rag_processor:
-                print("🚀 初始化LanceDB RAG处理器用于业务流匹配...")
-                
-                # 初始化RAG处理器
-                self.context_factory.initialize_rag_processor(
-                    functions_to_check=self.project.functions_to_check,
-                    db_path="./src/codebaseQA/lancedb",
-                    project_id=self.project.project_id
-                )
-                
-                if self.context_factory.rag_processor:
-                    print("✅ LanceDB RAG处理器初始化成功")
-                    
-                    # 获取表信息验证
-                    tables_info = self.context_factory.rag_processor.get_all_tables_info()
-                    if tables_info:
-                        print("📊 LanceDB表信息:")
-                        for table_name, info in tables_info.items():
-                            print(f"   - {table_name}: {info['row_count']} 条记录")
-                else:
-                    print("⚠️ LanceDB RAG处理器初始化失败，将使用传统查找方式")
-            else:
-                print("✅ LanceDB RAG处理器已经可用")
-                
-        except Exception as e:
-            print(f"⚠️ RAG处理器初始化过程中出现错误: {str(e)}")
-            print("   将继续使用传统的函数查找方式")
-    
-    def _build_function_lookup_index(self) -> Dict[str, List[Dict]]:
-        """构建函数查找索引
+    def find_public_functions_by_language(self) -> Dict[str, List[Dict]]:
+        """根据语言类型查找所有public函数
         
         Returns:
-            Dict: 多种查找方式的索引
-            {
-                'by_name': {function_name: [function_objects]},
-                'by_contract_function': {contract.function: [function_objects]},
-                'by_file_function': {file.function: [function_objects]}
-            }
+            Dict[str, List[Dict]]: 按语言分类的public函数字典
         """
-        function_lookup = {
-            'by_name': {},           # transfer -> [所有transfer函数]
-            'by_contract_function': {},  # Token.transfer -> [Token合约的transfer函数]
-            'by_file_function': {}   # Token.sol.transfer -> [Token.sol文件的transfer函数]
+        public_functions_by_lang = {
+            'solidity': [],
+            'rust': [],
+            'cpp': [],
+            'move': []
         }
         
-        for func in self.project.functions_to_check:
-            func_name = func['name']
+        for func in self.functions_to_check:
+            # 检查可见性
+            visibility = func.get('visibility', '').lower()
+            func_name = func.get('name', '')
             
-            # 提取纯函数名（去掉合约前缀）
-            if '.' in func_name:
-                contract_name, pure_func_name = func_name.split('.', 1)
-                
-                # 按纯函数名索引
-                if pure_func_name not in function_lookup['by_name']:
-                    function_lookup['by_name'][pure_func_name] = []
-                function_lookup['by_name'][pure_func_name].append(func)
-                
-                # 清理合约名（去掉可能的文件扩展名）
-                clean_contract_name = contract_name
-                for ext in ['.cpp', '.sol', '.py', '.js', '.ts', '.c', '.h', '.hpp']:
-                    if clean_contract_name.endswith(ext):
-                        clean_contract_name = clean_contract_name[:-len(ext)]
-                        break
-                
-                # 按合约.函数名索引
-                contract_func_key = f"{clean_contract_name}.{pure_func_name}"
-                if contract_func_key not in function_lookup['by_contract_function']:
-                    function_lookup['by_contract_function'][contract_func_key] = []
-                function_lookup['by_contract_function'][contract_func_key].append(func)
-                
-                # 按文件.函数名索引（提取纯文件名，不包含扩展名）
-                file_full_name = os.path.basename(func['relative_file_path'])
-                file_name = file_full_name
-                for ext in ['.cpp', '.sol', '.py', '.js', '.ts', '.c', '.h', '.hpp']:
-                    if file_name.endswith(ext):
-                        file_name = file_name[:-len(ext)]
-                        break
-                
-                file_func_key = f"{file_name}.{pure_func_name}"
-                if file_func_key not in function_lookup['by_file_function']:
-                    function_lookup['by_file_function'][file_func_key] = []
-                function_lookup['by_file_function'][file_func_key].append(func)
-            else:
-                # 如果函数名中没有点号，直接作为纯函数名处理
-                pure_func_name = func_name
-                if pure_func_name not in function_lookup['by_name']:
-                    function_lookup['by_name'][pure_func_name] = []
-                function_lookup['by_name'][pure_func_name].append(func)
+            # 判断语言类型和public可见性
+            if func_name.endswith('.sol') or 'sol' in func.get('relative_file_path', '').lower():
+                if visibility in ['public', 'external']:
+                    public_functions_by_lang['solidity'].append(func)
+            elif func_name.endswith('.rs') or 'rust' in func.get('relative_file_path', '').lower():
+                if visibility == 'pub' or visibility == 'public':
+                    public_functions_by_lang['rust'].append(func)
+            elif func_name.endswith('.cpp') or func_name.endswith('.c') or 'cpp' in func.get('relative_file_path', '').lower():
+                if visibility == 'public' or not visibility:  # C++默认public
+                    public_functions_by_lang['cpp'].append(func)
+            elif func_name.endswith('.move') or 'move' in func.get('relative_file_path', '').lower():
+                if visibility == 'public' or visibility == 'public(friend)':
+                    public_functions_by_lang['move'].append(func)
         
-        return function_lookup
+        # 打印统计信息
+        total_public = sum(len(funcs) for funcs in public_functions_by_lang.values())
+        print(f"🔍 发现 {total_public} 个public函数:")
+        for lang, funcs in public_functions_by_lang.items():
+            if funcs:
+                print(f"  📋 {lang}: {len(funcs)} 个public函数")
+        
+        return public_functions_by_lang
     
-    def _find_function_by_step(self, step: str, function_lookup: Dict = None) -> Dict:
-        """根据业务流步骤查找对应的函数对象
+    def convert_tasks_to_project_tasks_v3(self, tasks: List[Dict]) -> List[Project_Task]:
+        """将任务数据转换为Project_Task实体（V3版本）"""
+        project_tasks = []
+        
+        for task in tasks:
+            root_function = task['root_function']
+            rule_list = task['rule_list']
+            downstream_content = task.get('downstream_content', '')
+            
+            # 构建business_flow_code: root func的内容 + 所有downstream的内容
+            business_flow_code = root_function.get('content', '')
+            if downstream_content:
+                business_flow_code += '\n\n' + downstream_content
+            
+            # 创建Project_Task实例
+            project_task = Project_Task(
+                project_id=self.taskmgr.project_id,
+                name=root_function.get('name', ''),  # 合约名+函数名用点连接
+                content=root_function.get('content', ''),  # root function的内容
+                rule=json.dumps(rule_list, ensure_ascii=False, indent=2),  # 原始的list
+                rule_key=task.get('rule_key', ''),  # 规则key
+                start_line=str(root_function.get('start_line', '')),
+                end_line=str(root_function.get('end_line', '')),
+                relative_file_path=root_function.get('relative_file_path', ''),
+                absolute_file_path=root_function.get('absolute_file_path', ''),
+                business_flow_code=business_flow_code
+            )
+            
+            project_tasks.append(project_task)
+        
+        return project_tasks
+    
+    def create_database_tasks_v3(self, project_tasks: List[Project_Task]):
+        """将Project_Task实体存储到数据库（V3版本）"""
+        print(f"💾 开始存储 {len(project_tasks)} 个任务到数据库...")
+        
+        success_count = 0
+        for project_task in project_tasks:
+            try:
+                self.taskmgr.save_task(project_task)
+                success_count += 1
+            except Exception as e:
+                print(f"⚠️ 保存任务失败: {project_task.name} - {str(e)}")
+        
+        print(f"✅ 成功存储 {success_count}/{len(project_tasks)} 个任务")
+
+    def extract_downstream_to_deepest(self, func_name: str, visited: set = None, depth: int = 0, max_depth: int = 10) -> List[Dict]:
+        """深度提取某个函数的所有下游函数到最深层
         
         Args:
-            step: 业务流步骤，如 "Token.transfer"
-            function_lookup: 函数查找索引
+            func_name: 起始函数名
+            visited: 已访问的函数集合（避免循环）
+            depth: 当前深度
+            max_depth: 最大深度限制
             
         Returns:
-            Dict: 匹配的函数对象，如果未找到返回None
+            List[Dict]: 下游函数链表，包含深度信息
         """
-        import time
-        from datetime import datetime
-        start_time = time.time()
+        if visited is None:
+            visited = set()
         
-        print(f"      🔍 开始查找函数: '{step}'")
-        print(f"         📋 传统索引可用: {'是' if function_lookup else '否'}")
-        print(f"         🤖 LanceDB可用: {'是' if hasattr(self.context_factory, 'rag_processor') and self.context_factory.rag_processor else '否'}")
+        if func_name in visited or depth > max_depth:
+            return []
         
-        # 初始化匹配记录函数
-        def log_match_result(method_type: str, strategy: str, found_function: str, 
-                           distance: str = "N/A", elapsed_ms: float = 0, details: str = ""):
-            """记录匹配结果到文件"""
-            try:
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                project_id = getattr(self.project, 'project_id', 'unknown')
-                
-                log_entry = f"""
-=== 函数匹配记录 ===
-时间: {timestamp}
-项目ID: {project_id}
-查找步骤: '{step}'
-匹配方式: {method_type}
-匹配策略: {strategy}
-找到函数: {found_function}
-相似度距离: {distance}
-耗时: {elapsed_ms:.2f}ms
-详细信息: {details}
-{'='*50}
-"""
-                
-                # 写入日志文件
-                log_file_path = f"function_matching_log_{project_id}.txt"
-                with open(log_file_path, 'a', encoding='utf-8') as f:
-                    f.write(log_entry)
-                    
-            except Exception as e:
-                print(f"      ⚠️ 记录匹配日志失败: {str(e)}")
+        visited.add(func_name)
+        downstream_chain = []
         
-        # 🔄 优先使用传统的function_lookup方式进行精确查找
-        if function_lookup:
-            print(f"      📍 第一阶段: 传统精确查找")
-            print(f"         索引统计: 合约函数({len(function_lookup['by_contract_function'])}), 文件函数({len(function_lookup['by_file_function'])}), 纯函数名({len(function_lookup['by_name'])})")
-            
-            # 策略1: 精确匹配 (合约.函数)
-            print(f"         🎯 策略1: 合约.函数精确匹配 - '{step}'")
-            if step in function_lookup['by_contract_function']:
-                candidates = function_lookup['by_contract_function'][step]
-                if candidates:
-                    elapsed = (time.time() - start_time) * 1000
-                    selected = candidates[0]
-                    print(f"      ✅ 传统精确匹配(合约.函数): {step}")
-                    print(f"         📊 匹配详情: 函数名={selected['name']}, 文件={selected.get('relative_file_path', 'N/A')}")
-                    print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
-                    
-                    # 记录匹配日志
-                    log_match_result(
-                        method_type="传统查找",
-                        strategy="策略1: 合约.函数精确匹配",
-                        found_function=selected['name'],
-                        distance="N/A (精确匹配)",
-                        elapsed_ms=elapsed,
-                        details=f"文件: {selected.get('relative_file_path', 'N/A')}, 候选数: {len(candidates)}"
-                    )
-                    
-                    return selected
-            print(f"         ❌ 策略1失败: 无合约.函数匹配")
-            
-            # 策略2: 文件.函数匹配
-            print(f"         🎯 策略2: 文件.函数精确匹配 - '{step}'")
-            if step in function_lookup['by_file_function']:
-                candidates = function_lookup['by_file_function'][step]
-                if candidates:
-                    elapsed = (time.time() - start_time) * 1000
-                    selected = candidates[0]
-                    print(f"      ✅ 传统精确匹配(文件.函数): {step}")
-                    print(f"         📊 匹配详情: 函数名={selected['name']}, 文件={selected.get('relative_file_path', 'N/A')}")
-                    print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
-                    
-                    # 记录匹配日志
-                    log_match_result(
-                        method_type="传统查找",
-                        strategy="策略2: 文件.函数精确匹配",
-                        found_function=selected['name'],
-                        distance="N/A (精确匹配)",
-                        elapsed_ms=elapsed,
-                        details=f"文件: {selected.get('relative_file_path', 'N/A')}, 候选数: {len(candidates)}"
-                    )
-                    
-                    return selected
-            print(f"         ❌ 策略2失败: 无文件.函数匹配")
-            
-            # 策略3: 分解函数名匹配
-            if '.' in step:
-                contract_or_file, func_name = step.split('.', 1)
-                print(f"         🎯 策略3: 分解函数名匹配 - 容器='{contract_or_file}', 函数='{func_name}'")
-                if func_name in function_lookup['by_name']:
-                    candidates = function_lookup['by_name'][func_name]
-                    if candidates:
-                        elapsed = (time.time() - start_time) * 1000
-                        # 优先选择匹配合约名的候选
-                        best_candidate = None
-                        for candidate in candidates:
-                            if candidate.get('contract_name') == contract_or_file:
-                                best_candidate = candidate
-                                print(f"         🎯 找到精确合约匹配: {contract_or_file}.{func_name}")
-                                break
-                        
-                        if not best_candidate:
-                            best_candidate = candidates[0]
-                            print(f"         🎯 使用首个函数名匹配: {func_name}")
-                        
-                        print(f"      ✅ 传统函数名匹配: {func_name}")
-                        print(f"         📊 匹配详情: 函数名={best_candidate['name']}, 文件={best_candidate.get('relative_file_path', 'N/A')}")
-                        print(f"         📊 候选数量: {len(candidates)} 个")
-                        print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
-                        
-                        # 记录匹配日志  
-                        match_type = "精确合约匹配" if any(c.get('contract_name') == contract_or_file for c in candidates) else "首个函数名匹配"
-                        log_match_result(
-                            method_type="传统查找",
-                            strategy=f"策略3: 分解函数名匹配 ({match_type})",
-                            found_function=best_candidate['name'],
-                            distance="N/A (精确匹配)",
-                            elapsed_ms=elapsed,
-                            details=f"原始步骤: {step}, 分解: {contract_or_file}.{func_name}, 文件: {best_candidate.get('relative_file_path', 'N/A')}, 候选数: {len(candidates)}"
-                        )
-                        
-                        return best_candidate
-                print(f"         ❌ 策略3失败: 函数名'{func_name}'无匹配")
-            
-            # 策略4: 直接按函数名匹配
-            print(f"         🎯 策略4: 直接函数名匹配 - '{step}'")
-            if step in function_lookup['by_name']:
-                candidates = function_lookup['by_name'][step]
-                if candidates:
-                    elapsed = (time.time() - start_time) * 1000
-                    selected = candidates[0]
-                    print(f"      ✅ 传统直接匹配: {step}")
-                    print(f"         📊 匹配详情: 函数名={selected['name']}, 文件={selected.get('relative_file_path', 'N/A')}")
-                    print(f"         📊 候选数量: {len(candidates)} 个")
-                    print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
-                    
-                    # 记录匹配日志
-                    log_match_result(
-                        method_type="传统查找",
-                        strategy="策略4: 直接函数名匹配",
-                        found_function=selected['name'],
-                        distance="N/A (精确匹配)",
-                        elapsed_ms=elapsed,
-                        details=f"文件: {selected.get('relative_file_path', 'N/A')}, 候选数: {len(candidates)}"
-                    )
-                    
-                    return selected
-            print(f"         ❌ 策略4失败: 直接名称无匹配")
-            
-            traditional_elapsed = (time.time() - start_time) * 1000
-            print(f"      ⚠️ 传统查找全部失败，耗时 {traditional_elapsed:.2f}ms，切换到LanceDB智能搜索...")
-        else:
-            print(f"      ⚠️ 无传统索引，直接使用LanceDB智能搜索")
-        
-        # 🆕 回退到 LanceDB RAG 进行智能搜索
-        if hasattr(self.context_factory, 'rag_processor') and self.context_factory.rag_processor:
-            try:
-                lancedb_start = time.time()
-                print(f"      📍 第二阶段: LanceDB智能搜索")
+        # 在调用树中查找当前函数的下游函数
+        for call_tree in self.call_trees:
+            if call_tree.get('function_name') == func_name.split('.')[-1]:
+                relationships = call_tree.get('relationships', {})
+                func_name_short = func_name.split('.')[-1]
+                downstream_funcs = relationships.get('downstream', {}).get(func_name_short, set())
                 
-                # 策略1: 使用 name embedding 进行精确匹配
-                print(f"         🎯 LanceDB策略1: name embedding搜索 - '{step}'")
-                name_search_results = self.context_factory.search_functions_by_name(step, k=5)
-                
-                if name_search_results:
-                    print(f"         📊 name embedding返回 {len(name_search_results)} 个候选")
-                    
-                    # 寻找精确匹配
-                    for i, result in enumerate(name_search_results):
-                        similarity_score = result.get('_distance', 'N/A')
-                        result_name = result.get('name', 'N/A')
-                        result_full_name = result.get('full_name', 'N/A')
-                        
-                        print(f"         候选{i+1}: {result_name} (距离={similarity_score}, full_name={result_full_name})")
-                        
-                        if result.get('name') == step:
-                            elapsed = (time.time() - start_time) * 1000
-                            print(f"      ✅ LanceDB精确匹配(name): {result.get('name')}")
-                            print(f"         📊 匹配详情: 文件={result.get('relative_file_path', 'N/A')}, 合约={result.get('contract_name', 'N/A')}")
-                            print(f"         📊 相似度距离: {similarity_score}")
-                            print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
+                for downstream_func in downstream_funcs:
+                    # 找到下游函数的完整信息
+                    for func in self.functions_to_check:
+                        if func['name'].split('.')[-1] == downstream_func:
+                            downstream_info = {
+                                'function': func,
+                                'depth': depth + 1,
+                                'parent': func_name
+                            }
+                            downstream_chain.append(downstream_info)
                             
-                            # 记录匹配日志
-                            log_match_result(
-                                method_type="LanceDB智能搜索",
-                                strategy="策略1: name embedding精确匹配",
-                                found_function=result.get('name'),
-                                distance=str(similarity_score),
-                                elapsed_ms=elapsed,
-                                details=f"文件: {result.get('relative_file_path', 'N/A')}, 合约: {result.get('contract_name', 'N/A')}, 候选总数: {len(name_search_results)}"
+                            # 递归获取更深层的下游函数
+                            deeper_downstream = self.extract_downstream_to_deepest(
+                                func['name'], visited.copy(), depth + 1, max_depth
                             )
-                            
-                            return result
-                            
-                        if result.get('full_name') == step:
-                            elapsed = (time.time() - start_time) * 1000
-                            print(f"      ✅ LanceDB精确匹配(full_name): {result.get('full_name')}")
-                            print(f"         📊 匹配详情: 文件={result.get('relative_file_path', 'N/A')}, 合约={result.get('contract_name', 'N/A')}")
-                            print(f"         📊 相似度距离: {similarity_score}")
-                            print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
-                            
-                            # 记录匹配日志
-                            log_match_result(
-                                method_type="LanceDB智能搜索",
-                                strategy="策略1: full_name embedding精确匹配",
-                                found_function=result.get('full_name'),
-                                distance=str(similarity_score),
-                                elapsed_ms=elapsed,
-                                details=f"文件: {result.get('relative_file_path', 'N/A')}, 合约: {result.get('contract_name', 'N/A')}, 候选总数: {len(name_search_results)}"
-                            )
-                            
-                            return result
-                    
-                    # 如果没有精确匹配，返回相似度最高的结果
-                    best_match = name_search_results[0]
-                    best_similarity = best_match.get('_distance', 'N/A')
-                    elapsed = (time.time() - start_time) * 1000
-                    print(f"      🎯 LanceDB相似匹配: {step} -> {best_match.get('name')}")
-                    print(f"         📊 匹配详情: 文件={best_match.get('relative_file_path', 'N/A')}, 合约={best_match.get('contract_name', 'N/A')}")
-                    print(f"         📊 相似度距离: {best_similarity}")
-                    print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
-                    
-                    # 记录匹配日志
-                    log_match_result(
-                        method_type="LanceDB智能搜索",
-                        strategy="策略1: name embedding相似匹配",
-                        found_function=best_match.get('name'),
-                        distance=str(best_similarity),
-                        elapsed_ms=elapsed,
-                        details=f"原始查询: {step}, 文件: {best_match.get('relative_file_path', 'N/A')}, 合约: {best_match.get('contract_name', 'N/A')}, 候选总数: {len(name_search_results)}"
-                    )
-                    
-                    return best_match
-                else:
-                    print(f"         ❌ name embedding无结果")
-                
-                # 策略2: 分解步骤搜索
-                if '.' in step:
-                    contract_name, func_name = step.split('.', 1)
-                    print(f"         🎯 LanceDB策略2: 分解搜索 - 合约='{contract_name}', 函数='{func_name}'")
-                    
-                    func_search_results = self.context_factory.search_functions_by_name(func_name, k=5)
-                    
-                    if func_search_results:
-                        print(f"         📊 函数名搜索返回 {len(func_search_results)} 个候选")
-                        
-                        # 优先选择匹配合约名的结果
-                        for i, result in enumerate(func_search_results):
-                            similarity_score = result.get('_distance', 'N/A')
-                            result_contract = result.get('contract_name', 'N/A')
-                            result_name = result.get('name', 'N/A')
-                            
-                            print(f"         候选{i+1}: {result_name} (合约={result_contract}, 距离={similarity_score})")
-                            
-                            if result.get('contract_name') == contract_name:
-                                elapsed = (time.time() - start_time) * 1000
-                                print(f"      ✅ LanceDB合约+函数匹配: {contract_name}.{func_name}")
-                                print(f"         📊 匹配详情: 文件={result.get('relative_file_path', 'N/A')}")
-                                print(f"         📊 相似度距离: {similarity_score}")
-                                print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
-                                
-                                # 记录匹配日志
-                                log_match_result(
-                                    method_type="LanceDB智能搜索",
-                                    strategy="策略2: 分解搜索合约+函数匹配",
-                                    found_function=result.get('name'),
-                                    distance=str(similarity_score),
-                                    elapsed_ms=elapsed,
-                                    details=f"原始步骤: {step}, 分解: {contract_name}.{func_name}, 文件: {result.get('relative_file_path', 'N/A')}, 候选总数: {len(func_search_results)}"
-                                )
-                                
-                                return result
-                        
-                        # 如果没有合约匹配，返回第一个函数名匹配
-                        best_match = func_search_results[0]
-                        best_similarity = best_match.get('_distance', 'N/A')
-                        elapsed = (time.time() - start_time) * 1000
-                        print(f"      🎯 LanceDB函数名匹配: {func_name} -> {best_match.get('name')}")
-                        print(f"         📊 匹配详情: 文件={best_match.get('relative_file_path', 'N/A')}, 合约={best_match.get('contract_name', 'N/A')}")
-                        print(f"         📊 相似度距离: {best_similarity}")
-                        print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
-                        
-                        # 记录匹配日志
-                        log_match_result(
-                            method_type="LanceDB智能搜索",
-                            strategy="策略2: 分解搜索函数名匹配",
-                            found_function=best_match.get('name'),
-                            distance=str(best_similarity),
-                            elapsed_ms=elapsed,
-                            details=f"原始步骤: {step}, 查询函数名: {func_name}, 文件: {best_match.get('relative_file_path', 'N/A')}, 合约: {best_match.get('contract_name', 'N/A')}, 候选总数: {len(func_search_results)}"
-                        )
-                        
-                        return best_match
-                    else:
-                        print(f"         ❌ 函数名'{func_name}'搜索无结果")
-                
-                # 策略3: 使用内容搜索作为最后的备选
-                print(f"         🎯 LanceDB策略3: 内容相似搜索 - '{step}'")
-                content_search_results = self.context_factory.search_functions_by_content(step, k=3)
-                
-                if content_search_results:
-                    print(f"         📊 内容搜索返回 {len(content_search_results)} 个候选")
-                    
-                    for i, result in enumerate(content_search_results):
-                        similarity_score = result.get('_distance', 'N/A')
-                        result_name = result.get('name', 'N/A')
-                        print(f"         候选{i+1}: {result_name} (距离={similarity_score})")
-                    
-                    best_match = content_search_results[0]
-                    best_similarity = best_match.get('_distance', 'N/A')
-                    elapsed = (time.time() - start_time) * 1000
-                    print(f"      🔍 LanceDB内容匹配: {step} -> {best_match.get('name')}")
-                    print(f"         📊 匹配详情: 文件={best_match.get('relative_file_path', 'N/A')}, 合约={best_match.get('contract_name', 'N/A')}")
-                    print(f"         📊 相似度距离: {best_similarity}")
-                    print(f"         ⏱️  查找耗时: {elapsed:.2f}ms")
-                    
-                    # 记录匹配日志
-                    log_match_result(
-                        method_type="LanceDB智能搜索",
-                        strategy="策略3: 内容相似搜索匹配",
-                        found_function=best_match.get('name'),
-                        distance=str(best_similarity),
-                        elapsed_ms=elapsed,
-                        details=f"原始查询: {step}, 文件: {best_match.get('relative_file_path', 'N/A')}, 合约: {best_match.get('contract_name', 'N/A')}, 候选总数: {len(content_search_results)}"
-                    )
-                    
-                    return best_match
-                else:
-                    print(f"         ❌ 内容搜索无结果")
-                
-                lancedb_elapsed = (time.time() - lancedb_start) * 1000
-                print(f"         ❌ LanceDB所有策略失败，耗时 {lancedb_elapsed:.2f}ms")
-                    
-            except Exception as e:
-                lancedb_elapsed = (time.time() - lancedb_start) * 1000
-                print(f"      ⚠️ LanceDB搜索异常: {str(e)}")
-                print(f"         ⏱️  异常前耗时: {lancedb_elapsed:.2f}ms")
-        else:
-            print(f"      ⚠️ LanceDB不可用 (rag_processor未初始化)")
+                            downstream_chain.extend(deeper_downstream)
+                            break
+                break
         
-        total_elapsed = (time.time() - start_time) * 1000
-        print(f"      ❌ 所有搜索方式都未找到匹配函数: '{step}'")
-        print(f"         ⏱️  总查找耗时: {total_elapsed:.2f}ms")
-        
-        # 记录未找到匹配的日志
-        log_match_result(
-            method_type="搜索失败",
-            strategy="所有策略均失败",
-            found_function="未找到",
-            distance="N/A",
-            elapsed_ms=total_elapsed,
-            details=f"传统索引可用: {'是' if function_lookup else '否'}, LanceDB可用: {'是' if hasattr(self.context_factory, 'rag_processor') and self.context_factory.rag_processor else '否'}"
-        )
-        
-        return None
-    
-    def _process_all_functions(self, config: Dict, all_business_flow_data: Dict):
-        """处理所有函数"""
-        # 如果开启了文件级别扫描
-        if config['switch_file_code']:
-            self._process_all_files(config)
-        else:
-            # 使用基于JSON的业务流处理模式
-            print("📄 使用基于JSON的业务流处理模式")
-            self._process_json_business_flows(config, all_business_flow_data)
-    
-    def _process_json_business_flows(self, config: Dict, all_business_flow_data: Dict):
-        """基于JSON业务流的整体处理模式"""
-        json_flows = all_business_flow_data.get('json_business_flows', {})
-        
-        if not json_flows:
-            print("❌ 未找到JSON业务流，跳过业务流处理")
-            return
-        
-        print(f"\n🔄 开始处理 {len(json_flows)} 个JSON业务流...")
-        
-        # 记录所有被业务流覆盖的函数
-        all_covered_functions = set()
-        all_business_flow_functions = []
-        
-        # 对每个业务流进行任务创建（不进行上下文扩展）
-        for flow_name, flow_functions in json_flows.items():
-            print(f"\n📊 处理业务流: '{flow_name}'")
-            print(f"   函数数: {len(flow_functions)}")
-            
-            # 记录函数
-            all_business_flow_functions.extend(flow_functions)
-            for func in flow_functions:
-                all_covered_functions.add(func['name'])
-            
-            # 构建业务流代码
-            business_flow_code = self._build_business_flow_code_from_functions(flow_functions)
-            line_info_list = self._build_line_info_from_functions(flow_functions)
-            
-            print(f"   业务流代码长度: {len(business_flow_code)} 字符")
-            
-            # 为业务流中的每个函数创建任务
-            self._create_tasks_for_business_flow(
-                flow_functions, business_flow_code, line_info_list, 
-                flow_name, config
-            )
-                
-        # 添加业务流覆盖度分析日志
-        self._log_business_flow_coverage(all_covered_functions, all_business_flow_functions)
-    
+        return downstream_chain
 
-    
-    def _create_tasks_for_business_flow(self, flow_functions: List[Dict], 
-                                      business_flow_code: str, line_info_list: List[Dict],
-                                      flow_name: str, config: Dict):
-        """为业务流创建任务（整个业务流一个任务，而不是每个函数一个任务）"""
-        
-        print(f"   📝 为业务流 '{flow_name}' 创建任务...")
-        
-        # 选择一个代表性函数作为任务的主要函数（通常是第一个函数）
-        representative_function = flow_functions[0] if flow_functions else None
-        if not representative_function:
-            print("   ❌ 业务流中无有效函数，跳过任务创建")
-            return
-        
-        # 生成检查清单和业务类型分析（基于整个业务流）
-        checklist, business_type_str = self._generate_checklist_and_analysis(
-            business_flow_code, 
-            representative_function['content'], 
-            representative_function['contract_name'], 
-            is_business_flow=True
-        )
-        
-        print(f"   📋 生成的业务类型: {business_type_str}")
-        print(f"   📊 业务流包含 {len(flow_functions)} 个函数")
-        
-        # 为整个业务流创建任务（不是为每个函数创建）
-        tasks_created = 0
-        for i in range(config['actual_iteration_count']):
-            # print(f"      📝 创建业务流 '{flow_name}' 的第 {i+1} 个任务...")
-            
-            # 使用代表性函数作为任务载体，但任务包含整个业务流的信息
-            self._create_planning_task(
-                representative_function, checklist, business_type_str,
-                business_flow_code, line_info_list,
-                if_business_flow_scan=1, config=config
-            )
-            tasks_created += 1
-        
-        print(f"   ✅ 为业务流 '{flow_name}' 成功创建 {tasks_created} 个任务")
-        print(f"      每个任务包含整个业务流的 {len(flow_functions)} 个函数的完整上下文")
-    
-    def _process_all_files(self, config: Dict):
-        """处理所有文件 - 文件级别扫描"""
-        # 只支持 pure 和 common fine grained 模式
-        if config['scan_mode'] not in ['PURE', 'COMMON_PROJECT_FINE_GRAINED']:
-            print(f"文件级别扫描不支持 {config['scan_mode']} 模式，跳过")
-            return
-        
-        # 按文件路径分组函数
-        files_dict = {}
-        for function in self.project.functions_to_check:
-            file_path = function['relative_file_path']
-            if file_path not in files_dict:
-                files_dict[file_path] = []
-            files_dict[file_path].append(function)
-        
-        # 对每个文件进行处理
-        for file_path, functions in tqdm(files_dict.items(), desc="Processing files"):
-            self._process_single_file(file_path, functions, config)
-    
-    def _process_single_file(self, file_path: str, functions: List[Dict], config: Dict):
-        """处理单个文件"""
-        print(f"————————Processing file: {file_path}————————")
-        
-        # 检查是否应该排除
-        if ConfigUtils.should_exclude_in_planning(self.project, file_path):
-            print(f"Excluding file {file_path} in planning process based on configuration")
-            return
-        
-        # 获取文件内容 (使用第一个函数的contract_code作为文件内容)
-        if not functions:
-            return
-        
-        file_content = functions[0]['contract_code']
-        
-        # 检查文件内容长度
-        if len(file_content) < config['threshold']:
-            print(f"File content for {file_path} is too short for <{config['threshold']}, skipping...")
-            return
-        
-        # 创建文件级别的任务
-        self._handle_file_code_planning(file_path, functions, file_content, config)
-    
-    def _handle_file_code_planning(self, file_path: str, functions: List[Dict], file_content: str, config: Dict):
-        """处理文件代码规划"""
-        # 不需要生成checklist，直接创建任务
-        checklist = ""
-        
-        # 获取代表性函数信息（使用第一个函数的信息作为模板）
-        representative_function = functions[0]
-        
-        # 根据模式决定循环次数
-        if config['scan_mode'] == "COMMON_PROJECT_FINE_GRAINED":
-            iteration_count = config['actual_iteration_count']
-        else:  # PURE模式
-            iteration_count = config['base_iteration_count']
-        
-        # 创建任务
-        for i in range(iteration_count):
-            self._create_file_planning_task(
-                file_path, representative_function, file_content, 
-                checklist, config
-            )
-    
-    def _create_file_planning_task(
-        self, 
-        file_path: str, 
-        representative_function: Dict, 
-        file_content: str, 
-        checklist: str, 
-        config: Dict
-    ):
-        """创建文件级别的规划任务"""
-        # 处理recommendation字段
-        recommendation = ""
-        
-        # 如果是COMMON_PROJECT_FINE_GRAINED模式，设置checklist类型到recommendation
-        if config['scan_mode'] == "COMMON_PROJECT_FINE_GRAINED":
-            checklist_dict = VulPromptCommon.vul_prompt_common_new(self.fine_grained_counter % config['total_checklist_count'])
-            if checklist_dict:
-                checklist_key = list(checklist_dict.keys())[0]
-                recommendation = checklist_key
-                # print(f"[DEBUG🐞]📋Setting recommendation to checklist key: {checklist_key} (index: {self.fine_grained_counter % config['total_checklist_count']})")
-            self.fine_grained_counter += 1
-        
-        task = Project_Task(
-            project_id=self.project.project_id,
-            name=f"FILE:{file_path}",  # 文件级别的任务名称
-            content=file_content,  # 使用整个文件内容
-            keyword=str(random.random()),
-            business_type='',
-            sub_business_type='',
-            function_type='',
-            rule='',
-            result='',
-            result_gpt4='',
-            score='',
-            category='',
-            contract_code=file_content,  # 使用文件内容
-            risklevel='',
-            similarity_with_rule='',
-            description=checklist,
-            start_line=representative_function['start_line'],
-            end_line=representative_function['end_line'],
-            relative_file_path=representative_function['relative_file_path'],
-            absolute_file_path=representative_function['absolute_file_path'],
-            recommendation=recommendation,
-            title='',
-            business_flow_code=file_content,
-            business_flow_lines='',
-            business_flow_context='',
-            if_business_flow_scan=0  # 文件级别扫描不是业务流扫描
-        )
-        self.taskmgr.add_task_in_one(task)
-    
-    def _generate_checklist_and_analysis(
-        self, 
-        business_flow_code: str, 
-        content: str, 
-        contract_name: str, 
-        is_business_flow: bool
-    ) -> tuple[str, str]:
-        """生成检查清单和业务类型分析"""
-        checklist = ""
-        business_type_str = ""
-        
-        if self.checklist_generator:
-            print(f"\n📋 为{'业务流程' if is_business_flow else '函数代码'}生成检查清单...")
-            
-            # 准备代码用于检查清单生成
-            code_for_checklist = f"{business_flow_code}\n{content}" if is_business_flow else content
-            business_description, checklist = self.checklist_generator.generate_checklist(code_for_checklist)
-            
-            # 写入CSV文件
-            csv_file_name = "checklist_business_code.csv" if is_business_flow else "checklist_function_code.csv"
-            self._write_checklist_to_csv(
-                csv_file_name, contract_name, 
-                business_flow_code if is_business_flow else "", 
-                content, business_description, checklist
-            )
-            
-            print(f"✅ Checklist written to {csv_file_name}")
-            print("✅ 检查清单生成完成")
-            
-            # 如果是业务流，进行业务类型分析
-            if is_business_flow:
-                business_type_str = self._analyze_business_type(business_flow_code, content)
-        
-        return checklist, business_type_str
-    
-    def _write_checklist_to_csv(
-        self, 
-        csv_file_path: str, 
-        contract_name: str, 
-        business_flow_code: str, 
-        content: str, 
-        business_description: str, 
-        checklist: str
-    ):
-        """将检查清单写入CSV文件"""
-        with open(csv_file_path, mode='a', newline='', encoding='utf-8') as csv_file:
-            csv_writer = csv.writer(csv_file)
-            if csv_file.tell() == 0:
-                csv_writer.writerow(["contract_name", "business_flow_code", "content", "business_description", "checklist"])
-            csv_writer.writerow([contract_name, business_flow_code, content, business_description, checklist])
-    
-    def _analyze_business_type(self, business_flow_code: str, content: str) -> str:
-        """分析业务类型"""
-        try:
-            core_prompt = CorePrompt()
-            type_check_prompt = core_prompt.type_check_prompt()
-            
-            formatted_prompt = type_check_prompt.format(business_flow_code + "\n" + content)
-            type_response = common_ask_for_json(formatted_prompt)
-            print(f"[DEBUG] Claude返回的响应: {type_response}")
-            
-            cleaned_response = type_response
-            print(f"[DEBUG] 清理后的响应: {cleaned_response}")
-            
-            type_data = json.loads(cleaned_response)
-            business_type = type_data.get('business_types', ['other'])
-            print(f"[DEBUG] 解析出的业务类型: {business_type}")
-            
-            # 防御性逻辑：确保business_type是列表类型
-            if not isinstance(business_type, list):
-                business_type = [str(business_type)]
-            
-            # 处理 other 的情况
-            if 'other' in business_type and len(business_type) > 1:
-                business_type.remove('other')
-            
-            # 确保列表不为空
-            if not business_type:
-                business_type = ['other']
-            
-            business_type_str = ','.join(str(bt) for bt in business_type)
-            print(f"[DEBUG] 最终的业务类型字符串: {business_type_str}")
-            
-            return business_type_str
-            
-        except json.JSONDecodeError as e:
-            print(f"[ERROR] JSON解析失败: {str(e)}")
-            return 'other'
-        except Exception as e:
-            print(f"[ERROR] 处理业务类型时发生错误: {str(e)}")
-            return 'other'
-    
-    def _create_planning_task(
-        self, 
-        function: Dict, 
-        checklist: str, 
-        business_type_str: str, 
-        business_flow_code: str, 
-        business_flow_lines, 
-        if_business_flow_scan: int,
-        config: Dict = None
-    ):
-        """创建规划任务"""
-        # 处理recommendation字段
-        recommendation = business_type_str
-        
-        # 如果是COMMON_PROJECT_FINE_GRAINED模式，设置checklist类型到recommendation
-        if config and config['scan_mode'] == "COMMON_PROJECT_FINE_GRAINED":
-            # 获取当前checklist类型
-            checklist_dict = VulPromptCommon.vul_prompt_common_new(self.fine_grained_counter % config['total_checklist_count'])
-            if checklist_dict:
-                checklist_key = list(checklist_dict.keys())[0]
-                recommendation = checklist_key
-                # print(f"[DEBUG🐞]📋Setting recommendation to checklist key: {checklist_key} (index: {self.fine_grained_counter % config['total_checklist_count']})")
-            self.fine_grained_counter += 1
-        
-        # 将business_flow_lines序列化为JSON字符串以便存储到数据库
-        business_flow_lines_str = ""
-        if business_flow_lines:
-            try:
-                if isinstance(business_flow_lines, (list, dict)):
-                    business_flow_lines_str = json.dumps(business_flow_lines, ensure_ascii=False)
-                else:
-                    business_flow_lines_str = str(business_flow_lines)
-            except Exception as e:
-                print(f"[WARNING] 序列化business_flow_lines时出错: {e}")
-                business_flow_lines_str = str(business_flow_lines)
-        
-        task = Project_Task(
-            project_id=self.project.project_id,
-            name=function['name'],
-            content=function['content'],
-            keyword=str(random.random()),
-            business_type='',
-            sub_business_type='',
-            function_type='',
-            rule='',
-            result='',
-            result_gpt4='',
-            score='',
-            category='',
-            contract_code=function['contract_code'],
-            risklevel='',
-            similarity_with_rule='',
-            description=checklist,
-            start_line=function['start_line'],
-            end_line=function['end_line'],
-            relative_file_path=function['relative_file_path'],
-            absolute_file_path=function['absolute_file_path'],
-            recommendation=recommendation,
-            title='',
-            business_flow_code=business_flow_code,
-            business_flow_lines=business_flow_lines_str,
-            business_flow_context='',
-            if_business_flow_scan=if_business_flow_scan
-        )
-        self.taskmgr.add_task_in_one(task) 
-    
-    def _build_business_flow_code_from_functions(self, functions: List[Dict]) -> str:
-        """从函数列表构建业务流代码
+    def create_public_function_tasks_v3(self, max_depth: int = 5) -> List[Dict]:
+        """为每个public函数创建新版任务（V3版本）
+        使用call tree获取downstream内容，并使用all_checklists生成rule
         
         Args:
-            functions: 函数列表
+            max_depth: 最大深度限制
             
         Returns:
-            str: 拼接的业务流代码
+            List[Dict]: 任务列表
         """
-        business_flow_code = ""
+        print("🚀 开始创建新版任务（V3）...")
         
-        for func in functions:
-            content = func.get('content', '')
-            if content:
-                business_flow_code += f"\n// 函数: {func['name']}\n"
-                business_flow_code += content + "\n"
+        # 获取所有public函数
+        public_functions_by_lang = self.find_public_functions_by_language()
         
-        return business_flow_code.strip()
-    
-    def _build_line_info_from_functions(self, functions: List[Dict]) -> List[Dict]:
-        """从函数列表构建行信息
+        # 获取所有检查规则
+        all_checklists = VulPromptCommon.vul_prompt_common_new()
         
-        Args:
-            functions: 函数列表
-            
-        Returns:
-            List[Dict]: 行信息列表
-        """
-        line_info_list = []
+        tasks = []
+        task_id = 0
         
-        for func in functions:
-            line_info = {
-                'function_name': func['name'],
-                'start_line': func.get('start_line', 0),
-                'end_line': func.get('end_line', 0),
-                'file_path': func.get('relative_file_path', '')
-            }
-            line_info_list.append(line_info)
-        
-        return line_info_list
-    
-    def _analyze_business_flow_relationships(self, mermaid_flows: Dict, config: Dict) -> Dict[str, List[Dict]]:
-        """分析业务流之间的关联性，构造复合业务流
-        
-        Args:
-            mermaid_flows: 原始业务流字典
-            config: 扫描配置
-            
-        Returns:
-            Dict[str, List[Dict]]: 复合业务流字典，key为复合业务流名称，value为函数列表
-        """
-        if len(mermaid_flows) < 2:
-            print("   业务流数量少于2个，跳过关联性分析")
-            return {}
-        
-        print(f"   开始分析 {len(mermaid_flows)} 个业务流的关联性...")
-        
-        # 1. 准备业务流信息用于LLM分析
-        flow_summaries = []
-        flow_functions_map = {}  # 保存每个流的函数信息
-        
-        for flow_name, flow_functions in mermaid_flows.items():
-            # 提取业务流的函数名列表
-            function_names = [func['name'] for func in flow_functions]
-            
-            # 构建业务流摘要
-            summary = {
-                'name': flow_name,
-                'functions': function_names,
-                'function_count': len(function_names)
-            }
-            flow_summaries.append(summary)
-            flow_functions_map[flow_name] = flow_functions
-        
-        # 2. 调用LLM分析关联性
-        try:
-            relationship_analysis = self._call_llm_for_flow_relationships(flow_summaries)
-            
-            if not relationship_analysis:
-                print("   ❌ LLM关联性分析失败")
-                return {}
-            
-            # 3. 根据分析结果构造复合业务流
-            compound_flows = self._construct_compound_flows(
-                relationship_analysis, flow_functions_map
-            )
-            
-            return compound_flows
-            
-        except Exception as e:
-            print(f"   ❌ 业务流关联性分析失败: {str(e)}")
-            return {}
-    
-    def _call_llm_for_flow_relationships(self, flow_summaries: List[Dict]) -> Dict:
-        """调用LLM分析业务流关联性
-        
-        Args:
-            flow_summaries: 业务流摘要列表
-            
-        Returns:
-            Dict: LLM分析结果
-        """
-        
-        # 构建prompt
-        prompt = self._build_flow_relationship_prompt(flow_summaries)
-        
-        try:
-            print("   🤖 调用LLM分析业务流关联性...")
-            
-            # 调用LLM
-            response = common_ask_for_json(prompt)
-            
-            if isinstance(response, str):
-                response = json.loads(response)
-            
-            print(f"   ✅ LLM分析完成，识别到 {len(response.get('related_groups', []))} 个相关组")
-            return response
-            
-        except Exception as e:
-            print(f"   ❌ LLM调用失败: {str(e)}")
-            return {}
-    
-    def _build_flow_relationship_prompt(self, flow_summaries: List[Dict]) -> str:
-        """构建业务流关联性分析的prompt
-        
-        Args:
-            flow_summaries: 业务流摘要列表
-            
-        Returns:
-            str: 构建的prompt
-        """
-        
-        # 构建业务流信息字符串
-        flows_info = ""
-        for i, flow in enumerate(flow_summaries, 1):
-            flows_info += f"\n{i}. 业务流: {flow['name']}\n"
-            flows_info += f"   函数列表: {', '.join(flow['functions'])}\n"
-            flows_info += f"   函数数量: {flow['function_count']}\n"
-        
-        prompt = f"""
-你是一个智能合约业务流分析专家。请分析以下 {len(flow_summaries)} 个业务流之间的关联性，识别出哪些业务流是相互影响和相关的。
-
-## 业务流信息:
-{flows_info}
-
-## 分析任务:
-1. 分析每个业务流的功能特征
-2. 识别业务流之间的依赖关系、数据交互、状态影响等关联性
-3. 将相关的业务流分组
-
-## 关联性判断标准:
-- **强关联**: 业务流之间有直接的函数调用关系、共享状态变量、数据依赖
-- **功能关联**: 业务流属于同一业务模块，如都涉及代币转账、权限管理、价格计算等
-- **时序关联**: 业务流在执行时序上有先后依赖关系
-- **状态关联**: 业务流会影响相同的合约状态或存储变量
-
-## 输出要求:
-请以JSON格式输出，包含以下字段：
-
-```json
-{{
-  "analysis_summary": "整体分析总结",
-  "total_flows": {len(flow_summaries)},
-  "related_groups": [
-    {{
-      "group_name": "复合业务流的名称",
-      "description": "该组业务流的关联性描述",
-      "flow_names": ["相关的业务流名称1", "业务流名称2"],
-      "relationship_type": "关联类型：强关联/功能关联/时序关联/状态关联",
-      "priority": "优先级：high/medium/low"
-    }}
-  ],
-  "independent_flows": ["独立的业务流名称列表"]
-}}
-```
-
-## 注意事项:
-1. 只有当业务流之间确实存在有意义的关联时才进行分组
-2. 一个业务流可以同时属于多个相关组
-3. 每个相关组至少包含2个业务流
-4. 为复合业务流起有意义的名称，体现其综合功能
-5. 优先识别高优先级的强关联关系
-
-请开始分析：
-"""
-        
-        return prompt.strip()
-    
-    def _construct_compound_flows(self, relationship_analysis: Dict, flow_functions_map: Dict) -> Dict[str, List[Dict]]:
-        """根据关联性分析结果构造复合业务流
-        
-        Args:
-            relationship_analysis: LLM分析结果
-            flow_functions_map: 业务流到函数的映射
-            
-        Returns:
-            Dict[str, List[Dict]]: 复合业务流字典
-        """
-        compound_flows = {}
-        
-        related_groups = relationship_analysis.get('related_groups', [])
-        
-        for group in related_groups:
-            group_name = group.get('group_name', '')
-            flow_names = group.get('flow_names', [])
-            priority = group.get('priority', 'medium')
-            
-            if len(flow_names) < 2:
+        for lang, public_funcs in public_functions_by_lang.items():
+            if not public_funcs:
                 continue
-            
-            print(f"   🔗 构造复合业务流: '{group_name}' (包含 {len(flow_names)} 个业务流)")
-            print(f"      关联类型: {group.get('relationship_type', 'unknown')}")
-            print(f"      优先级: {priority}")
-            
-            # 合并相关业务流的所有函数
-            compound_functions = []
-            function_names_seen = set()  # 去重
-            
-            for flow_name in flow_names:
-                if flow_name in flow_functions_map:
-                    for func in flow_functions_map[flow_name]:
-                        func_key = f"{func['name']}_{func.get('start_line', 0)}"
-                        if func_key not in function_names_seen:
-                            compound_functions.append(func)
-                            function_names_seen.add(func_key)
-            
-            if compound_functions:
-                # 为复合业务流生成唯一名称
-                compound_name = f"复合业务流_{group_name}_{priority}"
-                compound_flows[compound_name] = compound_functions
                 
-                print(f"      ✅ 复合业务流包含 {len(compound_functions)} 个函数")
-        
-        return compound_flows
-    
-    def _log_business_flow_coverage(self, all_covered_functions: set, all_expanded_functions: List[Dict]):
-        """记录业务流覆盖度分析"""
-        total_functions = len(self.project.functions_to_check)
-        covered_count = len(all_covered_functions)
-        uncovered_count = total_functions - covered_count
-        coverage_rate = (covered_count / total_functions * 100) if total_functions > 0 else 0
-        
-        print(f"\n🔍 业务流覆盖度分析:")
-        print("="*80)
-        print(f"📊 总函数数: {total_functions}")
-        print(f"✅ 被业务流覆盖的函数数: {covered_count}")
-        print(f"❌ 未被业务流覆盖的函数数: {uncovered_count}")
-        print(f"📈 覆盖率: {coverage_rate:.2f}%")
-        print("="*80)
-        
-        if uncovered_count > 0:
-            print(f"\n❌ 未被业务流覆盖的函数详情 ({uncovered_count} 个):")
-            print("-"*80)
+            print(f"\n📋 处理 {lang} 语言的 {len(public_funcs)} 个public函数...")
             
-            # 收集未覆盖函数信息
-            uncovered_functions = []
-            for func in self.project.functions_to_check:
-                if func['name'] not in all_covered_functions:
-                    uncovered_functions.append(func)
-            
-            # 按函数长度分组统计
-            length_groups = {
-                'very_short': [],    # < 50 字符
-                'short': [],         # 50-200 字符  
-                'medium': [],        # 200-500 字符
-                'long': [],          # 500-1000 字符
-                'very_long': []      # > 1000 字符
-            }
-            
-            # 输出每个未覆盖函数的详细信息
-            for i, func in enumerate(uncovered_functions, 1):
-                func_length = len(func.get('content', ''))
+            for public_func in public_funcs:
+                func_name = public_func['name']
                 
-                print(f"{i:3d}. 函数: {func['name']}")
-                print(f"     文件: {func.get('relative_file_path', 'unknown')}")
-                print(f"     合约: {func.get('contract_name', 'unknown')}")
-                print(f"     长度: {func_length} 字符")
-                print(f"     行号: {func.get('start_line', 'N/A')}-{func.get('end_line', 'N/A')}")
+                print(f"  🔍 分析public函数: {func_name}")
                 
-                # 显示函数内容预览
-                content_preview = func.get('content', '')[:80].replace('\n', ' ').strip()
-                if len(func.get('content', '')) > 80:
-                    content_preview += "..."
-                print(f"     预览: {content_preview}")
-                print()
+                # 使用call tree获取downstream内容
+                downstream_content = self.get_downstream_content_with_call_tree(func_name, max_depth)
                 
-                # 分组统计
-                if func_length < 50:
-                    length_groups['very_short'].append(func)
-                elif func_length < 200:
-                    length_groups['short'].append(func)
-                elif func_length < 500:
-                    length_groups['medium'].append(func)
-                elif func_length < 1000:
-                    length_groups['long'].append(func)
-                else:
-                    length_groups['very_long'].append(func)
-            
-            print("-"*80)
-            print("\n📊 未覆盖函数长度分布:")
-            for group_name, group_functions in length_groups.items():
-                if group_functions:
-                    group_display = {
-                        'very_short': '极短函数 (< 50字符)',
-                        'short': '短函数 (50-200字符)',
-                        'medium': '中等函数 (200-500字符)',
-                        'long': '长函数 (500-1000字符)',
-                        'very_long': '极长函数 (> 1000字符)'
+                # 为每个检查类型创建一个任务
+                for rule_key, rule_list in all_checklists.items():
+                    task_data = {
+                        'task_id': task_id,
+                        'language': lang,
+                        'root_function': public_func,
+                        'rule_key': rule_key,
+                        'rule_list': rule_list,
+                        'downstream_content': downstream_content,
+                        'max_depth': max_depth,
+                        'task_type': 'public_function_checklist_scan'
                     }
                     
-                    avg_length = sum(len(f.get('content', '')) for f in group_functions) / len(group_functions)
-                    print(f"   {group_display[group_name]}: {len(group_functions)} 个 (平均长度: {avg_length:.0f}字符)")
+                    tasks.append(task_data)
+                    task_id += 1
                     
-                    # 显示该组的函数名示例
-                    func_names = [f['name'].split('.')[-1] for f in group_functions[:3]]
-                    if len(group_functions) > 3:
-                        func_names.append(f"... 还有{len(group_functions)-3}个")
-                    print(f"     示例: {', '.join(func_names)}")
-            
-            # 分析未覆盖函数的文件分布
-            file_distribution = {}
-            for func in uncovered_functions:
-                file_path = func.get('relative_file_path', 'unknown')
-                if file_path not in file_distribution:
-                    file_distribution[file_path] = []
-                file_distribution[file_path].append(func)
-            
-            print(f"\n📁 未覆盖函数的文件分布:")
-            for file_path, file_functions in sorted(file_distribution.items(), key=lambda x: len(x[1]), reverse=True):
-                avg_length = sum(len(f.get('content', '')) for f in file_functions) / len(file_functions)
-                print(f"   {file_path}: {len(file_functions)} 个函数 (平均长度: {avg_length:.0f}字符)")
-            
-            print("-"*80)
-            
-            # 给出覆盖度评估
-            if coverage_rate >= 80:
-                print(f"✅ 覆盖率良好 ({coverage_rate:.2f}%)！")
-            elif coverage_rate >= 60:
-                print(f"⚠️  覆盖率中等 ({coverage_rate:.2f}%)")
-            else:
-                print(f"❌ 覆盖率较低 ({coverage_rate:.2f}%)")
-        else:
-            print("\n🎉 所有函数均被业务流覆盖！业务流分析完美！")
+                    print(f"    ✅ 创建任务: {rule_key} - {len(rule_list)} 个检查项")
         
-        print("="*80) 
+        print(f"\n✅ 总共创建 {len(tasks)} 个任务")
+        return tasks
+    
+    def get_downstream_content_with_call_tree(self, func_name: str, max_depth: int = 5) -> str:
+        """使用call tree获取函数的downstream内容
+        
+        Args:
+            func_name: 函数名
+            max_depth: 最大深度
+            
+        Returns:
+            str: 拼接的downstream内容
+        """
+        contents = []
+        
+        # 查找对应的call tree
+        if hasattr(self.project_audit, 'call_trees') and self.project_audit.call_trees:
+            # 如果有AdvancedCallTreeBuilder，使用get_call_tree_with_depth_limit
+            try:
+                from tree_sitter_parsing.advanced_call_tree_builder import AdvancedCallTreeBuilder
+                builder = AdvancedCallTreeBuilder()
+                downstream_tree = builder.get_call_tree_with_depth_limit(
+                    self.project_audit.call_trees, func_name, 'downstream', max_depth
+                )
+                
+                if downstream_tree and downstream_tree.get('tree'):
+                    contents = self._extract_contents_from_tree(downstream_tree['tree'])
+            except Exception as e:
+                print(f"    ⚠️ 使用高级call tree失败: {e}，使用简化方法")
+                contents = self._get_downstream_content_fallback(func_name, max_depth)
+        else:
+            contents = self._get_downstream_content_fallback(func_name, max_depth)
+        
+        return '\n\n'.join(contents)
+    
+    def _extract_contents_from_tree(self, tree_node: Dict) -> List[str]:
+        """从tree节点中提取所有函数内容"""
+        contents = []
+        
+        if tree_node.get('function_data'):
+            function_data = tree_node['function_data']
+            if function_data.get('content'):
+                contents.append(function_data['content'])
+        
+        # 递归处理子节点
+        for child in tree_node.get('children', []):
+            contents.extend(self._extract_contents_from_tree(child))
+        
+        return contents
+    
+    def _get_downstream_content_fallback(self, func_name: str, max_depth: int) -> List[str]:
+        """简化的downstream内容获取方法"""
+        downstream_chain = self.extract_downstream_to_deepest(func_name)
+        contents = []
+        
+        for item in downstream_chain:
+            if item.get('depth', 0) <= max_depth:
+                function = item.get('function')
+                if function and function.get('content'):
+                    contents.append(function['content'])
+        
+        return contents
+    
+    def create_public_function_tasks(self) -> List[Dict]:
+        """为每个public函数创建基于downstream深度扫描的任务（旧版本，已废弃）
+        
+        Returns:
+            List[Dict]: 任务列表
+        """
+        print("🚀 开始基于public函数downstream深度扫描创建任务...")
+        
+        # 获取所有public函数
+        public_functions_by_lang = self.find_public_functions_by_language()
+        
+        tasks = []
+        task_id = 0
+        
+        for lang, public_funcs in public_functions_by_lang.items():
+            if not public_funcs:
+                continue
+                
+            print(f"\n📋 处理 {lang} 语言的 {len(public_funcs)} 个public函数...")
+            
+            for public_func in public_funcs:
+                func_name = public_func['name']
+                
+                print(f"  🔍 分析public函数: {func_name}")
+                
+                # 提取该public函数的所有downstream函数
+                downstream_chain = self.extract_downstream_to_deepest(func_name)
+                
+                if downstream_chain:
+                    # 构建任务数据
+                    all_functions = [public_func] + [item['function'] for item in downstream_chain]
+                    
+                    # 按深度分组
+                    depth_groups = {}
+                    depth_groups[0] = [public_func]
+                    
+                    for item in downstream_chain:
+                        depth = item['depth']
+                        if depth not in depth_groups:
+                            depth_groups[depth] = []
+                        depth_groups[depth].append(item['function'])
+                    
+                    max_depth = max(depth_groups.keys()) if depth_groups else 0
+                    
+                    task_data = {
+                        'task_id': task_id,
+                        'language': lang,
+                        'root_function': public_func,
+                        'downstream_chain': downstream_chain,
+                        'all_functions': all_functions,
+                        'depth_groups': depth_groups,
+                        'max_depth': max_depth,
+                        'total_functions': len(all_functions),
+                        'task_type': 'public_downstream_scan'
+                    }
+                    
+                    tasks.append(task_data)
+                    task_id += 1
+                    
+                    print(f"    ✅ 创建任务: {len(all_functions)} 个函数, 最大深度: {max_depth}")
+                    for depth, funcs in depth_groups.items():
+                        print(f"      深度 {depth}: {len(funcs)} 个函数")
+                else:
+                    # 即使没有下游函数，也为单个public函数创建任务
+                    task_data = {
+                        'task_id': task_id,
+                        'language': lang,
+                        'root_function': public_func,
+                        'downstream_chain': [],
+                        'all_functions': [public_func],
+                        'depth_groups': {0: [public_func]},
+                        'max_depth': 0,
+                        'total_functions': 1,
+                        'task_type': 'public_single_scan'
+                    }
+                    
+                    tasks.append(task_data)
+                    task_id += 1
+                    
+                    print(f"    ✅ 创建单函数任务: {func_name}")
+        
+        print(f"\n🎉 总共创建了 {len(tasks)} 个基于public函数downstream的扫描任务")
+        return tasks
+
+    def create_database_tasks(self, tasks: List[Dict]) -> None:
+        """将任务数据存储到数据库
+        
+        Args:
+            tasks: 任务列表
+        """
+        print("💾 开始将任务存储到数据库...")
+        
+        for task_data in tasks:
+            try:
+                # 构建任务描述
+                root_func = task_data['root_function']
+                description = f"[{task_data['language'].upper()}] Public函数 {root_func['name']} 及其 {task_data['total_functions']-1} 个下游函数的深度扫描"
+                
+                # 构建函数列表描述
+                functions_desc = [f"Root: {root_func['name']}"]
+                for depth, funcs in task_data['depth_groups'].items():
+                    if depth > 0:
+                        func_names = [f['name'] for f in funcs]
+                        functions_desc.append(f"深度{depth}: {', '.join(func_names)}")
+                
+                functions_detail = "; ".join(functions_desc)
+                
+                # 创建任务对象 - 使用Project_Task实体的正确参数
+                task = Project_Task(
+                    project_id=self.project_audit.project_id,
+                    name=root_func['name'],
+                    content=root_func.get('content', ''),
+                    keyword='downstream_scan',
+                    business_type='vulnerability_scan',
+                    sub_business_type=task_data['language'],
+                    function_type='public_function_downstream',
+                    rule=f"Scan public function {root_func['name']} and its downstream call chain",
+                    description=description,
+                    start_line=str(root_func.get('start_line', '')),
+                    end_line=str(root_func.get('end_line', '')),
+                    relative_file_path=root_func.get('relative_file_path', ''),
+                    absolute_file_path=root_func.get('absolute_file_path', ''),
+                    title=f"Public Function Downstream Scan: {root_func['name']}",
+                    business_flow_code=str(task_data['all_functions'])
+                )
+                
+                # 保存到数据库
+                self.taskmgr.add_task_in_one(task)
+                
+                print(f"  ✅ 保存任务: {description}")
+                
+            except Exception as e:
+                print(f"❌ 保存任务失败: {e}")
+                continue
+        
+        print(f"💾 任务存储完成，总共 {len(tasks)} 个任务")
+
+    def process_for_common_project_mode(self, max_depth: int = 5) -> Dict:
+        """新的COMMON_PROJECT模式处理逻辑 - 使用V3版本"""
+        
+        print("🎯 启动V3版本的Planning模式（使用call tree和all_checklists）")
+        print("="*60)
+        
+        try:
+            # 0. 检查project_id是否已经有任务
+            existing_tasks = self.taskmgr.query_task_by_project_id(self.project_audit.project_id)
+            if existing_tasks and len(existing_tasks) > 0:
+                print(f"⚠️ 项目 {self.project_audit.project_id} 已经存在 {len(existing_tasks)} 个任务，跳过任务创建")
+                return {
+                    'success': True,
+                    'message': f'项目 {self.project_audit.project_id} 已存在任务，跳过创建',
+                    'tasks_created': 0,
+                    'project_tasks_created': len(existing_tasks),
+                    'tasks_by_language': {},
+                    'max_depth_used': max_depth,
+                    'skipped': True
+                }
+            
+            # 1. 使用V3方法创建任务
+            tasks = self.create_public_function_tasks_v3(max_depth)
+            
+            if not tasks:
+                print("⚠️ 未创建任何任务，可能没有找到public函数")
+                return {
+                    'success': False,
+                    'message': '未找到public函数',
+                    'tasks_created': 0
+                }
+            
+            # 2. 转换并存储任务到数据库
+            project_tasks = self.convert_tasks_to_project_tasks_v3(tasks)
+            self.create_database_tasks_v3(project_tasks)
+            
+            # 3. 返回处理结果
+            result = {
+                'success': True,
+                'message': 'Planning任务创建成功',
+                'tasks_created': len(tasks),
+                'project_tasks_created': len(project_tasks),
+                'tasks_by_language': {},
+                'max_depth_used': max_depth
+            }
+            
+            # 统计各语言任务数
+            for task in tasks:
+                lang = task['language']
+                if lang not in result['tasks_by_language']:
+                    result['tasks_by_language'][lang] = 0
+                result['tasks_by_language'][lang] += 1
+            
+            print(f"\n🎉 V3 Planning处理完成:")
+            print(f"  📊 创建任务: {result['tasks_created']} 个")
+            print(f"  💾 存储到数据库: {result['project_tasks_created']} 个")
+            print(f"  📏 使用最大深度: {result['max_depth_used']}")
+            print(f"  🌐 语言分布: {result['tasks_by_language']}")
+            print(f"  🔍 使用call tree获取downstream内容")
+            print(f"  📋 使用all_checklists生成检查规则")
+            
+            return result
+            
+        except Exception as e:
+            print(f"❌ Planning处理失败: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            return {
+                'success': False,
+                'message': f'Planning处理失败: {str(e)}',
+                'tasks_created': 0
+            }
+
+    def search_functions_by_name(self, name_query, k=5):
+        """按名称搜索函数（使用RAG或简化搜索）"""
+        if self.rag_processor:
+            return self.rag_processor.search_functions_by_name(name_query, k)
+        else:
+            # 简化的名称搜索
+            results = []
+            for func in self.functions_to_check:
+                if name_query.lower() in func.get('name', '').lower():
+                    results.append({
+                        'function': func,
+                        'score': 0.8,  # 简化评分
+                        'reason': f"名称匹配: {name_query}"
+                    })
+                    if len(results) >= k:
+                        break
+            return results
+
+    def search_functions_by_content(self, content_query, k=5):
+        """按内容搜索函数（使用RAG或简化搜索）"""
+        if self.rag_processor:
+            return self.rag_processor.search_functions_by_content(content_query, k)
+        else:
+            # 简化的内容搜索
+            results = []
+            for func in self.functions_to_check:
+                if content_query.lower() in func.get('content', '').lower():
+                    results.append({
+                        'function': func,
+                        'score': 0.7,  # 简化评分
+                        'reason': f"内容匹配: {content_query}"
+                    })
+                    if len(results) >= k:
+                        break
+            return results
+
+    def get_available_rag_types(self) -> Dict[str, str]:
+        """获取可用的RAG类型列表
+        
+        Returns:
+            Dict[str, str]: RAG类型名称和描述的字典
+        """
+        if not self.rag_processor:
+            return {}
+        
+        return {
+            # 基础RAG类型
+            'name': '名字检索 - 基于函数名称的精确匹配',
+            'content': '内容检索 - 基于函数源代码内容的语义相似性',
+            'natural': '自然语言检索 - 基于AI生成的功能描述的语义理解',
+            
+            # 关系型RAG类型
+            'upstream': '上游函数检索 - 基于调用此函数的上游函数内容',
+            'downstream': '下游函数检索 - 基于此函数调用的下游函数内容',
+            
+            # 专门的关系表RAG类型
+            'upstream_natural': '上游自然语言关系检索 - 基于上游函数的自然语言描述',
+            'downstream_natural': '下游自然语言关系检索 - 基于下游函数的自然语言描述',
+            'upstream_content': '上游内容关系检索 - 基于上游函数的代码内容',
+            'downstream_content': '下游内容关系检索 - 基于下游函数的代码内容',
+            
+            # 文件级RAG类型
+            'file_content': '文件内容检索 - 基于整个文件的内容',
+            'file_natural': '文件自然语言检索 - 基于文件的自然语言描述'
+        }
+    
+    def do_planning(self):
+        """执行规划处理 - 调用process_for_common_project_mode方法"""
+        return self.process_for_common_project_mode() 

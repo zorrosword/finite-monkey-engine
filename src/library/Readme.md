@@ -1,3 +1,0 @@
-
-sgp solidity parser 
-* SolidityInfoVisitor 

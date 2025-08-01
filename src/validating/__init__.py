@@ -11,13 +11,11 @@ This module handles vulnerability verification and confirmation functionality fo
 from .checker import VulnerabilityChecker
 from .processors import ContextUpdateProcessor, ConfirmationProcessor, AnalysisProcessor
 from .utils import CheckUtils
-from context import ContextFactory
 
 __all__ = [
     'VulnerabilityChecker',
     'ContextUpdateProcessor', 
     'ConfirmationProcessor',
     'AnalysisProcessor',
-    'CheckUtils',
-    'ContextFactory'
+    'CheckUtils'
 ] 
