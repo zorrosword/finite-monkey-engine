@@ -23,14 +23,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 try:
     from .advanced_call_tree_builder import AdvancedCallTreeBuilder
     ADVANCED_BUILDER_AVAILABLE = True
-    print("✅ 使用高级调用树构建器（基于真正的tree-sitter）")
+    print("✅ 使用高级调用树构建器")
 except ImportError:
     try:
         # 尝试直接导入
         sys.path.insert(0, os.path.dirname(__file__))
         from advanced_call_tree_builder import AdvancedCallTreeBuilder
         ADVANCED_BUILDER_AVAILABLE = True
-        print("✅ 使用高级调用树构建器（基于真正的tree-sitter）")
+        print("✅ 使用高级调用树构建器")
     except ImportError:
         ADVANCED_BUILDER_AVAILABLE = False
         print("⚠️ 高级调用树构建器不可用，使用简化实现")

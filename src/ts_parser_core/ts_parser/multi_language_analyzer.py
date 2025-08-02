@@ -33,7 +33,7 @@ class MultiLanguageAnalyzer:
             LanguageType.MOVE: MoveParser(),
         }
         
-        print("✅ 使用高级调用树构建器（基于真正的tree-sitter）")
+        print("✅ 使用高级调用树构建器")
         
         # 当前活跃的解析器
         self._current_parser = None

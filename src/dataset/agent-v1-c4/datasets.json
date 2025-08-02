@@ -248,7 +248,7 @@
         "exclude_in_planning":"true",
         "exclude_directory":["exclude"]
     },
-    "fishcake_test":{
+    "fishcake0803":{
         "path":"fishcake",
         "files":[
         ],

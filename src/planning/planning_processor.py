@@ -265,7 +265,7 @@ class PlanningProcessor:
                         tasks.append(task_data)
                         task_id += 1
                         
-                        print(f"    ✅ 创庺任务: PURE_SCAN - 迭代{iteration + 1}/{base_iteration_count}")
+                        print(f"    ✅ 创建任务: PURE_SCAN - 迭代{iteration + 1}/{base_iteration_count}")
         
         else:
             # 非PURE_SCAN模式：使用checklist
@@ -306,7 +306,7 @@ class PlanningProcessor:
                             tasks.append(task_data)
                             task_id += 1
                         
-                        print(f"    ✅ 创庺任务: {rule_key} - {base_iteration_count}个迭代")
+                        print(f"    ✅ 创建任务: {rule_key} - {base_iteration_count}个迭代")
         
         print(f"\n🎉 任务创庺完成！")
         print(f"  总计: {len(tasks)} 个任务")

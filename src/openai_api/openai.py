@@ -5,8 +5,21 @@ import numpy as np
 import requests
 from openai import OpenAI
 
-# 导入模型管理器
-from .model_manager import get_model
+# 全局模型配置缓存
+_model_config = None
+
+def get_model(model_key: str) -> str:
+    """直接从JSON读取模型名称"""
+    global _model_config
+    if _model_config is None:
+        config_path = os.path.join(os.path.dirname(__file__), 'model_config.json')
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                _model_config = json.load(f)
+        except:
+            _model_config = {}
+    
+    return _model_config.get(model_key, 'gpt-4o-mini')
 
 class JSONExtractError(Exception):
     def __init__(self, ErrorInfo):
@@ -123,7 +136,7 @@ def ask_openai_for_json(prompt):
         "Authorization": f"Bearer {api_key}"
     }
     data = {
-        "model": get_model('openai_general'),
+        "model": get_model('ask_json'),
         "response_format": { "type": "json_object" },
         "messages": [
             {
@@ -204,10 +217,7 @@ def extract_json_string(response):
             raise JSONExtractError("⚠️Return JSON format error: input format is not a JSON")
 
 def common_ask_for_json(prompt):
-    if os.environ.get('AZURE_OR_OPENAI') == 'AZURE':
-        return azure_openai_json(prompt)
-    else:
-        return ask_openai_for_json(prompt)
+    return ask_openai_for_json(prompt)
 def ask_vul(prompt):
     model = get_model('vulnerability_detection')
     api_key = os.environ.get('OPENAI_API_KEY')
@@ -537,7 +547,7 @@ def common_get_embedding(text: str):
         return list(np.zeros(3072))  # 返回长度为3072的全0数组
 
 def common_ask_confirmation(prompt):
-    model_type = os.environ.get('CONFIRMATION_MODEL')
+    model_type = get_model('confirmation')
     if model_type == 'CLAUDE':
         return ask_claude(prompt)
     elif model_type == 'DEEPSEEK':

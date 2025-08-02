@@ -1,67 +1,16 @@
 {
-  "openai_general": {
-    "env_var": "OPENAI_MODEL",
-    "default": "gpt-4.1",
-    "description": "通用OpenAI模型"
-  },
-  "claude_general": {
-    "env_var": "CLAUDE_MODEL",
-    "default": "claude-sonnet-4-20250514",
-    "description": "通用Claude模型"
-  },
-  "vulnerability_detection": {
-    "env_var": "VUL_MODEL",
-    "default": "o4-mini",
-    "description": "漏洞检测专用模型"
-  },
-  "confirmation": {
-    "env_var": "CONFIRMATION_MODEL",
-    "default": "DEEPSEEK",
-    "description": "确认模型类型"
-  },
-  "claude_code_analysis": {
-    "env_var": "CLAUDE_MODEL",
-    "default": "claude-3-5-sonnet-20241022",
-    "description": "Claude代码分析模型"
-  },
-  "claude_mermaid_generation": {
-    "env_var": "CLAUDE_MODEL",
-    "default": "claude-3-5-sonnet-20241022",
-    "description": "Claude Mermaid生成模型"
-  },
-  "claude_batch_analysis": {
-    "env_var": "CLAUDE_MODEL",
-    "default": "claude-3-5-sonnet-20241022",
-    "description": "Claude批量分析模型"
-  },
-  "agent_initial_analysis": {
-    "env_var": "AGENT_INITIAL_MODEL",
-    "default": "claude-3-haiku-20240307",
-    "description": "代理初始分析模型"
-  },
-  "agent_json_extraction": {
-    "env_var": "AGENT_JSON_MODEL",
-    "default": "gpt-4o-mini",
-    "description": "代理JSON提取模型"
-  },
-  "agent_info_query": {
-    "env_var": "AGENT_INFO_QUERY_MODEL",
-    "default": "claude-3-sonnet-20240229",
-    "description": "代理信息查询模型"
-  },
-  "agent_info_extraction": {
-    "env_var": "AGENT_INFO_EXTRACT_MODEL",
-    "default": "gpt-4o-mini",
-    "description": "代理信息提取模型"
-  },
-  "agent_final_analysis": {
-    "env_var": "AGENT_FINAL_MODEL",
-    "default": "claude-opus-4-20250514",
-    "description": "代理最终分析模型"
-  },
-  "agent_final_extraction": {
-    "env_var": "AGENT_FINAL_EXTRACT_MODEL",
-    "default": "gpt-4o-mini",
-    "description": "代理最终提取模型"
-  }
+  "openai_general": "gpt-4.1",
+  "claude_general": "claude-sonnet-4-20250514",
+  "vulnerability_detection": "claude-sonnet-4-20250514",
+  "confirmation": "deepseek-reasoner",
+  "claude_code_analysis": "claude-sonnet-4-20250514",
+  "claude_mermaid_generation": "claude-sonnet-4-20250514",
+  "claude_batch_analysis": "claude-sonnet-4-20250514",
+  "agent_initial_analysis": "claude-3-haiku-20240307",
+  "agent_json_extraction": "gpt-4o-mini",
+  "agent_info_query": "claude-3-sonnet-20240229",
+  "agent_info_extraction": "gpt-4o-mini",
+  "agent_final_analysis": "claude-opus-4-20250514",
+  "agent_final_extraction": "gpt-4o-mini",
+  "ask_json": "gpt-4.1"
 }
