@@ -16,8 +16,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # 添加路径以便导入
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from .project_parser import parse_project, TreeSitterProjectFilter
-from .call_tree_builder import TreeSitterCallTreeBuilder
+try:
+    from .project_parser import parse_project, TreeSitterProjectFilter
+    from .call_tree_builder import TreeSitterCallTreeBuilder
+except ImportError:
+    # 如果相对导入失败，尝试直接导入
+    from project_parser import parse_project, TreeSitterProjectFilter
+    from call_tree_builder import TreeSitterCallTreeBuilder
 
 # 导入call_graph相关模块
 from ts_parser_core import MultiLanguageAnalyzer, LanguageType
@@ -40,6 +45,7 @@ class TreeSitterProjectAudit(object):
         self.db_engine = db_engine  # 可选的数据库引擎
         self.functions = []
         self.functions_to_check = []
+        self.chunks = []  # 存储文档分块结果
         self.tasks = []
         self.taskkeys = set()
         self.call_tree_builder = TreeSitterCallTreeBuilder()
@@ -73,14 +79,16 @@ class TreeSitterProjectAudit(object):
         if self.logger:
             log_step(self.logger, "开始解析项目文件")
         
-        functions, functions_to_check = parse_project(self.project_path, parser_filter)
+        functions, functions_to_check, chunks = parse_project(self.project_path, parser_filter)
         self.functions = functions
         self.functions_to_check = functions_to_check
+        self.chunks = chunks
         
         if self.logger:
             log_success(self.logger, "项目文件解析完成")
             log_data_info(self.logger, "总函数数", len(self.functions))
             log_data_info(self.logger, "待检查函数数", len(self.functions_to_check))
+            log_data_info(self.logger, "文档分块数", len(self.chunks))
         
         # 检查 huge_project 开关，如果为 true 则跳过 call tree 构建
         huge_project = eval(os.environ.get('HUGE_PROJECT', 'False'))
@@ -296,6 +304,101 @@ class TreeSitterProjectAudit(object):
         del stats["unique_functions"]  # 移除set，不需要返回
         
         return stats
+    
+    def get_chunks(self):
+        """获取文档分块结果"""
+        return self.chunks.copy() if self.chunks else []
+    
+    def get_chunks_by_file(self, file_path):
+        """根据文件路径获取分块结果"""
+        if not self.chunks:
+            return []
+        return [chunk for chunk in self.chunks if chunk.original_file == file_path]
+    
+    def get_chunk_statistics(self):
+        """获取分块统计信息"""
+        if not self.chunks:
+            return {"total_chunks": 0, "files": {}, "avg_chunk_size": 0}
+        
+        stats = {
+            "total_chunks": len(self.chunks),
+            "files": {},
+            "file_extensions": {},
+            "total_size": 0
+        }
+        
+        for chunk in self.chunks:
+            # 按文件统计
+            file_path = chunk.original_file
+            stats["files"][file_path] = stats["files"].get(file_path, 0) + 1
+            
+            # 按文件扩展名统计
+            if hasattr(chunk, 'metadata') and 'file_extension' in chunk.metadata:
+                ext = chunk.metadata['file_extension']
+                stats["file_extensions"][ext] = stats["file_extensions"].get(ext, 0) + 1
+            
+            # 累计大小
+            stats["total_size"] += chunk.chunk_size
+        
+        # 计算平均大小
+        if stats["total_chunks"] > 0:
+            stats["avg_chunk_size"] = stats["total_size"] / stats["total_chunks"]
+        else:
+            stats["avg_chunk_size"] = 0
+        
+        return stats
+    
+    def print_chunk_statistics(self):
+        """打印分块统计信息"""
+        stats = self.get_chunk_statistics()
+        
+        if stats["total_chunks"] == 0:
+            print("📄 没有分块数据")
+            return
+        
+        print(f"📄 文档分块统计 (共 {stats['total_chunks']} 个块):")
+        print("=" * 60)
+        print(f"🔢 总块数: {stats['total_chunks']}")
+        print(f"📏 平均块大小: {stats['avg_chunk_size']:.1f} 个单位")
+        print(f"📁 涉及文件数: {len(stats['files'])}")
+        
+        if stats['file_extensions']:
+            print("\n📂 文件类型分布:")
+            for ext, count in sorted(stats['file_extensions'].items()):
+                print(f"  {ext if ext else '[无扩展名]'}: {count} 个块")
+        
+        print("\n📄 文件分块详情 (前10个):")
+        file_list = sorted(stats['files'].items(), key=lambda x: x[1], reverse=True)[:10]
+        for file_path, count in file_list:
+            file_name = os.path.basename(file_path)
+            print(f"  {file_name}: {count} 个块")
+        
+        if len(stats['files']) > 10:
+            print(f"  ... 还有 {len(stats['files']) - 10} 个文件")
+        
+        print("=" * 60)
+    
+    def print_chunk_samples(self, limit=3):
+        """打印分块示例"""
+        if not self.chunks:
+            print("📄 没有分块数据")
+            return
+        
+        print(f"📄 分块示例 (前 {min(limit, len(self.chunks))} 个):")
+        print("=" * 80)
+        
+        for i, chunk in enumerate(self.chunks[:limit]):
+            print(f"\n🧩 块 {i+1}:")
+            print(f"  📁 文件: {os.path.basename(chunk.original_file)}")
+            print(f"  🔢 顺序: {chunk.chunk_order}")
+            print(f"  📏 大小: {chunk.chunk_size} 个单位")
+            print(f"  📝 内容预览:")
+            preview = chunk.chunk_text[:200]
+            if len(chunk.chunk_text) > 200:
+                preview += "..."
+            print(f"     {preview}")
+        
+        print("=" * 80)
 
 
 if __name__ == '__main__':
@@ -324,6 +427,7 @@ contract TestContract {
         print(f"✅ 需要检查 {len(audit.functions_to_check)} 个函数")
         print(f"✅ 构建了 {len(audit.call_trees)} 个调用树")
         print(f"✅ 构建了 {len(audit.call_graphs)} 个调用关系")
+        print(f"✅ 生成了 {len(audit.chunks)} 个文档块")
         
         # 测试 call graph 相关功能
         call_graph_stats = audit.get_call_graph_statistics()
@@ -332,5 +436,11 @@ contract TestContract {
         if audit.call_graphs:
             print("🔗 Call Graph 样例:")
             audit.print_call_graph(limit=5)
+        
+        # 测试分块相关功能
+        if audit.chunks:
+            print("\n📄 测试分块功能:")
+            audit.print_chunk_statistics()
+            audit.print_chunk_samples(limit=2)
         
     print("✅ TreeSitterProjectAudit测试完成") 

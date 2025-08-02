@@ -249,6 +249,13 @@ class AdvancedCallTreeBuilder:
                 processed_relations += 1
         
         print(f"✅ 项目目录调用关系分析完成: 处理了 {processed_relations} 个相关调用关系")
+        
+        # 如果高级分析器没有找到足够的调用关系，回退到使用functions的calls字段
+        if processed_relations == 0:
+            print("🔄 高级分析器未找到调用关系，回退到使用函数calls字段...")
+            fallback_relationships, fallback_func_map = self._fallback_analyze_relationships(functions_to_check)
+            return fallback_relationships, fallback_func_map
+        
         return relationships, func_map
     
     def _fallback_analyze_relationships(self, functions_to_check: List[Dict]) -> Tuple[Dict, Dict]:

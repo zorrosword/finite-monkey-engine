@@ -19,6 +19,15 @@ import tree_sitter_rust
 import tree_sitter_cpp
 import tree_sitter_move
 
+# 导入文档分块器
+try:
+    from .document_chunker import chunk_project_files
+    from .chunk_config import ChunkConfigManager
+except ImportError:
+    # 如果相对导入失败，尝试直接导入
+    from document_chunker import chunk_project_files
+    from chunk_config import ChunkConfigManager
+
 # 创建语言对象
 LANGUAGES = {
     'solidity': Language(tree_sitter_solidity.language()),
@@ -141,6 +150,56 @@ def _get_node_text(node: Node, source_code: bytes) -> str:
     return source_code[node.start_byte:node.end_byte].decode('utf-8')
 
 
+def _extract_function_calls(node: Node, source_code: bytes) -> List[str]:
+    """从函数节点中提取函数调用"""
+    calls = []
+    
+    def traverse_for_calls(node):
+        if node.type == 'call_expression':
+            # 获取被调用的函数名
+            called_func = _get_function_call_name(node, source_code)
+            if called_func:
+                calls.append(called_func)
+        
+        # 递归遍历子节点
+        for child in node.children:
+            traverse_for_calls(child)
+    
+    traverse_for_calls(node)
+    return calls
+
+
+def _get_function_call_name(call_node: Node, source_code: bytes) -> Optional[str]:
+    """从call_expression节点中提取被调用的函数名"""
+    try:
+        # 遍历call_expression的子节点查找函数名
+        for child in call_node.children:
+            if child.type == 'expression':
+                # 在expression中查找实际的函数名
+                for expr_child in child.children:
+                    if expr_child.type == 'identifier':
+                        # 简单函数调用，如: functionName()
+                        return _get_node_text(expr_child, source_code).strip()
+                    elif expr_child.type == 'member_expression':
+                        # 成员函数调用，如: obj.method()
+                        member_text = _get_node_text(expr_child, source_code).strip()
+                        if '.' in member_text:
+                            return member_text.split('.')[-1]  # 返回方法名
+                        return member_text
+            elif child.type == 'identifier':
+                # 直接的identifier（作为备选方案）
+                return _get_node_text(child, source_code).strip()
+            elif child.type == 'member_expression':
+                # 直接的member_expression（作为备选方案）
+                member_text = _get_node_text(child, source_code).strip()
+                if '.' in member_text:
+                    return member_text.split('.')[-1]
+                return member_text
+        return None
+    except Exception:
+        return None
+
+
 def _parse_solidity_function(node: Node, source_code: bytes, contract_name: str, file_path: str) -> Optional[Dict]:
     """解析Solidity函数"""
     try:
@@ -182,6 +241,9 @@ def _parse_solidity_function(node: Node, source_code: bytes, contract_name: str,
                 # 解析返回类型
                 return_type = _get_node_text(child, source_code).strip().replace('returns', '').strip().strip('(').strip(')')
         
+        # 提取函数调用
+        function_calls = _extract_function_calls(node, source_code)
+        
         return {
             'name': f"{contract_name}.{func_name}" if contract_name else func_name,
             'contract_name': contract_name,
@@ -191,7 +253,7 @@ def _parse_solidity_function(node: Node, source_code: bytes, contract_name: str,
             'modifiers': modifiers,
             'parameters': parameters,
             'return_type': return_type,
-            'calls': [],
+            'calls': function_calls,
             'line_number': node.start_point[0] + 1,
             'start_line': node.start_point[0] + 1,
             'end_line': node.end_point[0] + 1,
@@ -246,6 +308,9 @@ def _parse_rust_function(node: Node, source_code: bytes, file_path: str) -> Opti
             if return_part:
                 return_type = return_part
         
+        # 提取函数调用
+        function_calls = _extract_function_calls(node, source_code)
+        
         return {
             'name': f"_rust.{func_name}",
             'contract_name': 'RustModule',
@@ -255,7 +320,7 @@ def _parse_rust_function(node: Node, source_code: bytes, file_path: str) -> Opti
             'modifiers': modifiers,
             'parameters': parameters,
             'return_type': return_type,
-            'calls': [],
+            'calls': function_calls,
             'line_number': node.start_point[0] + 1,
             'start_line': node.start_point[0] + 1,
             'end_line': node.end_point[0] + 1,
@@ -324,6 +389,9 @@ def _parse_cpp_function(node: Node, source_code: bytes, file_path: str) -> Optio
             if 'const' not in modifiers:
                 modifiers.append('const')
         
+        # 提取函数调用
+        function_calls = _extract_function_calls(node, source_code)
+        
         return {
             'name': f"_cpp.{func_name}",
             'contract_name': 'CppModule',
@@ -333,7 +401,7 @@ def _parse_cpp_function(node: Node, source_code: bytes, file_path: str) -> Optio
             'modifiers': modifiers,
             'parameters': parameters,
             'return_type': return_type,
-            'calls': [],
+            'calls': function_calls,
             'line_number': node.start_point[0] + 1,
             'start_line': node.start_point[0] + 1,
             'end_line': node.end_point[0] + 1,
@@ -400,6 +468,9 @@ def _parse_move_function(node: Node, source_code: bytes, file_path: str) -> Opti
         if 'native' in func_content:
             modifiers.append('native')
         
+        # 提取函数调用
+        function_calls = _extract_function_calls(node, source_code)
+        
         return {
             'name': f"_move.{func_name}",
             'contract_name': 'MoveModule',
@@ -409,7 +480,7 @@ def _parse_move_function(node: Node, source_code: bytes, file_path: str) -> Opti
             'modifiers': modifiers,
             'parameters': parameters,
             'return_type': return_type,
-            'calls': [],
+            'calls': function_calls,
             'line_number': node.start_point[0] + 1,
             'start_line': node.start_point[0] + 1,
             'end_line': node.end_point[0] + 1,
@@ -426,7 +497,7 @@ def _parse_move_function(node: Node, source_code: bytes, file_path: str) -> Opti
 def parse_project(project_path, project_filter=None):
     """
     使用tree-sitter解析项目
-    保持与原始parse_project函数相同的接口
+    保持与原始parse_project函数相同的接口，并添加文档分块功能
     """
     if project_filter is None:
         project_filter = TreeSitterProjectFilter([], [])
@@ -437,6 +508,7 @@ def parse_project(project_path, project_filter=None):
     ignore_folders.add('.git')
 
     all_results = []
+    all_file_paths = []  # 收集所有文件路径用于分块
 
     # 遍历项目目录
     for dirpath, dirs, files in os.walk(project_path):
@@ -444,7 +516,10 @@ def parse_project(project_path, project_filter=None):
         for file in files:
             file_path = os.path.join(dirpath, file)
             
-            # 应用文件过滤
+            # 收集所有文件路径（不分后缀名）用于分块
+            all_file_paths.append(file_path)
+            
+            # 应用文件过滤（仅用于函数解析）
             to_scan = not project_filter.filter_file(dirpath, file)
             print("parsing file: ", file_path, " " if to_scan else "[skipped]")
 
@@ -482,7 +557,32 @@ def parse_project(project_path, project_filter=None):
             functions_to_check.append(function)
 
     print(f"📊 解析完成: 总函数 {len(functions)} 个，待检查 {len(functions_to_check)} 个")
-    return functions, functions_to_check
+    
+    # 对项目中的所有文件进行分块（不分后缀名）
+    print("🧩 开始对项目文件进行分块...")
+    
+    # 获取分块配置 - 项目解析默认使用代码项目配置
+    config = ChunkConfigManager.get_config('code_project')
+    print(f"📋 使用配置: code_project")
+    
+    # 处理文件分块
+    chunks = chunk_project_files(all_file_paths, config=config)
+    
+    print(f"✅ 分块完成: 共生成 {len(chunks)} 个文档块")
+    
+    # 输出分块统计信息
+    if chunks:
+        chunk_stats = {}
+        for chunk in chunks:
+            ext = chunk.metadata.get('file_extension', 'unknown') if hasattr(chunk, 'metadata') else 'unknown'
+            chunk_stats[ext] = chunk_stats.get(ext, 0) + 1
+        
+        print("📊 分块统计:")
+        for ext, count in sorted(chunk_stats.items()):
+            ext_display = ext if ext else '[无扩展名]'
+            print(f"  - {ext_display}: {count} 个块")
+    
+    return functions, functions_to_check, chunks
 
 
 if __name__ == "__main__":

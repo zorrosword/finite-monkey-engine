@@ -117,6 +117,9 @@ class PlanningProcessor:
                 business_flow_code += '\n\n' + downstream_content
             
             # 创建Project_Task实例
+            # scan_record将在validation中赋值
+            
+            # 创建 Project_Task实例（UUID将自动生成）
             project_task = Project_Task(
                 project_id=self.taskmgr.project_id,
                 name=root_function.get('name', ''),  # 合约名+函数名用点连接
@@ -199,58 +202,118 @@ class PlanningProcessor:
 
     def create_public_function_tasks_v3(self, max_depth: int = 5) -> List[Dict]:
         """为每个public函数创建新版任务（V3版本）
-        使用call tree获取downstream内容，并使用all_checklists生成rule
+        使用call tree获取downstream内容，根据base_iteration_count创庺多个任务
+        
+        根据scan_mode的不同：
+        - PURE_SCAN: 忽略checklist，为每个public函数创庺 base_iteration_count 个任务
+        - 其他模式: 为每个public函数 + 每个rule_key 创庺 base_iteration_count 个任务
         
         Args:
             max_depth: 最大深度限制
             
         Returns:
-            List[Dict]: 任务列表
+            List[Dict]: 任务列表，每个任务都有唯一的UUID
         """
         print("🚀 开始创建新版任务（V3）...")
+        
+        # 获取扫描配置
+        scan_config = ConfigUtils.get_scan_configuration()
+        scan_mode = scan_config['scan_mode']
+        base_iteration_count = scan_config['base_iteration_count']
+        
+        print(f"📋 扫描模式: {scan_mode}")
+        print(f"🔄 基础迭代次数: {base_iteration_count}")
         
         # 获取所有public函数
         public_functions_by_lang = self.find_public_functions_by_language()
         
-        # 获取所有检查规则
-        all_checklists = VulPromptCommon.vul_prompt_common_new()
-        
         tasks = []
         task_id = 0
         
-        for lang, public_funcs in public_functions_by_lang.items():
-            if not public_funcs:
-                continue
-                
-            print(f"\n📋 处理 {lang} 语言的 {len(public_funcs)} 个public函数...")
+        # 根据scan_mode决定任务创庺逻辑
+        if scan_mode == 'PURE_SCAN':
+            print("🎯 PURE_SCAN模式: 忽略所有checklist")
             
-            for public_func in public_funcs:
-                func_name = public_func['name']
-                
-                print(f"  🔍 分析public函数: {func_name}")
-                
-                # 使用call tree获取downstream内容
-                downstream_content = self.get_downstream_content_with_call_tree(func_name, max_depth)
-                
-                # 为每个检查类型创建一个任务
-                for rule_key, rule_list in all_checklists.items():
-                    task_data = {
-                        'task_id': task_id,
-                        'language': lang,
-                        'root_function': public_func,
-                        'rule_key': rule_key,
-                        'rule_list': rule_list,
-                        'downstream_content': downstream_content,
-                        'max_depth': max_depth,
-                        'task_type': 'public_function_checklist_scan'
-                    }
+            for lang, public_funcs in public_functions_by_lang.items():
+                if not public_funcs:
+                    continue
                     
-                    tasks.append(task_data)
-                    task_id += 1
+                print(f"\n📋 处理 {lang} 语言的 {len(public_funcs)} 个public函数...")
+                
+                for public_func in public_funcs:
+                    func_name = public_func['name']
                     
-                    print(f"    ✅ 创建任务: {rule_key} - {len(rule_list)} 个检查项")
+                    print(f"  🔍 分析public函数: {func_name}")
+                    
+                    # 使用call tree获取downstream内容
+                    downstream_content = self.get_downstream_content_with_call_tree(func_name, max_depth)
+                    
+                    # 为每个public函数创庺 base_iteration_count 个任务
+                    for iteration in range(base_iteration_count):
+                        task_data = {
+                            'task_id': task_id,
+                            'iteration_index': iteration + 1,
+                            'language': lang,
+                            'root_function': public_func,
+                            'rule_key': 'PURE_SCAN',
+                            'rule_list': [],  # PURE_SCAN模式下无checklist
+                            'downstream_content': downstream_content,
+                            'max_depth': max_depth,
+                            'task_type': 'public_function_pure_scan'
+                        }
+                        
+                        tasks.append(task_data)
+                        task_id += 1
+                        
+                        print(f"    ✅ 创庺任务: PURE_SCAN - 迭代{iteration + 1}/{base_iteration_count}")
         
-        print(f"\n✅ 总共创建 {len(tasks)} 个任务")
+        else:
+            # 非PURE_SCAN模式：使用checklist
+            print(f"📄 标准模式: 使用checklist")
+            
+            # 获取所有检查规则
+            all_checklists = VulPromptCommon.vul_prompt_common_new()
+            
+            for lang, public_funcs in public_functions_by_lang.items():
+                if not public_funcs:
+                    continue
+                    
+                print(f"\n📋 处理 {lang} 语言的 {len(public_funcs)} 个public函数...")
+                
+                for public_func in public_funcs:
+                    func_name = public_func['name']
+                    
+                    print(f"  🔍 分析public函数: {func_name}")
+                    
+                    # 使用call tree获取downstream内容
+                    downstream_content = self.get_downstream_content_with_call_tree(func_name, max_depth)
+                    
+                    # 为每个检查类型创庺 base_iteration_count 个任务
+                    for rule_key, rule_list in all_checklists.items():
+                        for iteration in range(base_iteration_count):
+                            task_data = {
+                                'task_id': task_id,
+                                'iteration_index': iteration + 1,
+                                'language': lang,
+                                'root_function': public_func,
+                                'rule_key': rule_key,
+                                'rule_list': rule_list,
+                                'downstream_content': downstream_content,
+                                'max_depth': max_depth,
+                                'task_type': 'public_function_checklist_scan'
+                            }
+                            
+                            tasks.append(task_data)
+                            task_id += 1
+                        
+                        print(f"    ✅ 创庺任务: {rule_key} - {base_iteration_count}个迭代")
+        
+        print(f"\n🎉 任务创庺完成！")
+        print(f"  总计: {len(tasks)} 个任务")
+        print(f"  扫描模式: {scan_mode}")
+        print(f"  基础迭代次数: {base_iteration_count}")
+        print(f"  最大深度: {max_depth}")
+        
         return tasks
     
     def get_downstream_content_with_call_tree(self, func_name: str, max_depth: int = 5) -> str:

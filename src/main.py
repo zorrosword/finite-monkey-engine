@@ -49,9 +49,9 @@ def scan_project(project, db_engine):
         from context.rag_processor import RAGProcessor
         rag_start = time.time()
         
-        # 正确传递参数：functions_to_check作为第一个参数
+        # 传递project_audit对象，包含functions, functions_to_check, chunks
         rag_processor = RAGProcessor(
-            project_audit.functions_to_check, 
+            project_audit, 
             "./src/codebaseQA/lancedb", 
             project.id
         )
@@ -59,6 +59,7 @@ def scan_project(project, db_engine):
         rag_duration = time.time() - rag_start
         log_success(logger, "RAG处理器初始化完成", f"耗时: {rag_duration:.2f}秒")
         log_data_info(logger, "基于tree-sitter解析的函数构建RAG", len(project_audit.functions_to_check))
+        log_data_info(logger, "基于文档分块构建RAG", len(project_audit.chunks))
         log_data_info(logger, "使用调用树构建关系型RAG", len(project_audit.call_trees))
         log_data_info(logger, "集成调用图(Call Graph)", len(project_audit.call_graphs))
         
@@ -269,7 +270,7 @@ if __name__ == '__main__':
         log_success(main_logger, "数据集加载完成", f"找到 {len(projects)} 个项目")
  
         # 设置项目参数
-        project_id = 'pendle0731111'  # 使用存在的项目ID
+        project_id = 'fishcake_test'  # 使用存在的项目ID
         project_path = ''
         main_logger.info(f"目标项目ID: {project_id}")
         project = Project(project_id, projects[project_id])

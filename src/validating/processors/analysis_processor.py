@@ -543,67 +543,48 @@ class AnalysisProcessor:
                 logs.append(f"第 {round_num} 轮: 明确结果，直接返回")
                 return assessment
             
-            # 如果需要更多信息，进行信息获取
+            # 如果需要更多信息，直接获取所有类型的信息
             if assessment == 'need_more_info' and additional_info:
                 print(f"  🔍 需要更多信息: {additional_info}")
                 logs.append(f"第 {round_num} 轮: 需要更多信息: {additional_info}")
                 
-                # 第二步：使用prompt factory生成信息查询prompt
-                info_query_prompt = VulCheckPrompt.vul_check_prompt_agent_info_query_complete(
-                    additional_info
-                )
-                
                 try:
-                    # 使用专门的信息查询模型获取自然语言响应
-                    info_natural_response = ask_agent_info_query(info_query_prompt)
-                    if not info_natural_response:
-                        logs.append(f"第 {round_num} 轮: 信息类型查询无响应")
-                        return assessment if assessment in ['yes', 'no'] else 'not_sure'
-                    
-                    # 使用prompt factory生成信息类型提取prompt
-                    info_extraction_prompt = VulCheckPrompt.vul_check_prompt_agent_info_extraction(
-                        info_natural_response
+                    # 直接获取所有类型的RAG信息
+                    print(f"  🔍 同时获取所有类型的RAG信息...")
+                    all_additional_info = self._get_all_additional_info(
+                        additional_info, task, logs, round_num
                     )
-
-                    info_response = ask_agent_info_extraction(info_extraction_prompt)
-                    if info_response:
-                        info_request = json.loads(info_response) if isinstance(info_response, str) else info_response
-                        info_type = info_request.get('info_type', 'function')
-                        specific_query = info_request.get('specific_query', additional_info)
-                        query_reason = info_request.get('query_reason', '')
+                    
+                    # 格式化为字符串
+                    additional_context = self._format_all_additional_info(all_additional_info)
+                    
+                    logs.append(f"第 {round_num} 轮: 获取所有RAG信息完成")
+                    print(f"  ✅ 获取信息完成: Functions={len(all_additional_info['function_info'])}, Upstream/Downstream={len(all_additional_info['upstream_downstream_info'])}, Chunks={len(all_additional_info['chunk_info'])}")
+                    # Files={len(all_additional_info['file_info'])}, - 已注释
                         
-                        logs.append(f"第 {round_num} 轮: 请求信息类型={info_type}, 查询={specific_query}")
-                        print(f"  📋 信息类型: {info_type}")
-                        print(f"  🔍 查询内容: {specific_query}")
-                        
-                        # 第三步：获取相关信息
-                        additional_context = self._get_additional_info_by_type(
-                            info_type, specific_query, task, logs, round_num
+                    # 使用prompt factory生成最终分析prompt
+                    final_analysis_prompt = VulCheckPrompt.vul_check_prompt_agent_final_analysis(
+                        vulnerability_result, business_flow_code, assessment, additional_info, additional_context
+                    )
+                    
+                    # 使用专门的最终分析模型进行最终分析
+                    final_natural_response = ask_agent_final_analysis(final_analysis_prompt)
+                    if final_natural_response:
+                        # 使用prompt factory生成最终结果提取prompt
+                        final_extraction_prompt = VulCheckPrompt.vul_check_prompt_agent_final_extraction(
+                            final_natural_response
                         )
-                        
-                        # 第四步：使用prompt factory生成最终分析prompt
-                        final_analysis_prompt = VulCheckPrompt.vul_check_prompt_agent_final_analysis(
-                            vulnerability_result, business_flow_code, assessment, additional_info, additional_context
-                        )
-                        
-                        # 使用专门的最终分析模型进行最终分析
-                        final_natural_response = ask_agent_final_analysis(final_analysis_prompt)
-                        if final_natural_response:
-                            # 使用prompt factory生成最终结果提取prompt
-                            final_extraction_prompt = VulCheckPrompt.vul_check_prompt_agent_final_extraction(
-                                final_natural_response
-                            )
 
-                            final_response = ask_agent_final_extraction(final_extraction_prompt)
-                            if final_response:
-                                final_result = json.loads(final_response) if isinstance(final_response, str) else final_response
-                                final_assessment = final_result.get('final_result', 'not_sure')
-                                
-                                logs.append(f"第 {round_num} 轮: 最终结果={final_assessment}")
-                                logs.append(f"第 {round_num} 轮: 最终分析={final_natural_response[:200]}...")
-                                
-                                print(f"  🎯 最终判断: {final_assessment}")
-                                return final_assessment
+                        final_response = ask_agent_final_extraction(final_extraction_prompt)
+                        if final_response:
+                            final_result = json.loads(final_response) if isinstance(final_response, str) else final_response
+                            final_assessment = final_result.get('final_result', 'not_sure')
+                            
+                            logs.append(f"第 {round_num} 轮: 最终结果={final_assessment}")
+                            logs.append(f"第 {round_num} 轮: 最终分析={final_natural_response[:200]}...")
+                            
+                            print(f"  🎯 最终判断: {final_assessment}")
+                            return final_assessment
                         
                 except Exception as e:
                     logs.append(f"第 {round_num} 轮: 信息获取阶段失败: {str(e)}")
@@ -742,6 +723,234 @@ class AnalysisProcessor:
         except Exception as e:
             logs.append(f"第 {round_num} 轮: 获取 {info_type} 信息失败: {str(e)}")
             return f"获取 {info_type} 信息失败: {str(e)}"
+    
+    def _get_all_additional_info(self, specific_query, task, logs, round_num):
+        """同时获取所有类型的RAG信息"""
+        all_info = {
+            'function_info': [],
+            'file_info': [],
+            'upstream_downstream_info': [],
+            'chunk_info': []
+        }
+        
+        try:
+            # 1. Function RAG搜索 (topk=5) - 包括三种搜索类型
+            if self.rag_processor:
+                # 按名称搜索
+                name_results = self.rag_processor.search_functions_by_name(specific_query, 2)
+                # 按内容搜索
+                content_results = self.rag_processor.search_functions_by_content(specific_query, 2)
+                # 按自然语言描述搜索
+                natural_results = self.rag_processor.search_functions_by_natural_language(specific_query, 2)
+                
+                # 合并和去重，取前5个
+                function_results = self._merge_and_deduplicate_functions(
+                    name_results, content_results, natural_results, 5
+                )
+                
+                for result in function_results:
+                    func_name = result.get('name', 'Unknown')
+                    func_content = result.get('content', '')[:300]  # 限制长度
+                    all_info['function_info'].append({
+                        'name': func_name,
+                        'content': func_content,
+                        'type': 'function'
+                    })
+                
+                logs.append(f"第 {round_num} 轮: Function搜索找到 {len(function_results)} 个结果")
+            
+            # 2. File RAG搜索 (topk=2) - 已注释
+            # if self.rag_processor:
+            #     file_results = self.rag_processor.search_files_by_content(specific_query, 2)
+            #     
+            #     for result in file_results:
+            #         file_path = result.get('file_path', 'Unknown')
+            #         file_content = result.get('content', '')[:300]
+            #         all_info['file_info'].append({
+            #             'path': file_path,
+            #             'content': file_content,
+            #             'type': 'file'
+            #         })
+            #     
+            #     logs.append(f"第 {round_num} 轮: File搜索找到 {len(file_results)} 个结果")
+            
+            # 3. Upstream/Downstream搜索 (level=3/4)
+            upstream_downstream_results = self._get_upstream_downstream_with_levels(task, 3, 4, logs, round_num)
+            all_info['upstream_downstream_info'] = upstream_downstream_results
+            
+            # 4. Chunk RAG搜索 (topk=3)
+            if self.rag_processor:
+                chunk_results = self.rag_processor.search_chunks_by_content(specific_query, 3)
+                
+                for result in chunk_results:
+                    chunk_text = result.get('chunk_text', '')[:300]
+                    original_file = result.get('original_file', 'Unknown')
+                    all_info['chunk_info'].append({
+                        'text': chunk_text,
+                        'file': original_file,
+                        'type': 'chunk'
+                    })
+                
+                logs.append(f"第 {round_num} 轮: Chunk搜索找到 {len(chunk_results)} 个结果")
+            
+            # 5. 去重逻辑：从upstream/downstream中去除与function相同的
+            all_info = self._remove_function_duplicates_from_upstream_downstream(all_info)
+            
+            return all_info
+            
+        except Exception as e:
+            logs.append(f"第 {round_num} 轮: 获取所有额外信息失败: {str(e)}")
+            return all_info
+    
+    def _merge_and_deduplicate_functions(self, name_results, content_results, natural_results, max_count):
+        """合并和去重函数搜索结果（三种类型）"""
+        seen_names = set()
+        merged_results = []
+        
+        # 先加入按名称搜索的结果
+        for result in name_results:
+            func_name = result.get('name', '')
+            if func_name and func_name not in seen_names:
+                seen_names.add(func_name)
+                merged_results.append(result)
+                if len(merged_results) >= max_count:
+                    break
+        
+        # 再加入按内容搜索的结果（去重）
+        for result in content_results:
+            func_name = result.get('name', '')
+            if func_name and func_name not in seen_names:
+                seen_names.add(func_name)
+                merged_results.append(result)
+                if len(merged_results) >= max_count:
+                    break
+        
+        # 最后加入按自然语言搜索的结果（去重）
+        for result in natural_results:
+            func_name = result.get('name', '')
+            if func_name and func_name not in seen_names:
+                seen_names.add(func_name)
+                merged_results.append(result)
+                if len(merged_results) >= max_count:
+                    break
+        
+        return merged_results[:max_count]
+    
+    def _get_upstream_downstream_with_levels(self, task, upstream_level, downstream_level, logs, round_num):
+        """获取上下游信息（复用planning中的实现）"""
+        upstream_downstream = []
+        
+        # 获取project_audit实例
+        project_audit = getattr(self, 'project_audit', None) or self.context_data.get('project_audit')
+        if not project_audit:
+            return upstream_downstream
+        
+        try:
+            # 复用planning中的方法获取downstream内容
+            from planning.planning_processor import PlanningProcessor
+            planning_processor = PlanningProcessor(None, project_audit)  # task_manager可以传None
+            
+            # 获取downstream内容（使用planning中的方法）
+            downstream_content = planning_processor.get_downstream_content_with_call_tree(
+                task.name, downstream_level
+            )
+            if downstream_content:
+                upstream_downstream.append({
+                    'content': downstream_content[:800],
+                    'type': 'downstream',
+                    'level': downstream_level,
+                    'count': downstream_content.count('\n\n') + 1  # 简单估算函数数量
+                })
+                logs.append(f"第 {round_num} 轮: 获取downstream代码内容，深度{downstream_level}，{len(downstream_content)} 字符")
+            
+            # 获取upstream内容（复用planning的逻辑，但修改为upstream）
+            upstream_content = self._get_upstream_content_with_call_tree(
+                task.name, upstream_level, planning_processor
+            )
+            if upstream_content:
+                upstream_downstream.append({
+                    'content': upstream_content[:800],
+                    'type': 'upstream',
+                    'level': upstream_level,
+                    'count': upstream_content.count('\n\n') + 1  # 简单估算函数数量
+                })
+                logs.append(f"第 {round_num} 轮: 获取upstream代码内容，深度{upstream_level}，{len(upstream_content)} 字符")
+            
+        except Exception as e:
+            logs.append(f"第 {round_num} 轮: 复用planning方法获取上下游内容失败: {str(e)}")
+        
+        return upstream_downstream
+    
+    def _get_upstream_content_with_call_tree(self, func_name: str, max_depth: int, planning_processor) -> str:
+        """获取upstream内容（参考planning中的downstream实现）"""
+        contents = []
+        
+        # 查找对应的call tree
+        if hasattr(planning_processor.project_audit, 'call_trees') and planning_processor.project_audit.call_trees:
+            try:
+                from tree_sitter_parsing.advanced_call_tree_builder import AdvancedCallTreeBuilder
+                builder = AdvancedCallTreeBuilder()
+                upstream_tree = builder.get_call_tree_with_depth_limit(
+                    planning_processor.project_audit.call_trees, func_name, 'upstream', max_depth
+                )
+                
+                if upstream_tree and upstream_tree.get('tree'):
+                    contents = planning_processor._extract_contents_from_tree(upstream_tree['tree'])
+            except Exception as e:
+                print(f"    ⚠️ 使用高级call tree获取upstream失败: {e}")
+                # 这里可以加入后备方案，但planning中没有upstream的fallback
+        
+        return '\n\n'.join(contents)
+    
+    def _remove_function_duplicates_from_upstream_downstream(self, all_info):
+        """从upstream/downstream中去除与function相同的结果"""
+        # 获取所有function名称
+        function_names = set()
+        for func_info in all_info['function_info']:
+            function_names.add(func_info.get('name', ''))
+        
+        # 从upstream/downstream内容中移除包含相同functions的部分
+        # 这里简化处理，主要是避免内容重复
+        # 实际上，upstream/downstream和function的内容是不同的角度，可以保留
+        
+        return all_info
+    
+    def _format_all_additional_info(self, all_info):
+        """格式化所有额外信息为字符串"""
+        context_parts = []
+        
+        # Function信息
+        if all_info['function_info']:
+            context_parts.append("=== 相关函数 (Top 5) ===")
+            for i, func in enumerate(all_info['function_info'], 1):
+                context_parts.append(f"{i}. 函数: {func.get('name', 'Unknown')}")
+                context_parts.append(f"   代码: {func.get('content', '')[:200]}...\n")
+        
+        # File信息 - 已注释
+        # if all_info['file_info']:
+        #     context_parts.append("=== 相关文件 (Top 2) ===")
+        #     for i, file in enumerate(all_info['file_info'], 1):
+        #         context_parts.append(f"{i}. 文件: {file.get('path', 'Unknown')}")
+        #         context_parts.append(f"   内容: {file.get('content', '')[:200]}...\n")
+        
+        # Upstream/Downstream信息
+        if all_info['upstream_downstream_info']:
+            context_parts.append("=== 上下游关系信息 ===")
+            for info in all_info['upstream_downstream_info']:
+                level = info.get('level', 0)
+                info_type = info.get('type', 'unknown')
+                count = info.get('count', 0)
+                context_parts.append(f"{info_type.title()}函数 (深度{level}, 共{count}个):")
+                context_parts.append(f"{info.get('content', '')[:400]}...\n")
+        
+        # Chunk信息
+        if all_info['chunk_info']:
+            context_parts.append("=== 相关文档块 (Top 3) ===")
+            for i, chunk in enumerate(all_info['chunk_info'], 1):
+                context_parts.append(f"{i}. 文件: {chunk.get('file', 'Unknown')}")
+                context_parts.append(f"   内容: {chunk.get('text', '')[:200]}...\n")
+        
+        return '\n'.join(context_parts) if context_parts else "未找到相关信息"
 
     def _aggregate_round_results(self, round_results, logs):
         """汇总三轮结果，生成最终判断"""

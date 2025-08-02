@@ -14,12 +14,12 @@ from openai_api.openai import common_get_embedding, common_ask_for_json
 class RAGProcessor:
     """RAG处理器，负责创建和管理基于LanceDB的检索增强生成系统"""
     
-    def __init__(self, functions_to_check: List[Dict[str, Any]], db_path: str = "./lancedb", project_id: str = None):
+    def __init__(self, project_audit, db_path: str = "./lancedb", project_id: str = None):
         """
         初始化RAG处理器
         
         Args:
-            functions_to_check: 需要处理的函数列表
+            project_audit: 项目审计对象，包含functions, functions_to_check, chunks
             db_path: 数据库路径
             project_id: 项目ID，用于生成表名
         """
@@ -27,10 +27,12 @@ class RAGProcessor:
         
         self.db = lancedb.connect(db_path)
         self.project_id = project_id
+        self.project_audit = project_audit
         
-        # 定义两个表名
+        # 定义三个表名
         self.table_name_function = f"lancedb_function_{project_id}" if project_id else "lancedb_function"
         self.table_name_file = f"lancedb_file_{project_id}" if project_id else "lancedb_file"
+        self.table_name_chunk = f"lancedb_chunk_{project_id}" if project_id else "lancedb_chunk"
         
         # 为了向后兼容，提供一个默认的table_name属性，指向函数表
         self.table_name = self.table_name_function
@@ -41,31 +43,38 @@ class RAGProcessor:
         # 检查表是否存在
         function_table_exists = self._table_exists(self.table_name_function)
         file_table_exists = self._table_exists(self.table_name_file)
-        tables_exist = function_table_exists and file_table_exists
+        chunk_table_exists = self._table_exists(self.table_name_chunk)
+        tables_exist = function_table_exists and file_table_exists and chunk_table_exists
         
         # 只有在表存在的情况下才检查数据量
         functions_count_match = False
         files_count_match = False
+        chunks_count_match = False
         
         if function_table_exists:
-            functions_count_match = self._check_data_count(self.table_name_function, len(functions_to_check))
+            functions_count_match = self._check_data_count(self.table_name_function, len(project_audit.functions_to_check))
         else:
             print(f"表 {self.table_name_function} 不存在，需要创建")
             
         if file_table_exists:
-            unique_files = list(set(func['relative_file_path'] for func in functions_to_check))
+            unique_files = list(set(func['relative_file_path'] for func in project_audit.functions_to_check))
             files_count_match = self._check_data_count(self.table_name_file, len(unique_files))
         else:
             print(f"表 {self.table_name_file} 不存在，需要创建")
+            
+        if chunk_table_exists:
+            chunks_count_match = self._check_data_count(self.table_name_chunk, len(project_audit.chunks))
+        else:
+            print(f"表 {self.table_name_chunk} 不存在，需要创建")
         
-        if tables_exist and functions_count_match and files_count_match:
+        if tables_exist and functions_count_match and files_count_match and chunks_count_match:
             print(f"所有表已存在且数据量正确，跳过处理")
             return
 
-        self._create_all_databases(functions_to_check)
+        self._create_all_databases()
     
     def _create_schemas(self):
-        """创建两个表的schemas"""
+        """创建三个表的schemas"""
         
         # 函数级别表schema（包含3种embedding）
         self.schema_function = pa.schema([
@@ -113,6 +122,29 @@ class RAGProcessor:
             pa.field("functions_count", pa.int32()),
             pa.field("functions_list", pa.list_(pa.string())),
             pa.field("file_extension", pa.string())
+        ])
+        
+        # 文档块级别表schema（包含2种embedding）
+        self.schema_chunk = pa.schema([
+            # 基本标识字段
+            pa.field("id", pa.string()),
+            pa.field("chunk_id", pa.string()),
+            
+            # 2种embedding字段
+            pa.field("content_embedding", pa.list_(pa.float32(), 3072)),        # 文档块内容embedding
+            pa.field("natural_embedding", pa.list_(pa.float32(), 3072)),        # 文档块自然语言embedding
+            
+            # 文档块完整metadata
+            pa.field("chunk_text", pa.string()),
+            pa.field("natural_description", pa.string()),
+            pa.field("original_file", pa.string()),
+            pa.field("chunk_order", pa.int32()),
+            pa.field("parent_doc_id", pa.string()),
+            pa.field("chunk_size", pa.int32()),
+            pa.field("file_name", pa.string()),
+            pa.field("file_path", pa.string()),
+            pa.field("file_extension", pa.string()),
+            pa.field("metadata", pa.string())  # JSON string of metadata
         ])
         
     def _table_exists(self, table_name: str) -> bool:
@@ -198,6 +230,37 @@ Response format: A clear, structured description in English.
             print(f"Error generating description for file {file_path}: {str(e)}")
             return f"File {file_path} - unable to generate description"
 
+    def _generate_chunk_description(self, chunk_text: str, file_path: str, chunk_order: int) -> str:
+        """为文档块生成自然语言描述"""
+        prompt = f"""
+Please analyze this document chunk and provide a concise description of its content and purpose.
+Describe what this chunk contains, its main topics, and its significance.
+
+Source file: {file_path}
+Chunk order: {chunk_order}
+
+Chunk content:
+```
+{chunk_text[:1500]}
+```
+
+Please provide a brief but comprehensive explanation in English covering:
+1. The main content of this chunk
+2. Key concepts or functionalities it discusses
+3. Its relationship to the overall document/file
+
+Response format: A clear, concise description in English (2-3 sentences).
+"""
+        
+        try:
+            response = common_ask_for_json(prompt)
+            if isinstance(response, dict):
+                return response.get('description', response.get('explanation', str(response)))
+            return str(response)
+        except Exception as e:
+            print(f"Error generating description for chunk from {file_path}: {str(e)}")
+            return f"Document chunk from {file_path} - unable to generate description"
+
     def process_function(self, func: Dict[str, Any]) -> Dict[str, Any]:
         """处理单个函数，生成3种embedding"""
         
@@ -279,15 +342,61 @@ Response format: A clear, structured description in English.
             "file_extension": file_extension
         }
 
-    def _create_all_databases(self, functions_to_check: List[Dict[str, Any]]) -> None:
+    def process_chunk(self, chunk) -> Dict[str, Any]:
+        """处理单个文档块，生成2种embedding"""
+        
+        # 生成文档块的自然语言描述
+        natural_description = self._generate_chunk_description(
+            chunk.chunk_text, 
+            chunk.original_file, 
+            chunk.chunk_order
+        )
+        
+        # 生成2种embedding
+        content_embedding = common_get_embedding(chunk.chunk_text)
+        natural_embedding = common_get_embedding(natural_description)
+        
+        # 获取文件扩展名
+        file_extension = os.path.splitext(chunk.original_file)[1] if '.' in chunk.original_file else ''
+        
+        # 将metadata转换为JSON字符串
+        import json
+        metadata_str = json.dumps(chunk.metadata if hasattr(chunk, 'metadata') and chunk.metadata else {})
+        
+        return {
+            # 基本标识
+            "id": f"chunk_{chunk.chunk_id}",
+            "chunk_id": chunk.chunk_id,
+            
+            # 2种embedding
+            "content_embedding": content_embedding,
+            "natural_embedding": natural_embedding,
+            
+            # 完整的文档块metadata
+            "chunk_text": chunk.chunk_text,
+            "natural_description": natural_description,
+            "original_file": chunk.original_file,
+            "chunk_order": chunk.chunk_order,
+            "parent_doc_id": chunk.parent_doc_id,
+            "chunk_size": chunk.chunk_size,
+            "file_name": os.path.basename(chunk.original_file),
+            "file_path": chunk.original_file,
+            "file_extension": file_extension,
+            "metadata": metadata_str
+        }
+
+    def _create_all_databases(self) -> None:
         """创建所有数据库表"""
-        print(f"Creating database tables for {len(functions_to_check)} functions...")
+        print(f"Creating database tables for {len(self.project_audit.functions_to_check)} functions and {len(self.project_audit.chunks)} chunks...")
         
         # 1. 创建函数级别表
-        self._create_function_database(functions_to_check)
+        self._create_function_database(self.project_audit.functions_to_check)
         
         # 2. 创建文件级别表
-        self._create_file_database(functions_to_check)
+        self._create_file_database(self.project_audit.functions_to_check)
+        
+        # 3. 创建文档块级别表
+        self._create_chunk_database(self.project_audit.chunks)
         
         print("All database tables creation completed!")
 
@@ -355,6 +464,30 @@ Response format: A clear, structured description in English.
                         pbar.update(1)
                         continue
 
+    def _create_chunk_database(self, chunks: List) -> None:
+        """创建文档块级别数据库表"""
+        print("Creating chunk-level embedding table...")
+        
+        table = self.db.create_table(self.table_name_chunk, schema=self.schema_chunk, mode="overwrite")
+        table_lock = threading.Lock()
+        max_workers = min(10, len(chunks))  # 控制并发数
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_chunk = {executor.submit(self.process_chunk, chunk): chunk for chunk in chunks}
+            
+            with tqdm(total=len(chunks), desc="Processing chunk embeddings", unit="chunk") as pbar:
+                for future in as_completed(future_to_chunk):
+                    chunk = future_to_chunk[future]
+                    try:
+                        processed_chunk = future.result()
+                        with table_lock:
+                            table.add([processed_chunk])
+                        pbar.update(1)
+                    except Exception as e:
+                        print(f"Error processing chunk {getattr(chunk, 'chunk_id', 'unknown')}: {str(e)}")
+                        pbar.update(1)
+                        continue
+
     # ========== 搜索接口 ==========
     
     def search_functions_by_content(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
@@ -390,6 +523,22 @@ Response format: A clear, structured description in English.
     def search_similar_files(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
         """搜索相似文件（默认使用自然语言embedding）"""
         return self.search_files_by_natural_language(query, k)
+
+    def search_chunks_by_content(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
+        """基于文档块内容搜索相似文档块"""
+        query_embedding = common_get_embedding(query)
+        table = self.db.open_table(self.table_name_chunk)
+        return table.search(query_embedding, vector_column_name="content_embedding").limit(k).to_list()
+
+    def search_chunks_by_natural_language(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
+        """基于文档块自然语言描述搜索相似文档块"""
+        query_embedding = common_get_embedding(query)
+        table = self.db.open_table(self.table_name_chunk)
+        return table.search(query_embedding, vector_column_name="natural_embedding").limit(k).to_list()
+
+    def search_similar_chunks(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
+        """搜索相似文档块（默认使用内容embedding）"""
+        return self.search_chunks_by_content(query, k)
 
     # ========== 兼容性方法（保持原有接口） ==========
     
@@ -511,6 +660,56 @@ Response format: A clear, structured description in English.
             results = [item for item in all_data if item.get('relative_file_path') == file_path]
         return results[0] if results else None
     
+    def get_chunks_by_file(self, file_path: str) -> List[Dict[str, Any]]:
+        """根据文件路径获取文档块列表"""
+        table = self.db.open_table(self.table_name_chunk)
+        try:
+            # 尝试使用新的API
+            results = table.filter(f"original_file = '{file_path}'").to_list()
+        except AttributeError:
+            # 如果filter方法不存在，回退到扫描整个表
+            try:
+                all_data = table.to_list()
+            except AttributeError:
+                try:
+                    all_data = table.to_arrow().to_pylist()
+                except AttributeError:
+                    all_data = []
+            results = [item for item in all_data if item.get('original_file') == file_path]
+        return results
+    
+    def get_chunk_by_id(self, chunk_id: str) -> Dict[str, Any]:
+        """根据chunk_id获取文档块信息"""
+        table = self.db.open_table(self.table_name_chunk)
+        try:
+            # 尝试使用新的API
+            results = table.filter(f"chunk_id = '{chunk_id}'").to_list()
+        except AttributeError:
+            # 如果filter方法不存在，回退到扫描整个表
+            try:
+                all_data = table.to_list()
+            except AttributeError:
+                try:
+                    all_data = table.to_arrow().to_pylist()
+                except AttributeError:
+                    all_data = []
+            results = [item for item in all_data if item.get('chunk_id') == chunk_id]
+        return results[0] if results else None
+    
+    def get_all_chunks(self) -> List[Dict[str, Any]]:
+        """获取所有文档块"""
+        table = self.db.open_table(self.table_name_chunk)
+        try:
+            return table.to_list()
+        except AttributeError:
+            # 如果to_list方法不存在，尝试其他方法
+            try:
+                return table.to_arrow().to_pylist()
+            except AttributeError:
+                # 如果都不存在，返回空列表
+                print("Warning: Unable to retrieve data from chunk table")
+                return []
+    
     # ========== 数据库管理方法 ==========
     
     def delete_all_tables(self) -> bool:
@@ -518,6 +717,7 @@ Response format: A clear, structured description in English.
         try:
             self.db.drop_table(self.table_name_function)
             self.db.drop_table(self.table_name_file)
+            self.db.drop_table(self.table_name_chunk)
             return True
         except Exception as e:
             print(f"Error deleting tables: {str(e)}")
@@ -528,6 +728,7 @@ Response format: A clear, structured description in English.
         try:
             function_table = self.db.open_table(self.table_name_function)
             file_table = self.db.open_table(self.table_name_file)
+            chunk_table = self.db.open_table(self.table_name_chunk)
             
             return {
                 "function_table": {
@@ -540,6 +741,12 @@ Response format: A clear, structured description in English.
                     "table_name": self.table_name_file,
                     "row_count": file_table.count_rows(),
                     "schema": self.schema_file,
+                    "embedding_types": ["content_embedding", "natural_embedding"]
+                },
+                "chunk_table": {
+                    "table_name": self.table_name_chunk,
+                    "row_count": chunk_table.count_rows(),
+                    "schema": self.schema_chunk,
                     "embedding_types": ["content_embedding", "natural_embedding"]
                 }
             }
