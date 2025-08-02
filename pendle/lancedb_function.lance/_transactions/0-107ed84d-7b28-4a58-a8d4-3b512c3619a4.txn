@@ -1,6 +1,0 @@
-$107ed84d-7b28-4a58-a8d4-3b512c3619a4²­$id ÿÿÿÿÿÿÿÿÿ*string08Zdefault(name ÿÿÿÿÿÿÿÿÿ*string08ZdefaultIcontent_embedding ÿÿÿÿÿÿÿÿÿ*fixed_size_list:float:307208ZdefaultFname_embedding ÿÿÿÿÿÿÿÿÿ*fixed_size_list:float:307208ZdefaultInatural_embedding ÿÿÿÿÿÿÿÿÿ*fixed_size_list:float:307208Zdefault+content ÿÿÿÿÿÿÿÿÿ*string08Zdefault7natural_description ÿÿÿÿÿÿÿÿÿ*string08Zdefault-
-start_line ÿÿÿÿÿÿÿÿÿ*int3208Zdefault+end_line ÿÿÿÿÿÿÿÿÿ*int3208Zdefault6relative_file_path	 ÿÿÿÿÿÿÿÿÿ*string08Zdefault6absolute_file_path
- ÿÿÿÿÿÿÿÿÿ*string08Zdefault1contract_name ÿÿÿÿÿÿÿÿÿ*string08Zdefault1contract_code ÿÿÿÿÿÿÿÿÿ*string08Zdefault+	modifiers ÿÿÿÿÿÿÿÿÿ*list08Zdefaultitem *string08Zdefault.
-visibility ÿÿÿÿÿÿÿÿÿ*string08Zdefault4state_mutability ÿÿÿÿÿÿÿÿÿ*string08Zdefault6function_name_only ÿÿÿÿÿÿÿÿÿ*string08Zdefault-	full_name ÿÿÿÿÿÿÿÿÿ*string08Zdefault"!
-lance.auto_cleanup.interval20"'
-lance.auto_cleanup.older_than14days

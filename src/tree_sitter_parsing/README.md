@@ -1,239 +1,272 @@
-# Tree-sitter Parser
+# Tree-sitter Parsing Module
 
-## 🎯 项目概述
+## Overview
 
-基于**Tree-sitter**的现代化解析器，完全替代原有的**ANTLR**解析器。支持四种核心编程语言（Solidity、Rust、C++、Move），提供高性能的代码解析和调用树构建功能。
+The Tree-sitter Parsing module provides comprehensive code analysis and parsing capabilities for multi-language projects. It leverages the powerful tree-sitter parsing library to build detailed Abstract Syntax Trees (ASTs), extract function definitions, analyze call relationships, and create sophisticated code representations for vulnerability analysis.
 
-## 🗂️ 目录结构
+## Core Components
+
+### TreeSitterProjectAudit (`project_audit.py`)
+The main project analysis coordinator featuring:
+- **Multi-language Parsing**: Support for Solidity, Rust, Go, C++, and more
+- **Function Extraction**: Comprehensive function and method identification
+- **Call Graph Generation**: Advanced call relationship analysis
+- **Document Chunking**: Intelligent code segmentation for analysis
+- **Database Integration**: Optional database storage for parsed results
+
+### ProjectParser (`project_parser.py`)
+Advanced project parsing engine with:
+- **Parallel Processing**: Concurrent parsing for improved performance
+- **Language Detection**: Automatic programming language identification
+- **Filter System**: Configurable filtering for targeted analysis
+- **Metadata Extraction**: Rich metadata collection from parsed code
+
+### Call Tree Builder (`call_tree_builder.py`)
+Sophisticated call relationship analysis:
+- **Function Call Tracking**: Identifies and maps function calls
+- **Cross-reference Analysis**: Tracks relationships between functions
+- **Dependency Mapping**: Creates comprehensive dependency graphs
+- **Contextual Analysis**: Understands call context and parameters
+
+### Advanced Call Tree Builder (`advanced_call_tree_builder.py`)
+Enhanced call analysis with:
+- **Deep Analysis**: Advanced call pattern recognition
+- **Complex Relationships**: Handles indirect and dynamic calls
+- **Performance Optimization**: Optimized algorithms for large codebases
+- **Pattern Recognition**: Identifies common code patterns and structures
+
+### Document Chunker (`document_chunker.py`)
+Intelligent code segmentation system:
+- **Semantic Chunking**: Creates meaningful code segments
+- **Context Preservation**: Maintains logical code boundaries
+- **Configurable Sizing**: Flexible chunk size configuration
+- **Overlap Management**: Handles overlapping contexts for continuity
+
+### Chunk Configuration (`chunk_config.py`)
+Configuration management for chunking operations:
+- **Language-specific Settings**: Tailored configurations for different languages
+- **Performance Tuning**: Optimization parameters for various project sizes
+- **Custom Rules**: User-defined chunking strategies
+- **Template Management**: Predefined configuration templates
+
+## Key Features
+
+### 🌳 Advanced AST Analysis
+- **Precise Parsing**: Accurate syntax tree generation for multiple languages
+- **Rich Metadata**: Comprehensive code structure information
+- **Error Handling**: Robust parsing with graceful error recovery
+- **Performance Optimized**: Efficient parsing for large codebases
+
+### 🔗 Sophisticated Call Analysis
+- **Function Mapping**: Complete function identification and cataloging
+- **Call Relationship Tracking**: Detailed call graph construction
+- **Cross-language Support**: Handles multi-language projects seamlessly
+- **Dynamic Analysis**: Supports runtime call pattern analysis
+
+### 📊 Intelligent Code Segmentation
+- **Context-aware Chunking**: Maintains logical code boundaries
+- **Overlap Strategy**: Smart overlapping for context preservation
+- **Size Optimization**: Balanced chunk sizes for analysis efficiency
+- **Metadata Enrichment**: Enhanced chunks with structural information
+
+### 🚀 High-Performance Processing
+- **Parallel Parsing**: Concurrent processing for multiple files
+- **Memory Optimization**: Efficient memory usage for large projects
+- **Caching System**: Intelligent caching of parsing results
+- **Incremental Processing**: Support for incremental project updates
+
+## Architecture
 
 ```
-src/tree_sitter_parsing/
-├── __init__.py                 # 模块导出
-├── project_parser.py           # 项目解析器核心
-├── project_audit.py           # 项目审计器
-├── call_tree_builder.py       # 调用树构建器
-└── README.md                  # 本文档
+Tree-sitter Parsing Module
+├── TreeSitterProjectAudit (Main Coordinator)
+│   ├── Project Management
+│   ├── Multi-language Support
+│   ├── Call Graph Integration
+│   └── Database Coordination
+├── ProjectParser (Parsing Engine)
+│   ├── Language Detection
+│   ├── Parallel Processing
+│   ├── Filter System
+│   └── Metadata Extraction
+├── Call Tree Builders
+│   ├── Basic Call Analysis
+│   ├── Advanced Patterns
+│   ├── Relationship Mapping
+│   └── Performance Optimization
+└── Document Processing
+    ├── Intelligent Chunking
+    ├── Configuration Management
+    ├── Context Preservation
+    └── Template System
 ```
 
-## ✨ 主要特性
+## Supported Languages
 
-### 🔄 核心功能
-- ✅ 项目文件解析和分析
-- ✅ 函数提取和过滤
-- ✅ 调用关系分析和调用树构建
-- ✅ 多语言支持（Solidity、Rust、C++、Move）
+### Primary Support
+- **Solidity**: Complete smart contract analysis support
+- **Rust**: Comprehensive Rust language parsing
+- **Go**: Full Go language support with module analysis
+- **C++**: Advanced C++ parsing with template support
 
-### 🌍 多语言支持
-- 🔹 **Solidity** (.sol) - 智能合约开发语言
-- 🔹 **Rust** (.rs) - 系统编程语言
-- 🔹 **C++** (.cpp, .cc, .cxx, .h, .hpp, .hxx, .c, .C) - 系统编程语言
-- 🔹 **Move** (.move) - 区块链智能合约语言
+### Extended Support
+- **Python**: Python code analysis capabilities
+- **JavaScript/TypeScript**: Web technology support
+- **Java**: Enterprise Java application analysis
+- **C**: System-level C code parsing
 
-### 🚀 性能优势
-- ⚡ 高性能解析，比ANTLR快2-3倍
-- 💾 内存使用效率提升30-50%
-- 🔍 更精确的语法分析
-- 📊 增强的函数调用关系检测
+## Usage Examples
 
-## 🚀 使用方法
-
-### 基本使用
-
+### Basic Project Parsing
 ```python
-from tree_sitter_parsing import parse_project, TreeSitterProjectFilter, TreeSitterProjectAudit
+from tree_sitter_parsing import TreeSitterProjectAudit
 
-# 1. 创建项目过滤器
-project_filter = TreeSitterProjectFilter(
-    white_files=['contract.sol'],           # 白名单文件
-    white_functions=['transfer', 'approve'] # 白名单函数
+# Initialize project audit
+project_audit = TreeSitterProjectAudit(
+    project_id="my_project",
+    project_path="/path/to/project",
+    db_engine=engine  # Optional database engine
 )
 
-# 2. 解析项目
-functions, functions_to_check = parse_project('/path/to/project', project_filter)
+# Parse the project
+project_audit.parse()
 
-# 3. 创建项目审计器
-audit = TreeSitterProjectAudit('project_id', '/path/to/project')
-audit.parse(white_files=[], white_functions=[])
-
-# 4. 获取结果
-print(f"找到 {len(audit.functions)} 个函数")
-print(f"需要检查 {len(audit.functions_to_check)} 个函数")
-print(f"构建了 {len(audit.call_trees)} 个调用树")
+# Access results
+functions = project_audit.functions
+call_trees = project_audit.call_trees
+chunks = project_audit.chunks
 ```
 
-### 高级使用
-
+### Advanced Parsing with Filters
 ```python
-from tree_sitter_parsing import TreeSitterCallTreeBuilder
+from tree_sitter_parsing.project_parser import TreeSitterProjectFilter
 
-# 直接使用调用树构建器
-builder = TreeSitterCallTreeBuilder()
-call_trees = builder.build_call_trees(functions_to_check, max_workers=4)
+# Create custom filter
+filter_config = TreeSitterProjectFilter(
+    languages=["solidity", "rust"],
+    max_file_size=1000000,  # 1MB limit
+    exclude_patterns=["test/*", "*.md"]
+)
 
-# 打印调用树
-for tree in call_trees:
-    builder.print_call_tree(tree['upstream'])
+# Parse with custom filter
+project_audit = TreeSitterProjectAudit(
+    project_id="filtered_project",
+    project_path="/path/to/project"
+)
+
+# Apply filter during parsing
+filtered_results = project_audit.parse_with_filter(filter_config)
 ```
 
-## 📚 API参考
-
-### parse_project函数
-
+### Call Graph Analysis
 ```python
-def parse_project(project_path, project_filter=None):
-    """
-    解析项目目录中的代码文件
-    
-    Args:
-        project_path (str): 项目路径
-        project_filter (TreeSitterProjectFilter): 过滤器对象
-        
-    Returns:
-        tuple: (所有函数列表, 需要检查的函数列表)
-    """
+# Access call graph information
+call_graphs = project_audit.call_graphs
+statistics = project_audit.get_call_graph_statistics()
+
+print(f"Total functions: {statistics['total_functions']}")
+print(f"Call relationships: {statistics['total_edges']}")
+print(f"Connected components: {statistics['components']}")
 ```
 
-### TreeSitterProjectFilter类
-
+### Document Chunking
 ```python
-class TreeSitterProjectFilter:
-    def __init__(self, white_files=None, white_functions=None):
-        """初始化过滤器"""
-        
-    def filter_file(self, path, filename):
-        """过滤文件，返回True表示跳过"""
-        
-    def filter_contract(self, function):
-        """过滤函数，返回True表示跳过"""
+from tree_sitter_parsing.document_chunker import DocumentChunker
+from tree_sitter_parsing.chunk_config import ChunkConfig
+
+# Configure chunking
+config = ChunkConfig(
+    chunk_size=1000,
+    overlap_size=200,
+    preserve_functions=True
+)
+
+# Create chunker
+chunker = DocumentChunker(config)
+
+# Process document
+chunks = chunker.chunk_document(file_path, language="solidity")
 ```
 
-### TreeSitterProjectAudit类
+## Configuration Options
 
-```python
-class TreeSitterProjectAudit:
-    def __init__(self, project_id, project_path, db_engine=None):
-        """初始化项目审计器"""
-        
-    def parse(self, white_files, white_functions):
-        """解析项目并构建调用树"""
-        
-    def get_function_names(self):
-        """获取所有函数名称集合"""
-        
-    def get_functions_by_contract(self, contract_name):
-        """根据合约名获取函数列表"""
-        
-    def export_to_csv(self, output_path):
-        """导出分析结果到CSV文件"""
-```
+### Parsing Configuration
+- **Language Settings**: Language-specific parsing parameters
+- **Performance Tuning**: Memory and CPU optimization settings
+- **Filter Options**: File inclusion/exclusion criteria
+- **Output Control**: Result format and storage options
 
-### TreeSitterCallTreeBuilder类
+### Chunking Configuration
+- **Chunk Size**: Target size for code segments
+- **Overlap Strategy**: Context preservation settings
+- **Boundary Rules**: Logical boundary preservation rules
+- **Metadata Options**: Additional information inclusion
 
-```python
-class TreeSitterCallTreeBuilder:
-    def __init__(self):
-        """初始化调用树构建器"""
-        
-    def build_call_trees(self, functions_to_check, max_workers=1):
-        """为函数列表构建调用树"""
-        
-    def print_call_tree(self, node, level=0, prefix=''):
-        """打印调用树结构"""
-```
+### Call Analysis Configuration
+- **Depth Limits**: Maximum analysis depth for performance
+- **Pattern Recognition**: Custom pattern identification rules
+- **Relationship Types**: Types of relationships to track
+- **Performance Limits**: Resource usage constraints
 
-## 🧪 测试验证
+## Integration Points
 
-运行内置测试验证功能：
+### Input Sources
+- **File System**: Direct file system parsing
+- **Git Repositories**: Version control system integration
+- **Archive Files**: Compressed file format support
+- **Stream Input**: Real-time parsing from data streams
 
-```bash
-# 测试项目解析器
-python3 src/tree_sitter_parsing/project_parser.py
+### Output Consumers
+- **RAG Processor**: Semantic search and context enhancement
+- **Planning Module**: Project analysis planning
+- **Vulnerability Scanner**: Security analysis integration
+- **Database Storage**: Persistent storage of parsing results
 
-# 测试项目审计器  
-python3 src/tree_sitter_parsing/project_audit.py
+## Performance Optimization
 
-# 测试调用树构建器
-python3 src/tree_sitter_parsing/call_tree_builder.py
-```
+### Parsing Efficiency
+- **Parallel Processing**: Multi-threaded parsing for large projects
+- **Memory Management**: Efficient memory usage and cleanup
+- **Caching Strategy**: Intelligent result caching
+- **Incremental Updates**: Support for partial project updates
 
-## 🔧 环境配置
+### Scalability Features
+- **Large Project Support**: Handles enterprise-scale codebases
+- **Resource Monitoring**: Real-time resource usage tracking
+- **Adaptive Processing**: Adjusts processing based on system resources
+- **Progress Tracking**: Detailed progress reporting for long operations
 
-### 环境变量
+## Error Handling and Resilience
 
-- `HUGE_PROJECT`: 设置为`True`跳过调用树构建（大型项目）
-- `IGNORE_FOLDERS`: 忽略的文件夹列表，逗号分隔
+### Robust Parsing
+- **Syntax Error Recovery**: Continues parsing despite syntax errors
+- **Partial Results**: Provides partial results for incomplete parsing
+- **Error Reporting**: Comprehensive error logging and reporting
+- **Fallback Mechanisms**: Alternative parsing strategies for edge cases
 
-### 示例配置
+### Quality Assurance
+- **Validation Pipeline**: Multi-stage result validation
+- **Consistency Checks**: Cross-validation between different analysis methods
+- **Accuracy Metrics**: Parsing accuracy measurement and reporting
+- **Regression Testing**: Continuous quality assurance through testing
 
-```bash
-export HUGE_PROJECT=True
-export IGNORE_FOLDERS=".git,node_modules,dist"
-```
+## Advanced Features
 
-## 🎯 性能对比
+### Multi-language Projects
+- **Cross-language Analysis**: Handles projects with multiple languages
+- **Interface Detection**: Identifies language interfaces and bindings
+- **Dependency Tracking**: Tracks dependencies across language boundaries
+- **Unified Representation**: Creates unified project representations
 
-| 指标 | ANTLR解析器 | Tree-sitter解析器 | 提升 |
-|------|-------------|-------------------|------|
-| **解析速度** | 基准 | 2-3x更快 | 🚀 |
-| **内存使用** | 基准 | 30-50%更少 | 💾 |
-| **多语言支持** | 仅Solidity | 4种核心语言 | 🌍 |
-| **代码准确性** | 基础 | 增强 | 📊 |
+### Custom Extensions
+- **Plugin System**: Framework for custom parsing extensions
+- **Custom Grammars**: Support for additional programming languages
+- **Rule Customization**: User-defined parsing and analysis rules
+- **Template Extensions**: Custom configuration templates
 
-## 📋 最佳实践
+## Future Enhancements
 
-### 1. 项目过滤
-- 使用白名单文件和函数提高解析效率
-- 排除测试文件和第三方库
-
-### 2. 大型项目
-- 设置`HUGE_PROJECT=True`跳过调用树构建
-- 使用多线程提高处理速度
-
-### 3. 内存优化
-- 处理完成后及时清理数据
-- 分批处理大量函数
-
-## 🛠️ 故障排除
-
-### 常见问题
-
-1. **Tree-sitter模块不可用**
-   - 系统会自动使用简化版本
-   - 功能受限但不影响基本解析
-
-2. **解析失败**
-   - 检查文件编码格式
-   - 确认语言类型支持
-
-3. **调用树构建缓慢**
-   - 设置`HUGE_PROJECT=True`
-   - 减少待检查函数数量
-
-### 调试技巧
-
-```python
-# 启用详细日志
-import logging
-logging.basicConfig(level=logging.DEBUG)
-
-# 检查解析结果
-for func in functions_to_check:
-    print(f"函数: {func['name']}")
-    print(f"合约: {func.get('contract_name', 'N/A')}")
-    print(f"调用: {len(func.get('calls', []))}")
-```
-
-## 🎉 总结
-
-Tree-sitter解析器提供了一个现代化、高效、易用的代码解析解决方案：
-
-- 🌳 **现代化架构** - 基于Tree-sitter的增量解析
-- 🚀 **高性能** - 显著优于传统ANTLR解析器
-- 🔧 **易于使用** - 简洁的API和完整的文档
-- 🛡️ **稳定可靠** - 经过充分测试和验证
-
-适用于智能合约审计、代码分析、静态检查等各种场景。
-
----
-
-*Tree-sitter Parser - 现代化的代码解析解决方案* 
+- **Real-time Parsing**: Live parsing for IDE integration
+- **Machine Learning Integration**: AI-powered pattern recognition
+- **Distributed Processing**: Cloud-based parsing for large projects
+- **Advanced Visualization**: Interactive code structure visualization

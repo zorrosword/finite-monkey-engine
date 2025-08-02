@@ -1,359 +1,165 @@
-# Context Module - Context Acquisition and Management Module
+# Context Component
 
 ## Overview
 
-The Context module is extracted from the project's planning and validating modules, specifically responsible for context acquisition and management during smart contract auditing. This module unifies all context-related logic, including RAG construction, call tree analysis, business flow processing, etc.
+The Context component provides context management and retrieval capabilities for the Finite Monkey Engine. It includes the RAG (Retrieval Augmented Generation) processor that enables intelligent code search and context enhancement for vulnerability analysis.
 
-## Module Structure
+## Features
 
-```
-src/context/
-├── __init__.py                    # Module initialization and API exports
-├── context_factory.py            # Context factory - unified context creation entry point
-├── context_manager.py            # Context manager - context lifecycle management
-├── rag_processor.py               # RAG processor - retrieval augmented generation
-├── call_tree_builder.py          # Call tree builder - function call relationship analysis
-├── business_flow_processor.py    # Business flow processor - business flow context processing
-├── function_utils.py             # Function utilities - function-related utility functions
-└── README.md                     # This documentation
-```
+- **RAG Processor**: Advanced retrieval system for code context
+- **Vector Embeddings**: Semantic search using OpenAI embeddings
+- **Multi-level Search**: Function, file, and chunk-level retrieval
+- **Context Enhancement**: Augment analysis with relevant code context
 
-## Core Components
+## Architecture
 
-### 1. ContextFactory (context_factory.py)
-**Unified context creation entry point**, providing various types of context acquisition capabilities:
+### Core Components
 
-#### Main Functions
-- `create_rag_context()`: Create RAG-based context
-- `create_call_tree_context()`: Create call tree-based context
-- `create_business_flow_context()`: Create business flow-based context
-- `create_hybrid_context()`: Create hybrid context combining multiple methods
-- `search_similar_functions()`: Search for similar functions
+- **RAGProcessor**: Main class for retrieval operations
+- **LanceDB Integration**: Vector database for embeddings
+- **Embedding Generation**: Convert code to vector representations
+- **Search Algorithms**: Multiple search strategies for different use cases
 
-#### Usage Example
+### Database Schema
+
+The component manages three main LanceDB tables:
+- `lancedb_function`: Function embeddings and metadata
+- `lancedb_file`: File-level code representations  
+- `lancedb_chunk`: Document chunk embeddings
+
+## Usage
+
+### Basic RAG Setup
+
 ```python
-from context import ContextFactory
+from context.rag_processor import RAGProcessor
 
-factory = ContextFactory(project, lancedb, table_name)
-
-# Create RAG context
-rag_context = factory.create_rag_context(function_name, k=5)
-
-# Create call tree context
-call_tree_context = factory.create_call_tree_context(function_name, depth=2)
-
-# Create business flow context
-business_flow_context = factory.create_business_flow_context(business_flow)
-
-# Create hybrid context
-hybrid_context = factory.create_hybrid_context(
-    function_name, 
-    include_rag=True, 
-    include_call_tree=True,
-    rag_k=3,
-    call_tree_depth=1
-)
-```
-
-### 2. ContextManager (context_manager.py)
-**Context lifecycle management**, responsible for context state management and optimization:
-
-#### Main Functions
-- `manage_context_lifecycle()`: Manage complete context lifecycle
-- `optimize_context_size()`: Optimize context size
-- `cache_context()`: Cache context for reuse
-- `validate_context()`: Validate context validity
-- `merge_contexts()`: Merge multiple contexts
-
-#### Usage Example
-```python
-from context import ContextManager
-
-manager = ContextManager(max_context_size=4000)
-
-# Manage context lifecycle
-context = manager.manage_context_lifecycle(
-    context_data, 
-    cache_key="function_analysis_123"
+# Initialize with project audit data
+rag_processor = RAGProcessor(
+    project_audit,
+    lancedb_path="./src/codebaseQA/lancedb",
+    project_id="my_project"
 )
 
-# Optimize context size
-optimized_context = manager.optimize_context_size(large_context)
+# Search for functions
+results = rag_processor.search_functions_by_content("access control", k=5)
 ```
 
-### 3. RAGProcessor (rag_processor.py)
-**Retrieval Augmented Generation processor**, providing semantic similarity-based context expansion:
+### Advanced Search Methods
 
-#### Main Functions
-- `process_rag_query()`: Process RAG queries
-- `search_similar_functions()`: Search for semantically similar functions
-- `expand_context_with_rag()`: Expand context using RAG
-- `calculate_similarity()`: Calculate semantic similarity scores
-
-#### Key Features
-- **Semantic Search**: Based on embedding vectors for semantic similarity search
-- **Relevance Ranking**: Automatically rank results by relevance
-- **Context Expansion**: Intelligently expand context based on semantic relationships
-- **Configurable Parameters**: Support various search parameters (k, threshold, etc.)
-
-### 4. CallTreeBuilder (call_tree_builder.py)
-**Function call relationship analyzer**, building and analyzing function call graphs:
-
-#### Main Functions
-- `build_call_tree()`: Build complete call tree
-- `find_callers()`: Find functions that call the target function
-- `find_callees()`: Find functions called by the target function
-- `analyze_call_depth()`: Analyze call depth and complexity
-- `extract_call_relationships()`: Extract call relationships
-
-#### Key Features
-- **Multi-layer Analysis**: Support multi-layer call relationship analysis
-- **Bidirectional Search**: Support both caller and callee searches
-- **Dependency Analysis**: Analyze function dependencies and impact scope
-- **Performance Optimization**: Optimized algorithms for large-scale code analysis
-
-### 5. BusinessFlowProcessor (business_flow_processor.py)
-**Business flow context processor**, providing business flow-specific context processing:
-
-#### Main Functions
-- `process_business_flow_context()`: Process business flow context
-- `expand_business_flow()`: Expand business flow context
-- `analyze_flow_relationships()`: Analyze relationships between business flows
-- `extract_flow_functions()`: Extract functions from business flows
-
-#### Key Features
-- **Business Logic Understanding**: Deep understanding of business flow logic
-- **Context Enrichment**: Enrich context based on business flow characteristics
-- **Relationship Analysis**: Analyze relationships and dependencies between business flows
-- **Integration Support**: Seamlessly integrate with planning and validation modules
-
-### 6. FunctionUtils (function_utils.py)
-**Function utility functions**, providing various function processing utilities:
-
-#### Main Functions
-- `extract_function_signature()`: Extract function signatures
-- `parse_function_parameters()`: Parse function parameters
-- `calculate_function_complexity()`: Calculate function complexity
-- `compare_function_similarity()`: Compare function similarity
-- `format_function_context()`: Format function context
-
-## Integration Architecture
-
-### With Planning Module
 ```python
-# In planning module
-from context import ContextFactory, ContextManager
+# Function search by name
+name_results = rag_processor.search_functions_by_name("transfer", k=3)
 
-# Create context for planning
-context_factory = ContextFactory(project, lancedb, table_name)
-context_manager = ContextManager()
+# Function search by content
+content_results = rag_processor.search_functions_by_content("reentrancy", k=3)
 
-# Get enhanced context for business flows
-for business_flow in business_flows:
-    context = context_factory.create_business_flow_context(business_flow)
-    optimized_context = context_manager.optimize_context_size(context)
-    # Use context for planning tasks
+# Natural language search
+nl_results = rag_processor.search_functions_by_natural_language(
+    "function that handles user deposits", k=3
+)
+
+# File search
+file_results = rag_processor.search_files_by_content("vulnerability", k=2)
+
+# Chunk search
+chunk_results = rag_processor.search_chunks_by_content("security", k=3)
 ```
 
-### With Validating Module
+## Integration
+
+The Context component integrates with:
+
+- **Planning Module**: Provides context for task planning
+- **Validation Module**: Enhances vulnerability analysis with relevant code
+- **Tree-sitter Parsing**: Uses parsed code structure for embeddings
+- **Main Engine**: Central context management for the entire system
+
+## Configuration
+
+### Environment Variables
+
+- `OPENAI_API_KEY`: Required for embedding generation
+- `LANCE_DB_PATH`: Path to LanceDB storage
+- `EMBEDDING_MODEL`: OpenAI embedding model (default: text-embedding-3-small)
+
+### Database Configuration
+
 ```python
-# In validating module
-from context import ContextFactory, RAGProcessor, CallTreeBuilder
+# Database table names
+FUNCTION_TABLE = "lancedb_function"
+FILE_TABLE = "lancedb_file" 
+CHUNK_TABLE = "lancedb_chunk"
 
-# Create context for vulnerability analysis
-rag_processor = RAGProcessor(lancedb, table_name)
-call_tree_builder = CallTreeBuilder(project)
-
-# Get context for vulnerability checking
-for function in functions_to_check:
-    rag_context = rag_processor.search_similar_functions(function.name, k=5)
-    call_tree_context = call_tree_builder.build_call_tree(function.name, depth=2)
-    # Combine contexts for comprehensive analysis
+# Vector dimensions
+EMBEDDING_DIMENSION = 1536  # text-embedding-3-small
 ```
 
-## Configuration and Performance
+## Performance
 
-### Configuration Options
-```python
-# RAG processor configuration
-rag_config = {
-    'embedding_model': 'text-embedding-3-large',
-    'similarity_threshold': 0.7,
-    'max_results': 10,
-    'cache_embeddings': True
-}
+- **Search Speed**: Sub-second response times for most queries
+- **Memory Efficiency**: Optimized vector storage and retrieval
+- **Scalability**: Supports large codebases with millions of lines
+- **Accuracy**: High precision semantic matching
 
-# Call tree builder configuration
-call_tree_config = {
-    'max_depth': 3,
-    'include_external_calls': False,
-    'analysis_timeout': 30,
-    'cache_results': True
-}
+## Dependencies
 
-# Context manager configuration
-context_config = {
-    'max_context_size': 4000,
-    'compression_enabled': True,
-    'cache_duration': 3600,
-    'optimization_level': 'balanced'
-}
-```
+- `lancedb`: Vector database for embeddings
+- `openai`: For embedding generation and API calls
+- `numpy`: For vector operations
+- `json`: For data serialization
 
-### Performance Optimization
-1. **Intelligent Caching**: Multi-level caching strategy to avoid duplicate computations
-2. **Lazy Loading**: Load context on demand to reduce memory usage
-3. **Parallel Processing**: Parallel processing of multiple context requests
-4. **Size Optimization**: Intelligent context size optimization to balance completeness and efficiency
+## Development
 
-## Usage Patterns
+### Adding New Search Methods
 
-### 1. Simple Context Creation
-```python
-from context import ContextFactory
+1. Implement search logic in RAGProcessor
+2. Add corresponding database queries
+3. Update result formatting
+4. Add tests and documentation
 
-factory = ContextFactory(project, lancedb, table_name)
-context = factory.create_rag_context("transfer", k=3)
-```
+### Extending Context Types
 
-### 2. Complex Context Workflow
-```python
-from context import ContextFactory, ContextManager, RAGProcessor, CallTreeBuilder
-
-# Initialize components
-factory = ContextFactory(project, lancedb, table_name)
-manager = ContextManager(max_context_size=4000)
-rag_processor = RAGProcessor(lancedb, table_name)
-call_tree_builder = CallTreeBuilder(project)
-
-# Create comprehensive context
-function_name = "processTransaction"
-
-# Step 1: Get RAG context
-rag_context = rag_processor.search_similar_functions(function_name, k=5)
-
-# Step 2: Get call tree context
-call_tree_context = call_tree_builder.build_call_tree(function_name, depth=2)
-
-# Step 3: Merge contexts
-combined_context = manager.merge_contexts([rag_context, call_tree_context])
-
-# Step 4: Optimize context
-final_context = manager.optimize_context_size(combined_context)
-```
-
-### 3. Business Flow Context Processing
-```python
-from context import ContextFactory, BusinessFlowProcessor
-
-factory = ContextFactory(project, lancedb, table_name)
-flow_processor = BusinessFlowProcessor(factory)
-
-# Process business flow context
-business_flow = {
-    'name': 'Token Transfer Flow',
-    'functions': ['transfer', 'approve', 'transferFrom']
-}
-
-# Get enhanced business flow context
-flow_context = flow_processor.process_business_flow_context(business_flow)
-expanded_context = flow_processor.expand_business_flow(flow_context)
-```
+1. Define new embedding schemas
+2. Implement embedding generation
+3. Add search algorithms
+4. Update integration points
 
 ## API Reference
 
-### ContextFactory
-```python
-class ContextFactory:
-    def __init__(self, project, lancedb, table_name)
-    def create_rag_context(self, query, k=5, threshold=0.7) -> str
-    def create_call_tree_context(self, function_name, depth=2) -> str
-    def create_business_flow_context(self, business_flow) -> str
-    def create_hybrid_context(self, function_name, **kwargs) -> str
-    def search_similar_functions(self, query, k=5) -> List[Dict]
-```
+### RAGProcessor Class
 
-### ContextManager
-```python
-class ContextManager:
-    def __init__(self, max_context_size=4000)
-    def manage_context_lifecycle(self, context_data, cache_key=None) -> str
-    def optimize_context_size(self, context) -> str
-    def cache_context(self, context, key, duration=3600) -> bool
-    def validate_context(self, context) -> bool
-    def merge_contexts(self, contexts) -> str
-```
+#### Methods
 
-### RAGProcessor
-```python
-class RAGProcessor:
-    def __init__(self, lancedb, table_name)
-    def process_rag_query(self, query, k=5) -> List[Dict]
-    def search_similar_functions(self, function_name, k=5) -> List[Dict]
-    def expand_context_with_rag(self, base_context, query, k=3) -> str
-    def calculate_similarity(self, query, candidates) -> List[float]
-```
+- `search_functions_by_name(query, k)`: Search functions by name
+- `search_functions_by_content(query, k)`: Search functions by content
+- `search_functions_by_natural_language(query, k)`: Natural language search
+- `search_files_by_content(query, k)`: Search files by content
+- `search_chunks_by_content(query, k)`: Search chunks by content
+- `search_similar_chunks(chunk_id, k)`: Find similar chunks
 
-### CallTreeBuilder
-```python
-class CallTreeBuilder:
-    def __init__(self, project)
-    def build_call_tree(self, function_name, depth=2) -> Dict
-    def find_callers(self, function_name) -> List[str]
-    def find_callees(self, function_name) -> List[str]
-    def analyze_call_depth(self, function_name) -> int
-    def extract_call_relationships(self, functions) -> Dict
-```
+#### Properties
 
-## Testing
+- `project_audit`: Project audit data
+- `lancedb_path`: LanceDB storage path
+- `project_id`: Project identifier
 
-### Unit Testing
-```python
-# Test RAG processor
-def test_rag_processor():
-    processor = RAGProcessor(mock_lancedb, "test_table")
-    results = processor.search_similar_functions("transfer", k=3)
-    assert len(results) <= 3
-    assert all('similarity_score' in result for result in results)
+## Error Handling
 
-# Test call tree builder
-def test_call_tree_builder():
-    builder = CallTreeBuilder(mock_project)
-    tree = builder.build_call_tree("main_function", depth=2)
-    assert 'callers' in tree
-    assert 'callees' in tree
-```
+The component includes comprehensive error handling for:
+- API failures
+- Database connection issues
+- Invalid queries
+- Missing embeddings
 
-### Integration Testing
-```python
-def test_context_factory_integration():
-    factory = ContextFactory(test_project, test_lancedb, "test_table")
-    context = factory.create_hybrid_context(
-        "test_function",
-        include_rag=True,
-        include_call_tree=True
-    )
-    assert len(context) > 0
-    assert "test_function" in context
-```
+## Contributing
 
-## Benefits
+1. Fork the repository
+2. Create a feature branch
+3. Implement your changes
+4. Add tests and documentation
+5. Submit a pull request
 
-1. **Unified Interface**: Provides unified context creation and management interfaces
-2. **Modular Design**: Each component can be used independently or in combination
-3. **High Performance**: Optimized algorithms and caching strategies
-4. **High Scalability**: Supports analysis of large-scale projects
-5. **Easy Integration**: Seamlessly integrates with other modules
-6. **Highly Configurable**: Rich configuration options to meet different needs
+## License
 
-## Future Roadmap
-
-1. **Machine Learning Enhancement**: Integrate more advanced ML models for context understanding
-2. **Real-time Updates**: Support real-time context updates and incremental analysis
-3. **Visualization**: Provide context visualization tools for better understanding
-4. **Custom Plugins**: Support custom context processors and analyzers
-5. **Performance Monitoring**: Add detailed performance monitoring and optimization suggestions
-
----
-
-**🔍 Intelligent context management for enhanced smart contract analysis - Making code understanding more accurate and comprehensive!** 
+This component is part of the Finite Monkey Engine project and follows the same licensing terms. 
