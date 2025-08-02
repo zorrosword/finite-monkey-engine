@@ -18,6 +18,15 @@ from .config_utils import ConfigUtils
 # 直接使用tree_sitter_parsing而不是通过context
 from tree_sitter_parsing import TreeSitterProjectAudit, parse_project, TreeSitterProjectFilter
 
+# 复杂度分析相关导入
+try:
+    from tree_sitter import Language, Parser, Node
+    import tree_sitter_solidity as ts_solidity
+    COMPLEXITY_ANALYSIS_ENABLED = True
+except ImportError:
+    print("⚠️ Tree-sitter模块未安装，复杂度过滤功能将被禁用")
+    COMPLEXITY_ANALYSIS_ENABLED = False
+
 
 class PlanningProcessor:
     """规划处理器，负责基于public函数downstream深度扫描的新planning逻辑"""
@@ -101,6 +110,293 @@ class PlanningProcessor:
                 print(f"  📋 {lang}: {len(funcs)} 个public函数")
         
         return public_functions_by_lang
+    
+    def _calculate_simple_complexity(self, function_content: str) -> Dict:
+        """简化版复杂度计算（基于fishcake项目优化）
+        
+        Args:
+            function_content: 函数代码内容
+            
+        Returns:
+            Dict: 包含圈复杂度和认知复杂度的字典
+        """
+        if not COMPLEXITY_ANALYSIS_ENABLED or not function_content:
+            return {'cyclomatic': 1, 'cognitive': 0, 'should_skip': False}
+        
+        try:
+            # 初始化Solidity解析器
+            parser = Parser()
+            language = Language(ts_solidity.language())
+            parser.language = language
+            
+            # 解析代码
+            tree = parser.parse(bytes(function_content, 'utf8'))
+            
+            # 查找函数定义节点
+            function_node = None
+            for node in self._walk_tree(tree.root_node):
+                if node.type == 'function_definition':
+                    function_node = node
+                    break
+            
+            if not function_node:
+                return {'cyclomatic': 1, 'cognitive': 0, 'should_skip': False}
+            
+            # 计算圈复杂度
+            cyclomatic = self._calculate_cyclomatic_complexity(function_node)
+            
+            # 计算认知复杂度
+            cognitive = self._calculate_cognitive_complexity(function_node)
+            
+            # 判断是否应该跳过（基于fishcake分析的最佳阈值）
+            should_skip = (cognitive == 0 and cyclomatic <= 2) # 关键逻辑
+            
+            # 🎯 判断是否为中等复杂度函数（需要降低迭代次数）
+            # 基于tokenURI、buyFccAmount等函数的特征分析
+            should_reduce_iterations = self._should_reduce_iterations(
+                cognitive, cyclomatic, function_content
+            )
+            
+            return {
+                'cyclomatic': cyclomatic,
+                'cognitive': cognitive, 
+                'should_skip': should_skip,
+                'should_reduce_iterations': should_reduce_iterations
+            }
+            
+        except Exception as e:
+            print(f"⚠️ 复杂度计算失败: {e}")
+            return {'cyclomatic': 1, 'cognitive': 0, 'should_skip': False, 'should_reduce_iterations': False}
+    
+    def _walk_tree(self, node):
+        """遍历AST树"""
+        yield node
+        for child in node.children:
+            yield from self._walk_tree(child)
+    
+    def _calculate_cyclomatic_complexity(self, function_node) -> int:
+        """计算圈复杂度"""
+        complexity = 1  # 基础路径
+        
+        for node in self._walk_tree(function_node):
+            # 决策点
+            if node.type in ['if_statement', 'while_statement', 'for_statement']:
+                complexity += 1
+            elif node.type == 'conditional_expression':  # 三元运算符
+                complexity += 1
+            elif node.type == 'binary_expression':
+                # 检查逻辑运算符
+                operator = node.child_by_field_name('operator')
+                if operator:
+                    operator_text = operator.text.decode('utf8')
+                    if operator_text in ['&&', '||']:
+                        complexity += 1
+        
+        return complexity
+    
+    def _calculate_cognitive_complexity(self, function_node) -> int:
+        """计算认知复杂度（简化版）"""
+        def calculate_recursive(node, nesting_level: int = 0) -> int:
+            complexity = 0
+            node_type = node.type
+            
+            # 基础增量结构
+            if node_type in ['if_statement', 'while_statement', 'for_statement']:
+                complexity += 1 + nesting_level
+                # 递归处理子节点，增加嵌套层级
+                for child in node.children:
+                    complexity += calculate_recursive(child, nesting_level + 1)
+            elif node_type == 'conditional_expression':
+                complexity += 1 + nesting_level
+            elif node_type == 'binary_expression':
+                operator = node.child_by_field_name('operator')
+                if operator and operator.text.decode('utf8') in ['&&', '||']:
+                    complexity += 1
+                # 不增加嵌套层级处理逻辑运算符
+                for child in node.children:
+                    complexity += calculate_recursive(child, nesting_level)
+            else:
+                # 继续遍历子节点，不增加嵌套层级
+                for child in node.children:
+                    complexity += calculate_recursive(child, nesting_level)
+            
+            return complexity
+        
+        return calculate_recursive(function_node)
+    
+    def _should_reduce_iterations(self, cognitive: int, cyclomatic: int, function_content: str) -> bool:
+        """判断是否应该降低迭代次数（基于fishcake项目分析）
+        
+        适用于像tokenURI、buyFccAmount等中等复杂度的数据处理型函数
+        
+        Args:
+            cognitive: 认知复杂度
+            cyclomatic: 圈复杂度  
+            function_content: 函数代码内容
+            
+        Returns:
+            bool: True表示应该降低迭代次数到3-4次
+        """
+        # 基于fishcake项目分析的特征识别
+        
+        # 1. 中等复杂度范围 (不是简单函数，也不是极复杂函数)
+        if not (5 <= cognitive <= 20 and 3 <= cyclomatic <= 8):
+            return False
+            
+        # 2. 识别数据处理型函数特征
+        data_processing_indicators = [
+            'view' in function_content,  # view函数通常是数据查询
+            'returns (' in function_content,  # 有返回值
+            function_content.count('return') >= 3,  # 多个return语句(如tokenURI)
+            'if(' in function_content or 'if (' in function_content,  # 有条件分支
+        ]
+        
+        # 3. 识别简单交易型函数特征  
+        simple_transaction_indicators = [
+            'transfer' in function_content.lower(),  # 包含转账操作
+            'external' in function_content,  # 外部可调用
+            function_content.count('require') <= 3,  # 检查条件不太多
+            function_content.count('if') <= 2,  # 分支不太复杂
+        ]
+        
+        # 4. 排除复杂业务逻辑函数的特征
+        complex_business_indicators = [
+            'for (' in function_content or 'for(' in function_content,  # 包含循环
+            'while' in function_content,  # 包含while循环
+            function_content.count('if') > 5,  # 分支过多
+            cognitive > 20,  # 认知复杂度过高
+            'nonReentrant' in function_content and cyclomatic > 6,  # 复杂的防重入函数
+        ]
+        
+        # 5. 函数名模式识别 (基于实际案例)
+        function_name_patterns = [
+            'tokenURI' in function_content,  # 类似tokenURI的函数
+            'buyFcc' in function_content,  # 类似buyFcc的函数  
+            'updateNft' in function_content,  # 类似updateNft的函数
+            'uri(' in function_content,  # URI相关函数
+        ]
+        
+        # 判断逻辑：
+        # - 是数据处理型 OR 简单交易型
+        # - 且 没有复杂业务逻辑特征
+        # - 或者 匹配特定函数名模式
+        
+        is_data_processing = sum(data_processing_indicators) >= 2
+        is_simple_transaction = sum(simple_transaction_indicators) >= 2  
+        has_complex_business = any(complex_business_indicators)
+        matches_pattern = any(function_name_patterns)
+        
+        # 决策逻辑
+        should_reduce = (
+            (is_data_processing or is_simple_transaction or matches_pattern) and
+            not has_complex_business
+        )
+        
+        return should_reduce
+    
+    def filter_functions_by_complexity(self, public_functions_by_lang: Dict[str, List[Dict]]) -> Dict[str, List[Dict]]:
+        """基于复杂度过滤函数（基于fishcake项目分析优化）
+        
+        过滤策略：
+        - 认知复杂度 = 0 且 圈复杂度 ≤ 2 → 跳过扫描（简单函数）
+        - 其他函数 → 保留扫描（复杂函数）
+        
+        Args:
+            public_functions_by_lang: 按语言分类的函数字典
+            
+        Returns:
+            Dict: 过滤后的函数字典
+        """
+        if not COMPLEXITY_ANALYSIS_ENABLED:
+            print("⚠️ 复杂度分析功能未启用，跳过过滤")
+            return public_functions_by_lang
+        
+        filtered_functions = {
+            'solidity': [],
+            'rust': [],
+            'cpp': [],
+            'move': []
+        }
+        
+        total_original = 0
+        total_filtered = 0
+        skipped_functions = []
+        reduced_iteration_functions = []
+        
+        print("\n🎯 开始基于复杂度过滤函数...")
+        print("📋 过滤策略: 认知复杂度=0 且 圈复杂度≤2 的函数将被跳过")
+        
+        for lang, funcs in public_functions_by_lang.items():
+            if not funcs:
+                continue
+                
+            print(f"\n📄 分析 {lang} 语言的 {len(funcs)} 个函数...")
+            
+            for func in funcs:
+                total_original += 1
+                func_name = func.get('name', 'unknown')
+                func_content = func.get('content', '')
+                
+                # 计算复杂度
+                complexity = self._calculate_simple_complexity(func_content)
+                
+                # 判断是否跳过
+                if complexity['should_skip']:
+                    skipped_functions.append({
+                        'name': func_name,
+                        'language': lang,
+                        'cyclomatic': complexity['cyclomatic'],
+                        'cognitive': complexity['cognitive']
+                    })
+                    print(f"  ⏭️  跳过简单函数: {func_name} (圈:{complexity['cyclomatic']}, 认知:{complexity['cognitive']})")
+                else:
+                    # 检查是否需要降低迭代次数
+                    if complexity.get('should_reduce_iterations', False):
+                        func['reduced_iterations'] = True  # 标记需要降低迭代次数
+                        reduced_iteration_functions.append({
+                            'name': func_name,
+                            'language': lang,
+                            'cyclomatic': complexity['cyclomatic'],
+                            'cognitive': complexity['cognitive']
+                        })
+                        print(f"  🔄 中等复杂函数(降低迭代): {func_name} (圈:{complexity['cyclomatic']}, 认知:{complexity['cognitive']})")
+                    else:
+                        print(f"  ✅ 保留复杂函数: {func_name} (圈:{complexity['cyclomatic']}, 认知:{complexity['cognitive']})")
+                    
+                    filtered_functions[lang].append(func)
+                    total_filtered += 1
+        
+        # 输出过滤统计
+        skip_ratio = (total_original - total_filtered) / total_original * 100 if total_original > 0 else 0
+        
+        print(f"\n📊 过滤完成统计:")
+        print(f"  原始函数数: {total_original}")
+        print(f"  过滤后函数数: {total_filtered}")
+        print(f"  跳过函数数: {len(skipped_functions)}")
+        print(f"  降低迭代函数数: {len(reduced_iteration_functions)}")
+        print(f"  节省扫描时间: {skip_ratio:.1f}%")
+        
+        # 显示保留的函数分布
+        print(f"\n🎯 保留扫描的函数分布:")
+        for lang, funcs in filtered_functions.items():
+            if funcs:
+                print(f"  📋 {lang}: {len(funcs)} 个函数需要扫描")
+        
+        # 显示跳过的函数列表（如果不多的话）
+        if len(skipped_functions) <= 10:
+            print(f"\n⏭️  跳过的简单函数列表:")
+            for func in skipped_functions:
+                print(f"  • {func['language']}.{func['name']} (圈:{func['cyclomatic']}, 认知:{func['cognitive']})")
+        elif skipped_functions:
+            print(f"\n⏭️  跳过了 {len(skipped_functions)} 个简单函数 (认知复杂度=0 且 圈复杂度≤2)")
+        
+        # 显示降低迭代次数的函数列表
+        if reduced_iteration_functions:
+            print(f"\n🔄 降低迭代次数的中等复杂函数列表:")
+            for func in reduced_iteration_functions:
+                print(f"  • {func['language']}.{func['name']} (圈:{func['cyclomatic']}, 认知:{func['cognitive']}) → 迭代次数降低到4次")
+        
+        return filtered_functions
     
     def convert_tasks_to_project_tasks_v3(self, tasks: List[Dict]) -> List[Project_Task]:
         """将任务数据转换为Project_Task实体（V3版本）"""
@@ -227,6 +523,10 @@ class PlanningProcessor:
         # 获取所有public函数
         public_functions_by_lang = self.find_public_functions_by_language()
         
+        # 🎯 基于复杂度过滤函数（基于fishcake项目分析优化）
+        # 过滤策略：认知复杂度=0 且 圈复杂度≤2 的简单函数将被跳过
+        public_functions_by_lang = self.filter_functions_by_complexity(public_functions_by_lang)
+        
         tasks = []
         task_id = 0
         
@@ -248,8 +548,14 @@ class PlanningProcessor:
                     # 使用call tree获取downstream内容
                     downstream_content = self.get_downstream_content_with_call_tree(func_name, max_depth)
                     
-                    # 为每个public函数创庺 base_iteration_count 个任务
-                    for iteration in range(base_iteration_count):
+                    # 检查是否需要降低迭代次数
+                    actual_iteration_count = base_iteration_count
+                    if public_func.get('reduced_iterations', False):
+                        actual_iteration_count = 3  # 降低到4次
+                        print(f"  🔄 检测到中等复杂函数，迭代次数降低到{actual_iteration_count}次")
+                    
+                    # 为每个public函数创庺实际迭代次数个任务
+                    for iteration in range(actual_iteration_count):
                         task_data = {
                             'task_id': task_id,
                             'iteration_index': iteration + 1,
@@ -265,7 +571,7 @@ class PlanningProcessor:
                         tasks.append(task_data)
                         task_id += 1
                         
-                        print(f"    ✅ 创建任务: PURE_SCAN - 迭代{iteration + 1}/{base_iteration_count}")
+                        print(f"    ✅ 创建任务: PURE_SCAN - 迭代{iteration + 1}/{actual_iteration_count}")
         
         else:
             # 非PURE_SCAN模式：使用checklist
@@ -288,9 +594,15 @@ class PlanningProcessor:
                     # 使用call tree获取downstream内容
                     downstream_content = self.get_downstream_content_with_call_tree(func_name, max_depth)
                     
-                    # 为每个检查类型创庺 base_iteration_count 个任务
+                    # 检查是否需要降低迭代次数
+                    actual_iteration_count = base_iteration_count
+                    if public_func.get('reduced_iterations', False):
+                        actual_iteration_count = 4  # 降低到4次
+                        print(f"  🔄 检测到中等复杂函数，迭代次数降低到{actual_iteration_count}次")
+                    
+                    # 为每个检查类型创庺实际迭代次数个任务
                     for rule_key, rule_list in all_checklists.items():
-                        for iteration in range(base_iteration_count):
+                        for iteration in range(actual_iteration_count):
                             task_data = {
                                 'task_id': task_id,
                                 'iteration_index': iteration + 1,
@@ -306,7 +618,7 @@ class PlanningProcessor:
                             tasks.append(task_data)
                             task_id += 1
                         
-                        print(f"    ✅ 创建任务: {rule_key} - {base_iteration_count}个迭代")
+                        
         
         print(f"\n🎉 任务创庺完成！")
         print(f"  总计: {len(tasks)} 个任务")
@@ -386,6 +698,10 @@ class PlanningProcessor:
         
         # 获取所有public函数
         public_functions_by_lang = self.find_public_functions_by_language()
+        
+        # 🎯 基于复杂度过滤函数（基于fishcake项目分析优化）
+        # 过滤策略：认知复杂度=0 且 圈复杂度≤2 的简单函数将被跳过
+        public_functions_by_lang = self.filter_functions_by_complexity(public_functions_by_lang)
         
         tasks = []
         task_id = 0
