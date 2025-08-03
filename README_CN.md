@@ -275,11 +275,11 @@ MAX_THREADS_OF_CONFIRMATION=5
 
 Apache License 2.0 - 查看 [LICENSE](LICENSE) 文件了解详情
 
-## 📞 技术支持
+## 📞 联系我们
 
-- **问题反馈**: [GitHub Issues](https://github.com/your-org/finite-monkey-engine/issues)
-- **功能讨论**: [GitHub Discussions](https://github.com/your-org/finite-monkey-engine/discussions)
-- **技术交流**: 加入我们的技术交流群
+- **邮箱**: nerbonic@gmail.com
+- **推特**: [@xy9301](https://x.com/xy9301)
+- **交流群**: [https://t.me/+4-s4jDfy-ig1M2Y1](https://t.me/+4-s4jDfy-ig1M2Y1)
 
 ## 🚀 v2.0版本重大架构升级
 

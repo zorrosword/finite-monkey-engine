@@ -231,12 +231,11 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 - **Mermaid**: For business flow visualization
 - **OpenAI**: For AI-powered analysis capabilities
 
-## 📞 Support
+## 📞 Contact
 
-- **Documentation**: [https://finite-monkey-engine.readthedocs.io](https://finite-monkey-engine.readthedocs.io)
-- **Issues**: [GitHub Issues](https://github.com/your-org/finite-monkey-engine/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/finite-monkey-engine/discussions)
-- **Email**: support@finite-monkey-engine.com
+- **Email**: nerbonic@gmail.com
+- **Twitter**: [@xy9301](https://x.com/xy9301)
+- **Telegram**: [https://t.me/+4-s4jDfy-ig1M2Y1](https://t.me/+4-s4jDfy-ig1M2Y1)
 
 ---
 
