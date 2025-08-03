@@ -241,14 +241,14 @@
         "exclude_in_planning":"false",
         "exclude_directory":[]
     },
-    "pendle0731111":{
-        "path":"pendle",
+    "fishcake_short111":{
+        "path":"fishcake_short",
         "files":[],
         "functions":[],
-        "exclude_in_planning":"true",
-        "exclude_directory":["exclude"]
+        "exclude_in_planning":"false",
+        "exclude_directory":[]
     },
-    "fishcake080311":{
+    "fishcake0803021":{
         "path":"fishcake",
         "files":[
         ],
@@ -256,6 +256,7 @@
         "exclude_in_planning":"false",
         "exclude_directory":[]
     }
+
 
     
     

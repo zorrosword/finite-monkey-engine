@@ -6,11 +6,11 @@
   "claude_code_analysis": "claude-sonnet-4-20250514",
   "claude_mermaid_generation": "claude-sonnet-4-20250514",
   "claude_batch_analysis": "claude-sonnet-4-20250514",
-  "agent_initial_analysis": "claude-3-haiku-20240307",
+  "agent_initial_analysis": "deepseek-reasoner",
   "agent_json_extraction": "gpt-4o-mini",
-  "agent_info_query": "claude-3-sonnet-20240229",
+  "agent_info_query": "deepseek-reasoner",
   "agent_info_extraction": "gpt-4o-mini",
-  "agent_final_analysis": "claude-opus-4-20250514",
+  "agent_final_analysis": "deepseek-reasoner",
   "agent_final_extraction": "gpt-4o-mini",
   "ask_json": "gpt-4.1"
 }

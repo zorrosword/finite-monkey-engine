@@ -200,23 +200,30 @@ class CheckUtils:
     
     @staticmethod
     def update_task_results(task_manager, task_id: int, result: str, formatted_results: str = ""):
-        """Update task results to database"""
-        task_manager.update_result(task_id, result)
+        """Update task results to database - 注意：不覆盖reasoning阶段的result"""
+        # ⚠️ 不再覆盖reasoning阶段的result字段，保持原始结果
+        # task_manager.update_result(task_id, result)  # 注释掉以保护reasoning结果
         
-        # 如果有formatted_results，将其保存到scan_record中
-        if formatted_results:
-            # 获取任务并更新scan_record
-            tasks = [t for t in task_manager.get_task_list() if t.id == task_id]
-            if tasks:
-                task = tasks[0]
-                try:
-                    import json
-                    scan_data = json.loads(task.scan_record) if task.scan_record else {}
-                except:
-                    scan_data = {}
+        # 将validation结果保存到scan_record中而不是覆盖result
+        tasks = [t for t in task_manager.get_task_list() if t.id == task_id]
+        if tasks:
+            task = tasks[0]
+            try:
+                import json
+                scan_data = json.loads(task.scan_record) if task.scan_record else {}
+            except:
+                scan_data = {}
+            
+            # 保存validation结果到scan_record而不是覆盖result
+            scan_data['validation_result'] = result
+            scan_data['processed'] = True
+            
+            # 如果有formatted_results，也保存到scan_record中
+            if formatted_results:
                 scan_data['formatted_results'] = formatted_results
-                scan_data['processed'] = True
-                task_manager.update_scan_record(task_id, json.dumps(scan_data, ensure_ascii=False))
+                
+            task_manager.update_scan_record(task_id, json.dumps(scan_data, ensure_ascii=False))
+            print(f"✅ 验证结果已保存到scan_record，任务ID: {task_id}，保持reasoning原始result不变")
     
     @staticmethod
     def should_skip_early(result_status: str) -> bool:

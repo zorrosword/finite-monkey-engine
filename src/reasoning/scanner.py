@@ -94,7 +94,10 @@ class VulnerabilityScanner:
 
 
     def _execute_vulnerability_scan(self, task, task_manager, is_gpt4: bool) -> str:
-        """执行漏洞扫描（使用任务中已确定的rule）"""
+        """执行漏洞扫描（使用任务中已确定的rule）
+        
+        注意：现在统一使用vulnerability_detection配置(claude4sonnet)，is_gpt4参数已不再使用但保留以兼容
+        """
         try:
             # 获取任务的business_flow_code作为代码部分
             business_flow_code = getattr(task, 'business_flow_code', task.content)
@@ -119,10 +122,8 @@ class VulnerabilityScanner:
                 rule_key
             )
             
-            if is_gpt4:
-                result = ask_vul(assembled_prompt)
-            else:
-                result = ask_claude(assembled_prompt)
+            # 🎯 reasoning阶段核心漏洞检测统一使用vulnerability_detection配置(claude4sonnet)
+            result = ask_vul(assembled_prompt)
             
             # 保存结果
             if hasattr(task, 'id') and task.id:

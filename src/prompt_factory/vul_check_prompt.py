@@ -56,28 +56,58 @@ class VulCheckPrompt:
         return """
         # Smart Contract Vulnerability Analysis #
         
-        You are a smart contract vulnerability detection expert. Please analyze the provided code against the specified vulnerability rules for an initial assessment.
+        You are a smart contract vulnerability detection expert. Please perform a CAREFUL and THOROUGH initial assessment of the provided code against the specified vulnerability rules.
+        
+        ## Critical Analysis Principles ##
+        🔍 **WHEN IN DOUBT, ASK FOR MORE INFORMATION** - This is a preliminary analysis, thoroughness is more important than speed.
         
         ## Analysis Guidelines ##
-        1. **Overflow/Underflow**: Contract version is 0.8.0+, so integer overflow vulnerabilities do not exist
-        2. **Reentrancy**: Direct reentrancy vulnerabilities do not exist due to transaction atomicity  
-        3. **Transaction Atomicity**: Vulnerabilities requiring external address insertion during execution do not exist
-        4. **Permission Controls**: Functions with onlyOwner/onlyAdmin/onlyGovernance modifiers typically do not have vulnerabilities
-        5. **Valid Vulnerabilities**: Any vulnerability causing potential losses (even small) is considered valid
-        6. **Need More Info**: If insufficient information exists to make a determination, clearly state what additional information is needed
+        1. **Overflow/Underflow**: While Solidity 0.8.0+ has built-in overflow protection, check for:
+           - Manual unchecked blocks
+           - Assembly code that bypasses protections
+           - Logic errors in mathematical operations
+        
+        2. **Reentrancy**: Even with protections, check for:
+           - External calls to untrusted contracts
+           - State changes after external calls
+           - Cross-function reentrancy patterns
+           - Read-only reentrancy scenarios
+        
+        3. **Permission Controls**: Even with modifiers, check for:
+           - Logic flaws in permission implementation
+           - Missing access controls on critical functions
+           - Privilege escalation possibilities
+           - Admin function abuse potential
+        
+        4. **Context Dependencies**: Consider if analysis requires:
+           - Understanding of called functions' implementations
+           - Knowledge of state variable usage patterns
+           - Caller context and call flow analysis
+           - Integration with other contracts
+        
+        ## DECISION FRAMEWORK ##
+        ✅ **Choose "yes"** ONLY if: The vulnerability clearly exists with current information
+        ❌ **Choose "no"** ONLY if: You can definitively rule out the vulnerability with current information  
+        🔍 **Choose "need_more_info"** if ANY of these apply:
+        - The provided code is incomplete or unclear
+        - You need to understand implementation details of called functions
+        - The vulnerability depends on external context not provided
+        - You need to see upstream/downstream call relationships
+        - Variable usage patterns are unclear
+        - State management logic is incomplete
         
         ## Your Task ##
-        Analyze the provided code step-by-step against the vulnerability rules and provide:
-        1. **Detailed Analysis**: Step-by-step examination of the code logic
-        2. **Information Assessment**: Whether you have sufficient information to make a determination
-        3. **Initial Conclusion**: Based on available information, does the vulnerability exist, not exist, or do you need more information?
+        1. **Deep Code Analysis**: Examine every line, function call, state change
+        2. **Information Gap Analysis**: Identify what information might be missing
+        3. **Conservative Assessment**: When uncertain, request more information rather than guessing
         
-        ## Response Format ##
-        Provide a natural language response with:
-        - Clear step-by-step analysis
-        - Assessment of information completeness  
-        - Initial conclusion (yes/no/need more information)
-        - If more information is needed, specify exactly what information would help
+        ## Response Requirements ##
+        Provide a comprehensive natural language analysis covering:
+        - Detailed step-by-step code examination
+        - Identification of potential risk areas
+        - Assessment of information completeness and gaps
+        - Conservative preliminary conclusion
+        - If requesting more info, specify exactly what functions, variables, or context you need
         """
 
     def vul_check_prompt_agent_info_query():
@@ -179,7 +209,15 @@ Only return the JSON, no other explanation."""
 **Additional Information Retrieved**:
 {additional_context}
 
-Now please provide your final vulnerability assessment based on all available information."""
+## Final Assessment Guidelines ##
+🔍 **IMPORTANT**: Even at this final stage, if the retrieved information is still insufficient or unclear, you should respond with "need_more_info" rather than making an uncertain guess.
+
+**Valid Final Responses:**
+- **"yes"**: The vulnerability definitively exists based on all available evidence
+- **"no"**: The vulnerability can be definitively ruled out based on all available evidence  
+- **"need_more_info"**: The additional information is still insufficient, unclear, or more context is needed
+
+Please provide your comprehensive final analysis and assessment based on all available information."""
 
     @staticmethod
     def vul_check_prompt_agent_final_extraction(final_natural_response):
@@ -190,7 +228,8 @@ Now please provide your final vulnerability assessment based on all available in
 
 Please return ONLY the following JSON structure:
 {{
-    "final_result": "yes/no"
+    "final_result": "yes/no/need_more_info"
 }}
 
+Valid values for final_result are: "yes", "no", or "need_more_info"
 Only return the JSON, no other explanation."""

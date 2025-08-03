@@ -34,7 +34,8 @@ class VulnerabilityChecker:
             'functions_to_check': self.functions_to_check,
             'call_trees': self.call_trees,
             'project_id': project_audit.project_id,
-            'project_path': project_audit.project_path
+            'project_path': project_audit.project_path,
+            'project_audit': project_audit  # 🔧 添加完整的project_audit对象
         }
         
         # 初始化各种处理器，传递简化的context数据

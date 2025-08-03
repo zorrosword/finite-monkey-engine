@@ -36,15 +36,24 @@ class AnalysisProcessor:
         """初始化RAG处理器"""
         try:
             from context.rag_processor import RAGProcessor
-            # 尝试初始化RAG处理器
+            # 获取project_audit对象
+            project_audit = self.context_data.get('project_audit')
+            if not project_audit:
+                print("⚠️ Validating模块: project_audit为None，无法初始化RAG处理器")
+                self.rag_processor = None
+                return
+            
+            # 使用正确的参数初始化RAG处理器 
             self.rag_processor = RAGProcessor(
-                self.functions_to_check, 
+                project_audit,  # 🔧 使用完整的project_audit对象，而不是functions_to_check
                 "./src/codebaseQA/lancedb", 
                 self.project_id
             )
             print("✅ Validating模块: RAG处理器初始化完成")
         except Exception as e:
             print(f"⚠️ Validating模块: RAG处理器初始化失败: {e}")
+            import traceback
+            print(f"⚠️ 详细错误: {traceback.format_exc()}")
             self.rag_processor = None
 
     def get_available_rag_types(self) -> Dict[str, str]:
@@ -363,6 +372,8 @@ class AnalysisProcessor:
         """获取额外上下文（向后兼容方法）"""
         return self.get_additional_context_with_rag(required_info)
 
+
+    
     def process_task_analysis(self, task:Project_Task,task_manager):
         """Agent化的三轮漏洞检测流程"""
         import json
@@ -376,7 +387,7 @@ class AnalysisProcessor:
         
         # 获取规则和业务流代码
         vulnerability_result = task.result
-        business_flow_code = task.business_flow_code or task.content
+        business_flow_code = task.business_flow_code
         
         logs.append(f"规则类型: {task.rule_key}")
         logs.append(f"代码长度: {len(business_flow_code)} 字符")
@@ -414,17 +425,51 @@ class AnalysisProcessor:
         print(f"\n🎯 最终结果: {final_short_result}")
         print(f"⏱️ 总耗时: {process_time}秒")
         
-        # 保存结果
-        task.set_result(final_detailed_result)
+        # 🔍 检查是否有任意轮次失败，决定是否保存
+        not_sure_count = sum(1 for result in round_results if result == 'not_sure')
+        valid_results_count = len(round_results) - not_sure_count
+        
+        # ⚠️ 只要有任意一个轮次失败(not_sure)，就不保存validation结果
+        if not_sure_count > 0:
+            logs.append("⚠️ 有轮次失败，不保存validation结果")
+            print(f"  ⚠️ 验证失败: not_sure={not_sure_count}/3, 不保存validation结果")
+            
+            # 只保存失败日志到scan_record，不设置short_result
+            scan_data = {
+                'logs': logs,
+                'round_results': round_results,
+                'process_time': process_time,
+                'timestamp': datetime.utcnow().isoformat(),
+                'rounds_count': 3,
+                'validation_failed': True,
+                'failed_rounds': not_sure_count,
+                'original_reasoning_result': task.result
+            }
+            task.scan_record = json.dumps(scan_data, ensure_ascii=False)
+            
+            # 更新数据库但不设置short_result
+            task_manager.save_task(task)
+            return "validation_failed"
+        
+        # ✅ 所有轮次都成功，正常保存
+        logs.append(f"✅ 验证成功: 所有轮次成功={valid_results_count}/3, 保存validation结果")
+        print(f"  ✅ 验证成功: 所有轮次成功={valid_results_count}/3")
+        
+        # ⚠️ 保持reasoning阶段的原始result不变，不覆盖task.result
+        # 原始reasoning结果: task.result (保持不变)
+        # 只更新short_result用于筛选
         task.set_short_result(final_short_result)
         
-        # 保存完整日志到scan_record
+        # 保存完整日志和验证结果到scan_record
         scan_data = {
             'logs': logs,
             'round_results': round_results,
             'process_time': process_time,
             'timestamp': datetime.utcnow().isoformat(),
-            'rounds_count': 3
+            'rounds_count': 3,
+            'validation_detailed_result': final_detailed_result,  # 验证阶段的详细结果
+            'validation_short_result': final_short_result,        # 验证阶段的简短结果
+            'original_reasoning_result': task.result              # 保存原始reasoning结果供参考
         }
         task.scan_record = json.dumps(scan_data, ensure_ascii=False)
         
@@ -498,9 +543,9 @@ class AnalysisProcessor:
 
     def _execute_single_detection_round(self, vulnerability_result, business_flow_code, task, round_num, logs):
         """执行单轮检测流程"""
-        from openai_api.openai import (ask_agent_initial_analysis, ask_agent_json_extraction, 
+        from openai_api.openai import (ask_agent_initial_analysis,
                                        ask_agent_info_query, ask_agent_info_extraction,
-                                       ask_agent_final_analysis, ask_agent_final_extraction)
+                                       ask_agent_final_analysis)
         from prompt_factory.vul_check_prompt import VulCheckPrompt
         
         logs.append(f"第 {round_num} 轮: 开始初步确认")
@@ -513,23 +558,46 @@ class AnalysisProcessor:
         try:
             # 使用专门的初始分析模型获取自然语言响应
             natural_response = ask_agent_initial_analysis(initial_prompt)
+            
+            # 🔍 初始分析调试信息
+            logs.append(f"第 {round_num} 轮: 初始分析响应类型={type(natural_response)}")
+            logs.append(f"第 {round_num} 轮: 初始分析响应长度={len(str(natural_response)) if natural_response else 0}")
+            logs.append(f"第 {round_num} 轮: 初始分析响应前200字符={repr(str(natural_response)[:200]) if natural_response else 'None'}")
+            
             if not natural_response:
                 logs.append(f"第 {round_num} 轮: 初始分析模型无响应")
+                print(f"  ❌ 初始分析无响应")
                 return "not_sure"
             
             logs.append(f"第 {round_num} 轮: 初始分析自然语言响应长度={len(natural_response)}")
+            print(f"  ✅ 初始分析成功，长度: {len(natural_response)}")
             
             # 使用prompt factory生成JSON提取prompt
             json_extraction_prompt = VulCheckPrompt.vul_check_prompt_agent_json_extraction(
                 natural_response
             )
 
-            initial_response = ask_agent_json_extraction(json_extraction_prompt)
+            initial_response = common_ask_for_json(json_extraction_prompt)
+            
+            # 🔍 详细调试信息
+            logs.append(f"第 {round_num} 轮: JSON提取原始响应类型={type(initial_response)}")
+            logs.append(f"第 {round_num} 轮: JSON提取原始响应长度={len(str(initial_response)) if initial_response else 0}")
+            logs.append(f"第 {round_num} 轮: JSON提取原始响应前200字符={repr(str(initial_response)[:200]) if initial_response else 'None'}")
+            
             if not initial_response:
-                logs.append(f"第 {round_num} 轮: JSON提取失败")
+                logs.append(f"第 {round_num} 轮: JSON提取失败 - 响应为空")
                 return "not_sure"
             
-            initial_result = json.loads(initial_response) if isinstance(initial_response, str) else initial_response
+            try:
+                # 🔧 common_ask_for_json 已经处理了JSON提取，直接解析
+                initial_result = json.loads(initial_response) if isinstance(initial_response, str) else initial_response
+                logs.append(f"第 {round_num} 轮: JSON解析成功，结果类型={type(initial_result)}")
+            except json.JSONDecodeError as e:
+                logs.append(f"第 {round_num} 轮: JSON解析失败 - {str(e)}")
+                logs.append(f"第 {round_num} 轮: 原始内容={repr(initial_response)}")
+                print(f"  ❌ JSON解析错误: {e}")
+                print(f"  📄 原始响应: {repr(initial_response)}")
+                return "not_sure"
             assessment = initial_result.get('initial_assessment', 'not_sure')
             additional_info = initial_result.get('additional_info_needed', '')
             
@@ -541,188 +609,138 @@ class AnalysisProcessor:
             # 如果是明确的yes或no，直接返回
             if assessment in ['yes', 'no']:
                 logs.append(f"第 {round_num} 轮: 明确结果，直接返回")
+                print(f"  ✅ 明确结果，直接返回: {assessment}")
                 return assessment
             
-            # 如果需要更多信息，直接获取所有类型的信息
-            if assessment == 'need_more_info' and additional_info:
+            # 如果需要更多信息，进入自循环（最多10轮）
+            else:
                 print(f"  🔍 需要更多信息: {additional_info}")
                 logs.append(f"第 {round_num} 轮: 需要更多信息: {additional_info}")
                 
-                try:
-                    # 直接获取所有类型的RAG信息
-                    print(f"  🔍 同时获取所有类型的RAG信息...")
-                    all_additional_info = self._get_all_additional_info(
-                        additional_info, task, logs, round_num
-                    )
+                # 进入自循环，最多10轮
+                max_inner_rounds = 10
+                current_assessment = assessment
+                current_additional_info = additional_info
+                accumulated_context = ""
+                
+                for inner_round in range(1, max_inner_rounds + 1):
+                    logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 开始获取额外信息")
+                    print(f"    🔄 内部第 {inner_round} 次循环: 获取额外信息...")
                     
-                    # 格式化为字符串
-                    additional_context = self._format_all_additional_info(all_additional_info)
-                    
-                    logs.append(f"第 {round_num} 轮: 获取所有RAG信息完成")
-                    print(f"  ✅ 获取信息完成: Functions={len(all_additional_info['function_info'])}, Upstream/Downstream={len(all_additional_info['upstream_downstream_info'])}, Chunks={len(all_additional_info['chunk_info'])}")
-                    # Files={len(all_additional_info['file_info'])}, - 已注释
+                    try:
+                        # 获取所有类型的RAG信息
+                        all_additional_info = self._get_all_additional_info(
+                            current_additional_info, task, logs, round_num
+                        )
                         
-                    # 使用prompt factory生成最终分析prompt
-                    final_analysis_prompt = VulCheckPrompt.vul_check_prompt_agent_final_analysis(
-                        vulnerability_result, business_flow_code, assessment, additional_info, additional_context
-                    )
-                    
-                    # 使用专门的最终分析模型进行最终分析
-                    final_natural_response = ask_agent_final_analysis(final_analysis_prompt)
-                    if final_natural_response:
+                        # 格式化为字符串
+                        additional_context = self._format_all_additional_info(all_additional_info)
+                        
+                        # 累积上下文信息
+                        if accumulated_context:
+                            accumulated_context += f"\n\n=== 第{inner_round}轮额外信息 ===\n" + additional_context
+                        else:
+                            accumulated_context = additional_context
+                        
+                        logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 获取RAG信息完成")
+                        print(f"    ✅ 获取信息完成: Functions={len(all_additional_info['function_info'])}, Upstream/Downstream={len(all_additional_info['upstream_downstream_info'])}, Chunks={len(all_additional_info['chunk_info'])}")
+                            
+                        # 使用prompt factory生成最终分析prompt
+                        final_analysis_prompt = VulCheckPrompt.vul_check_prompt_agent_final_analysis(
+                            vulnerability_result, business_flow_code, current_assessment, current_additional_info, accumulated_context
+                        )
+                        
+                        # 使用专门的最终分析模型进行最终分析
+                        final_natural_response = ask_agent_final_analysis(final_analysis_prompt)
+                        
+                        # 🔍 最终分析调试信息
+                        logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终分析响应类型={type(final_natural_response)}")
+                        logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终分析响应长度={len(str(final_natural_response)) if final_natural_response else 0}")
+                        
+                        if not final_natural_response:
+                            logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终分析模型无响应")
+                            print(f"    ❌ 最终分析无响应，继续下一轮...")
+                            continue
+                        
+                        print(f"    ✅ 最终分析成功，长度: {len(final_natural_response)}")
+                        
                         # 使用prompt factory生成最终结果提取prompt
                         final_extraction_prompt = VulCheckPrompt.vul_check_prompt_agent_final_extraction(
                             final_natural_response
                         )
 
-                        final_response = ask_agent_final_extraction(final_extraction_prompt)
-                        if final_response:
-                            final_result = json.loads(final_response) if isinstance(final_response, str) else final_response
-                            final_assessment = final_result.get('final_result', 'not_sure')
-                            
-                            logs.append(f"第 {round_num} 轮: 最终结果={final_assessment}")
-                            logs.append(f"第 {round_num} 轮: 最终分析={final_natural_response[:200]}...")
-                            
-                            print(f"  🎯 最终判断: {final_assessment}")
-                            return final_assessment
+                        final_response = common_ask_for_json(final_extraction_prompt)
                         
-                except Exception as e:
-                    logs.append(f"第 {round_num} 轮: 信息获取阶段失败: {str(e)}")
-                    print(f"  ❌ 信息获取失败: {e}")
+                        # 🔍 最终结果提取调试信息
+                        logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终提取原始响应类型={type(final_response)}")
+                        logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终提取原始响应长度={len(str(final_response)) if final_response else 0}")
+                        
+                        if not final_response:
+                            logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终提取失败 - 响应为空")
+                            print(f"    ❌ JSON提取失败，继续下一轮...")
+                            continue
+                        
+                        try:
+                            # 🔧 common_ask_for_json 已经处理了JSON提取，直接解析
+                            final_result = json.loads(final_response) if isinstance(final_response, str) else final_response
+                            logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终JSON解析成功，结果类型={type(final_result)}")
+                            
+                            final_assessment = final_result.get('final_result', 'not_sure')
+                            final_additional_info = final_result.get('additional_info_needed', '')
+                            
+                            logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终结果={final_assessment}")
+                            logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终分析={final_natural_response[:200]}...")
+                            
+                            print(f"    🎯 第{inner_round}轮判断: {final_assessment}")
+                            
+                            # 如果得到明确的yes或no，退出循环
+                            if final_assessment in ['yes', 'no']:
+                                logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 得到明确结果，退出循环")
+                                print(f"    ✅ 得到明确结果，退出内部循环")
+                                return final_assessment
+                            
+                            # 如果仍然是need_more_info，继续下一轮
+                            else:
+                                if inner_round < max_inner_rounds:
+                                    logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 仍需更多信息，继续下一轮")
+                                    print(f"    🔄 仍需更多信息，继续第{inner_round + 1}轮...")
+                                    current_assessment = final_assessment
+                                    current_additional_info = final_additional_info if final_additional_info else current_additional_info
+                                    continue
+                                else:
+                                    logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 达到最大循环次数，退出")
+                                    print(f"    ⚠️ 达到最大循环次数({max_inner_rounds})，退出")
+                                    return 'not_sure'
+                                
+                        except json.JSONDecodeError as e:
+                            logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终JSON解析失败 - {str(e)}")
+                            logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终原始内容={repr(final_response)}")
+                            print(f"    ❌ JSON解析错误: {e}, 继续下一轮...")
+                            continue
+                        
+                    except Exception as e:
+                        logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 信息获取阶段失败: {str(e)}")
+                        print(f"    ❌ 信息获取失败: {e}, 继续下一轮...")
+                        continue
+                
+                # 如果所有轮次都没有得到明确结果
+                logs.append(f"第 {round_num} 轮: 所有内部循环完成，未得到明确结果")
+                print(f"  ⚠️ 内部循环结束，未得到明确结果")
+                return 'not_sure'
             
             # 如果以上都失败，返回初步评估结果
             return assessment if assessment in ['yes', 'no'] else 'not_sure'
             
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
             logs.append(f"第 {round_num} 轮: 检测失败: {str(e)}")
+            logs.append(f"第 {round_num} 轮: 完整错误堆栈: {error_details}")
             print(f"  ❌ 检测失败: {e}")
+            print(f"  📋 完整错误堆栈:\n{error_details}")
             return "not_sure"
 
-    def _get_additional_info_by_type(self, info_type, specific_query, task, logs, round_num):
-        """根据信息类型获取额外信息"""
-        try:
-            if info_type == 'function':
-                # 使用RAG搜索函数信息
-                if self.rag_processor:
-                    # 先尝试按名称搜索
-                    name_results = self.rag_processor.search_functions_by_name(specific_query, 3)
-                    # 再尝试按内容搜索
-                    content_results = self.rag_processor.search_functions_by_content(specific_query, 3)
-                    
-                    context_parts = []
-                    if name_results:
-                        context_parts.append("=== 按名称搜索的函数 ===")
-                        for result in name_results[:2]:
-                            func_name = result.get('name', 'Unknown')
-                            func_content = result.get('content', '')[:200]
-                            context_parts.append(f"函数: {func_name}\n代码: {func_content}...\n")
-                    
-                    if content_results:
-                        context_parts.append("=== 按内容搜索的相似函数 ===")
-                        for result in content_results[:2]:
-                            func_name = result.get('name', 'Unknown')
-                            func_content = result.get('content', '')[:200]
-                            context_parts.append(f"函数: {func_name}\n代码: {func_content}...\n")
-                    
-                    logs.append(f"第 {round_num} 轮: 函数搜索找到 {len(name_results)} + {len(content_results)} 个结果")
-                    return '\n'.join(context_parts) if context_parts else "未找到相关函数"
-                else:
-                    logs.append(f"第 {round_num} 轮: RAG不可用，使用传统函数搜索")
-                    return self._get_traditional_context(specific_query)
-            
-            elif info_type == 'file':
-                # 文件信息 - 从任务中获取文件相关信息
-                file_info = []
-                if hasattr(task, 'absolute_file_path') and task.absolute_file_path:
-                    file_info.append(f"文件路径: {task.absolute_file_path}")
-                if hasattr(task, 'contract_code') and task.contract_code:
-                    file_info.append(f"合约代码: {task.contract_code[:300]}...")
-                
-                logs.append(f"第 {round_num} 轮: 获取文件信息，{len(file_info)} 项")
-                return '\n'.join(file_info) if file_info else "未找到文件信息"
-            
-            elif info_type == 'upstream_downstream':
-                # 上下游信息 - 使用get_call_tree_with_depth_limit获取实际代码内容
-                upstream_downstream = []
-                max_depth = 3  # 设置深度限制
-                
-                # 获取project_audit实例
-                project_audit = getattr(self, 'project_audit', None) or self.context_data.get('project_audit')
-                if project_audit and hasattr(project_audit, 'call_tree_builder'):
-                    builder = project_audit.call_tree_builder
-                    if hasattr(builder, 'get_call_tree_with_depth_limit'):
-                        try:
-                            # 获取upstream代码内容（使用深度限制）
-                            limited_upstream = builder.get_call_tree_with_depth_limit(
-                                self.call_trees, task.name, 'upstream', max_depth
-                            )
-                            if limited_upstream and limited_upstream.get('tree'):
-                                upstream_content = self._extract_function_content_from_tree(limited_upstream['tree'])
-                                if upstream_content:
-                                    upstream_downstream.append(f"=== 上游函数代码 (深度{max_depth}) ===")
-                                    upstream_downstream.append(upstream_content[:1000] + "..." if len(upstream_content) > 1000 else upstream_content)
-                                    logs.append(f"第 {round_num} 轮: 获取upstream代码内容，{len(upstream_content)} 字符")
-                            
-                            # 获取downstream代码内容（使用深度限制）
-                            limited_downstream = builder.get_call_tree_with_depth_limit(
-                                self.call_trees, task.name, 'downstream', max_depth
-                            )
-                            if limited_downstream and limited_downstream.get('tree'):
-                                downstream_content = self._extract_function_content_from_tree(limited_downstream['tree'])
-                                if downstream_content:
-                                    upstream_downstream.append(f"=== 下游函数代码 (深度{max_depth}) ===")
-                                    upstream_downstream.append(downstream_content[:1000] + "..." if len(downstream_content) > 1000 else downstream_content)
-                                    logs.append(f"第 {round_num} 轮: 获取downstream代码内容，{len(downstream_content)} 字符")
-                            
-                            # 添加统计信息
-                            upstream_count = limited_upstream.get('total_count', 0) if limited_upstream else 0
-                            downstream_count = limited_downstream.get('total_count', 0) if limited_downstream else 0
-                            upstream_downstream.append(f"调用关系统计: 上游{upstream_count}个, 下游{downstream_count}个")
-                            
-                        except Exception as e:
-                            logs.append(f"第 {round_num} 轮: 使用get_call_tree_with_depth_limit获取失败: {str(e)}")
-                            # 备选方案：仅获取函数名
-                            if self.call_trees:
-                                for call_tree in self.call_trees:
-                                    if call_tree.get('function_name') == task.name:
-                                        upstream_info = call_tree.get('upstream', {})
-                                        downstream_info = call_tree.get('downstream', {})
-                                        if upstream_info:
-                                            upstream_functions = list(upstream_info.keys())[:3]
-                                            upstream_downstream.append(f"上游函数: {', '.join(upstream_functions)}")
-                                        if downstream_info:
-                                            downstream_functions = list(downstream_info.keys())[:3]
-                                            upstream_downstream.append(f"下游函数: {', '.join(downstream_functions)}")
-                                        break
-                else:
-                    logs.append(f"第 {round_num} 轮: call_tree_builder不可用，使用备选方案")
-                    # 备选方案：直接从call_trees获取函数名
-                    if self.call_trees:
-                        for call_tree in self.call_trees:
-                            if call_tree.get('function_name') == task.name:
-                                upstream_info = call_tree.get('upstream', {})
-                                downstream_info = call_tree.get('downstream', {})
-                                if upstream_info:
-                                    upstream_functions = list(upstream_info.keys())[:3]
-                                    upstream_downstream.append(f"上游函数: {', '.join(upstream_functions)}")
-                                if downstream_info:
-                                    downstream_functions = list(downstream_info.keys())[:3]
-                                    upstream_downstream.append(f"下游函数: {', '.join(downstream_functions)}")
-                                upstream_count = call_tree.get('upstream_count', 0)
-                                downstream_count = call_tree.get('downstream_count', 0)
-                                upstream_downstream.append(f"调用关系统计: 上游{upstream_count}个, 下游{downstream_count}个")
-                                break
-                
-                logs.append(f"第 {round_num} 轮: 获取上下游信息，{len(upstream_downstream)} 项")
-                return '\n'.join(upstream_downstream) if upstream_downstream else "未找到调用关系信息"
-            
-            else:
-                logs.append(f"第 {round_num} 轮: 未知信息类型: {info_type}")
-                return f"未知信息类型: {info_type}"
-                
-        except Exception as e:
-            logs.append(f"第 {round_num} 轮: 获取 {info_type} 信息失败: {str(e)}")
-            return f"获取 {info_type} 信息失败: {str(e)}"
+   
     
     def _get_all_additional_info(self, specific_query, task, logs, round_num):
         """同时获取所有类型的RAG信息"""
@@ -733,31 +751,50 @@ class AnalysisProcessor:
             'chunk_info': []
         }
         
+        # 🔍 添加调试信息
+        print(f"  🔍 第 {round_num} 轮: 搜索查询='{specific_query}'")
+        print(f"  🔍 第 {round_num} 轮: rag_processor状态={self.rag_processor is not None}")
+        if self.rag_processor:
+            print(f"  🔍 第 {round_num} 轮: rag_processor类型={type(self.rag_processor)}")
+        
         try:
             # 1. Function RAG搜索 (topk=5) - 包括三种搜索类型
             if self.rag_processor:
-                # 按名称搜索
-                name_results = self.rag_processor.search_functions_by_name(specific_query, 2)
-                # 按内容搜索
-                content_results = self.rag_processor.search_functions_by_content(specific_query, 2)
-                # 按自然语言描述搜索
-                natural_results = self.rag_processor.search_functions_by_natural_language(specific_query, 2)
+                print(f"  🔍 第 {round_num} 轮: 开始Function RAG搜索...")
                 
-                # 合并和去重，取前5个
-                function_results = self._merge_and_deduplicate_functions(
-                    name_results, content_results, natural_results, 5
-                )
-                
-                for result in function_results:
-                    func_name = result.get('name', 'Unknown')
-                    func_content = result.get('content', '')[:300]  # 限制长度
-                    all_info['function_info'].append({
-                        'name': func_name,
-                        'content': func_content,
-                        'type': 'function'
-                    })
-                
-                logs.append(f"第 {round_num} 轮: Function搜索找到 {len(function_results)} 个结果")
+                try:
+                    # 按名称搜索
+                    name_results = self.rag_processor.search_functions_by_name(specific_query, 2)
+                    print(f"  🔍 第 {round_num} 轮: 按名称搜索结果={len(name_results) if name_results else 0}")
+                    
+                    # 按内容搜索
+                    content_results = self.rag_processor.search_functions_by_content(specific_query, 2)
+                    print(f"  🔍 第 {round_num} 轮: 按内容搜索结果={len(content_results) if content_results else 0}")
+                    
+                    # 按自然语言描述搜索
+                    natural_results = self.rag_processor.search_functions_by_natural_language(specific_query, 2)
+                    print(f"  🔍 第 {round_num} 轮: 按自然语言搜索结果={len(natural_results) if natural_results else 0}")
+                    
+                    # 合并和去重，取前5个
+                    function_results = self._merge_and_deduplicate_functions(
+                        name_results, content_results, natural_results, 5
+                    )
+                    
+                    for result in function_results:
+                        func_name = result.get('name', 'Unknown')
+                        func_content = result.get('content', '')  # 🔧 移除长度限制，保留完整内容
+                        all_info['function_info'].append({
+                            'name': func_name,
+                            'content': func_content,
+                            'type': 'function'
+                        })
+                    
+                    print(f"  🔍 第 {round_num} 轮: Function搜索合并后找到 {len(function_results)} 个结果")
+                    
+                except Exception as e:
+                    print(f"  ❌ 第 {round_num} 轮: Function搜索失败: {str(e)}")
+            else:
+                print(f"  ❌ 第 {round_num} 轮: rag_processor为None，跳过Function搜索")
             
             # 2. File RAG搜索 (topk=2) - 已注释
             # if self.rag_processor:
@@ -775,23 +812,36 @@ class AnalysisProcessor:
             #     logs.append(f"第 {round_num} 轮: File搜索找到 {len(file_results)} 个结果")
             
             # 3. Upstream/Downstream搜索 (level=3/4)
-            upstream_downstream_results = self._get_upstream_downstream_with_levels(task, 3, 4, logs, round_num)
-            all_info['upstream_downstream_info'] = upstream_downstream_results
+            print(f"  🔍 第 {round_num} 轮: 开始Upstream/Downstream搜索...")
+            print(f"  🔍 第 {round_num} 轮: 任务名称='{task.name}'")
+            try:
+                upstream_downstream_results = self._get_upstream_downstream_with_levels(task, 3, 4, logs, round_num)
+                all_info['upstream_downstream_info'] = upstream_downstream_results
+                print(f"  🔍 第 {round_num} 轮: Upstream/Downstream搜索找到 {len(upstream_downstream_results)} 个结果")
+            except Exception as e:
+                print(f"  ❌ 第 {round_num} 轮: Upstream/Downstream搜索失败: {str(e)}")
             
             # 4. Chunk RAG搜索 (topk=3)
             if self.rag_processor:
-                chunk_results = self.rag_processor.search_chunks_by_content(specific_query, 3)
-                
-                for result in chunk_results:
-                    chunk_text = result.get('chunk_text', '')[:300]
-                    original_file = result.get('original_file', 'Unknown')
-                    all_info['chunk_info'].append({
-                        'text': chunk_text,
-                        'file': original_file,
-                        'type': 'chunk'
-                    })
-                
-                logs.append(f"第 {round_num} 轮: Chunk搜索找到 {len(chunk_results)} 个结果")
+                print(f"  🔍 第 {round_num} 轮: 开始Chunk RAG搜索...")
+                try:
+                    chunk_results = self.rag_processor.search_chunks_by_content(specific_query, 3)
+                    print(f"  🔍 第 {round_num} 轮: Chunk搜索原始结果={len(chunk_results) if chunk_results else 0}")
+                    
+                    for result in chunk_results:
+                        chunk_text = result.get('chunk_text', '')  # 🔧 移除长度限制，保留完整内容
+                        original_file = result.get('original_file', 'Unknown')
+                        all_info['chunk_info'].append({
+                            'text': chunk_text,
+                            'file': original_file,
+                            'type': 'chunk'
+                        })
+                    
+                    print(f"  🔍 第 {round_num} 轮: Chunk搜索处理后找到 {len(all_info['chunk_info'])} 个结果")
+                except Exception as e:
+                    print(f"  ❌ 第 {round_num} 轮: Chunk搜索失败: {str(e)}")
+            else:
+                print(f"  ❌ 第 {round_num} 轮: rag_processor为None，跳过Chunk搜索")
             
             # 5. 去重逻辑：从upstream/downstream中去除与function相同的
             all_info = self._remove_function_duplicates_from_upstream_downstream(all_info)
@@ -799,7 +849,7 @@ class AnalysisProcessor:
             return all_info
             
         except Exception as e:
-            logs.append(f"第 {round_num} 轮: 获取所有额外信息失败: {str(e)}")
+            print(f"  ❌ 第 {round_num} 轮: 获取所有额外信息失败: {str(e)}")
             return all_info
     
     def _merge_and_deduplicate_functions(self, name_results, content_results, natural_results, max_count):
@@ -842,42 +892,65 @@ class AnalysisProcessor:
         
         # 获取project_audit实例
         project_audit = getattr(self, 'project_audit', None) or self.context_data.get('project_audit')
+        print(f"    🔍 第 {round_num} 轮: project_audit状态={project_audit is not None}")
         if not project_audit:
+            print(f"    ❌ 第 {round_num} 轮: project_audit为None，无法获取上下游信息")
             return upstream_downstream
+        
+        # 检查project_audit的call_trees属性
+        has_call_trees = hasattr(project_audit, 'call_trees') and project_audit.call_trees
+        print(f"    🔍 第 {round_num} 轮: project_audit.call_trees存在={has_call_trees}")
+        if has_call_trees:
+            print(f"    🔍 第 {round_num} 轮: call_trees数量={len(project_audit.call_trees)}")
         
         try:
             # 复用planning中的方法获取downstream内容
+            print(f"    🔍 第 {round_num} 轮: 开始导入PlanningProcessor...")
             from planning.planning_processor import PlanningProcessor
-            planning_processor = PlanningProcessor(None, project_audit)  # task_manager可以传None
+            planning_processor = PlanningProcessor(project_audit, None)  # project_audit第一个，task_manager第二个
+            print(f"    ✅ 第 {round_num} 轮: PlanningProcessor创建成功")
             
             # 获取downstream内容（使用planning中的方法）
+            print(f"    🔍 第 {round_num} 轮: 获取downstream内容，函数名='{task.name}'，深度={downstream_level}")
             downstream_content = planning_processor.get_downstream_content_with_call_tree(
                 task.name, downstream_level
             )
+            print(f"    🔍 第 {round_num} 轮: downstream内容长度={len(downstream_content) if downstream_content else 0}")
+            
             if downstream_content:
                 upstream_downstream.append({
-                    'content': downstream_content[:800],
+                    'content': downstream_content,  # 🔧 移除800字符截断，保留完整内容
                     'type': 'downstream',
                     'level': downstream_level,
                     'count': downstream_content.count('\n\n') + 1  # 简单估算函数数量
                 })
-                logs.append(f"第 {round_num} 轮: 获取downstream代码内容，深度{downstream_level}，{len(downstream_content)} 字符")
+                print(f"    ✅ 第 {round_num} 轮: 获取downstream代码内容，深度{downstream_level}，{len(downstream_content)} 字符")
+            else:
+                print(f"    ❌ 第 {round_num} 轮: downstream内容为空")
             
             # 获取upstream内容（复用planning的逻辑，但修改为upstream）
+            print(f"    🔍 第 {round_num} 轮: 获取upstream内容，函数名='{task.name}'，深度={upstream_level}")
             upstream_content = self._get_upstream_content_with_call_tree(
                 task.name, upstream_level, planning_processor
             )
+            print(f"    🔍 第 {round_num} 轮: upstream内容长度={len(upstream_content) if upstream_content else 0}")
+            
             if upstream_content:
                 upstream_downstream.append({
-                    'content': upstream_content[:800],
+                    'content': upstream_content,  # 🔧 移除800字符截断，保留完整内容
                     'type': 'upstream',
                     'level': upstream_level,
                     'count': upstream_content.count('\n\n') + 1  # 简单估算函数数量
                 })
-                logs.append(f"第 {round_num} 轮: 获取upstream代码内容，深度{upstream_level}，{len(upstream_content)} 字符")
+                print(f"    ✅ 第 {round_num} 轮: 获取upstream代码内容，深度{upstream_level}，{len(upstream_content)} 字符")
+            else:
+                print(f"    ❌ 第 {round_num} 轮: upstream内容为空")
             
         except Exception as e:
-            logs.append(f"第 {round_num} 轮: 复用planning方法获取上下游内容失败: {str(e)}")
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"    ❌ 第 {round_num} 轮: 复用planning方法获取上下游内容失败: {str(e)}")
+            print(f"    ❌ 第 {round_num} 轮: 详细错误: {error_details}")
         
         return upstream_downstream
     
@@ -916,7 +989,7 @@ class AnalysisProcessor:
         return all_info
     
     def _format_all_additional_info(self, all_info):
-        """格式化所有额外信息为字符串"""
+        """格式化所有额外信息为字符串（完整版本，无省略）"""
         context_parts = []
         
         # Function信息
@@ -924,14 +997,14 @@ class AnalysisProcessor:
             context_parts.append("=== 相关函数 (Top 5) ===")
             for i, func in enumerate(all_info['function_info'], 1):
                 context_parts.append(f"{i}. 函数: {func.get('name', 'Unknown')}")
-                context_parts.append(f"   代码: {func.get('content', '')[:200]}...\n")
+                context_parts.append(f"   代码: {func.get('content', '')}\n")  # 🔧 移除截断和省略号
         
         # File信息 - 已注释
         # if all_info['file_info']:
         #     context_parts.append("=== 相关文件 (Top 2) ===")
         #     for i, file in enumerate(all_info['file_info'], 1):
         #         context_parts.append(f"{i}. 文件: {file.get('path', 'Unknown')}")
-        #         context_parts.append(f"   内容: {file.get('content', '')[:200]}...\n")
+        #         context_parts.append(f"   内容: {file.get('content', '')}\n")  # 🔧 移除截断和省略号
         
         # Upstream/Downstream信息
         if all_info['upstream_downstream_info']:
@@ -941,14 +1014,14 @@ class AnalysisProcessor:
                 info_type = info.get('type', 'unknown')
                 count = info.get('count', 0)
                 context_parts.append(f"{info_type.title()}函数 (深度{level}, 共{count}个):")
-                context_parts.append(f"{info.get('content', '')[:400]}...\n")
+                context_parts.append(f"{info.get('content', '')}\n")  # 🔧 移除截断和省略号
         
         # Chunk信息
         if all_info['chunk_info']:
             context_parts.append("=== 相关文档块 (Top 3) ===")
             for i, chunk in enumerate(all_info['chunk_info'], 1):
                 context_parts.append(f"{i}. 文件: {chunk.get('file', 'Unknown')}")
-                context_parts.append(f"   内容: {chunk.get('text', '')[:200]}...\n")
+                context_parts.append(f"   内容: {chunk.get('text', '')}\n")  # 🔧 移除截断和省略号
         
         return '\n'.join(context_parts) if context_parts else "未找到相关信息"
 
