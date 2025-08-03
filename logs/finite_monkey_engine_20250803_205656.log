@@ -180,3 +180,42 @@
 2025-08-03 20:56:56 | INFO     | scan_project         | log_data_info   | 📊 调用树: 115个
 2025-08-03 20:56:56 | INFO     | scan_project         | log_data_info   | 📊 调用图: 17个
 2025-08-03 20:56:56 | INFO     | scan_project         | log_step        | 🔹 初始化RAG处理器
+2025-08-03 21:00:49 | INFO     | scan_project         | log_success     | ✅ 成功: RAG处理器初始化完成
+2025-08-03 21:00:49 | INFO     | scan_project         | log_success     |    详情: 耗时: 232.88秒
+2025-08-03 21:00:49 | INFO     | scan_project         | log_data_info   | 📊 基于tree-sitter解析的函数构建RAG: 115个
+2025-08-03 21:00:49 | INFO     | scan_project         | log_data_info   | 📊 基于文档分块构建RAG: 34个
+2025-08-03 21:00:49 | INFO     | scan_project         | log_data_info   | 📊 使用调用树构建关系型RAG: 115个
+2025-08-03 21:00:49 | INFO     | scan_project         | log_data_info   | 📊 集成调用图(Call Graph): 17个
+2025-08-03 21:00:49 | INFO     | scan_project         | log_data_info   | 📊 Call Graph统计: {'total_edges': 17, 'languages': {'solidity': 17}, 'call_types': {'direct': 17}, 'unique_functions_count': 18}个
+2025-08-03 21:00:49 | INFO     | scan_project         | log_step        | 🔹 检查业务流模式配置
+2025-08-03 21:00:49 | INFO     | scan_project         | scan_project    | SWITCH_BUSINESS_CODE: True
+2025-08-03 21:00:49 | INFO     | scan_project         | log_step        | 🔹 启用业务代码扫描模式
+2025-08-03 21:00:49 | INFO     | scan_project         | log_step        | 🔹 创建任务管理器
+2025-08-03 21:00:49 | INFO     | scan_project         | log_success     | ✅ 成功: 任务管理器创建完成
+2025-08-03 21:00:49 | INFO     | scan_project         | log_step        | 🔹 创建规划处理器
+2025-08-03 21:00:49 | INFO     | scan_project         | log_success     | ✅ 成功: 规划处理器创建完成
+2025-08-03 21:00:49 | INFO     | scan_project         | log_step        | 🔹 初始化规划器的RAG功能
+2025-08-03 21:00:49 | INFO     | scan_project         | log_success     | ✅ 成功: 规划器RAG功能初始化完成
+2025-08-03 21:00:49 | INFO     | scan_project         | log_step        | 🔹 创建AI引擎
+2025-08-03 21:00:49 | INFO     | scan_project         | scan_project    | LanceDB表名: lancedb_function_fishcake0803021
+2025-08-03 21:00:49 | INFO     | scan_project         | log_success     | ✅ 成功: AI引擎创建完成
+2025-08-03 21:00:49 | INFO     | scan_project         | log_step        | 🔹 执行项目规划
+2025-08-03 21:00:50 | INFO     | scan_project         | log_success     | ✅ 成功: 项目规划完成
+2025-08-03 21:00:50 | INFO     | scan_project         | log_success     |    详情: 耗时: 0.66秒
+2025-08-03 21:00:50 | INFO     | scan_project         | log_step        | 🔹 执行漏洞扫描
+2025-08-03 21:40:12 | INFO     | scan_project         | log_success     | ✅ 成功: 漏洞扫描完成
+2025-08-03 21:40:12 | INFO     | scan_project         | log_success     |    详情: 耗时: 2362.61秒
+2025-08-03 21:40:12 | INFO     | scan_project         | log_section_end | ------------------------------------------------------------
+2025-08-03 21:40:12 | INFO     | scan_project         | log_section_end | ✅ 完成执行: 项目扫描
+2025-08-03 21:40:12 | INFO     | scan_project         | log_section_end | ⏱️  执行时间: 2596.46秒
+2025-08-03 21:40:12 | INFO     | scan_project         | log_section_end | ------------------------------------------------------------
+2025-08-03 21:40:12 | INFO     | main                 | <module>        | 扫描模式 'COMMON_PROJECT_FINE_GRAINED' 需要执行漏洞验证
+2025-08-03 21:40:12 | INFO     | check_function_vul   | log_section_start | ============================================================
+2025-08-03 21:40:12 | INFO     | check_function_vul   | log_section_start | 🔥 开始执行: 漏洞验证
+2025-08-03 21:40:12 | INFO     | check_function_vul   | log_section_start | 📝 描述: 项目ID: fishcake0803021
+2025-08-03 21:40:12 | INFO     | check_function_vul   | log_section_start | ============================================================
+2025-08-03 21:40:12 | INFO     | check_function_vul   | log_step        | 🔹 创建项目任务管理器
+2025-08-03 21:40:12 | INFO     | check_function_vul   | log_success     | ✅ 成功: 项目任务管理器创建完成
+2025-08-03 21:40:12 | INFO     | check_function_vul   | log_step        | 🔹 初始化漏洞检查器
+2025-08-03 21:40:12 | INFO     | check_function_vul   | log_success     | ✅ 成功: 漏洞检查器初始化完成
+2025-08-03 21:40:12 | INFO     | check_function_vul   | log_step        | 🔹 执行漏洞验证
