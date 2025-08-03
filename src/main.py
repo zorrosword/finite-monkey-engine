@@ -21,6 +21,183 @@ dotenv.load_dotenv()
 # 添加日志系统
 from logging_config import setup_logging, get_logger, log_section_start, log_section_end, log_step, log_error, log_warning, log_success, log_data_info
 
+def _perform_post_reasoning_deduplication(project_id, db_engine, logger):
+    """在reasoning完成后，validation开始前进行去重处理"""
+    log_step(logger, "开始获取reasoning后的漏洞数据")
+    
+    try:
+        # 获取reasoning后的所有漏洞数据
+        project_taskmgr = ProjectTaskMgr(project_id, db_engine)
+        entities = project_taskmgr.query_task_by_project_id(project_id)
+        
+        # 调试信息：统计所有实体
+        total_entities = len(entities)
+        log_data_info(logger, "总任务实体数量", total_entities)
+        print(f"🔍 调试信息 - 总任务实体数量: {total_entities}")
+        
+        # 详细分析每个筛选条件
+        entities_with_result = 0
+        entities_with_yes = 0
+        entities_with_business_code = 0
+        
+        for entity in entities:
+            if entity.result:
+                entities_with_result += 1
+                if "yes" in str(entity.result).lower():
+                    entities_with_yes += 1
+                if hasattr(entity, 'business_flow_code') and entity.business_flow_code and len(entity.business_flow_code) > 0:
+                    entities_with_business_code += 1
+        
+        print(f"🔍 调试信息 - 有result的实体: {entities_with_result}")
+        print(f"🔍 调试信息 - result包含'yes'的实体: {entities_with_yes}")
+        print(f"🔍 调试信息 - 有business_flow_code的实体: {entities_with_business_code}")
+        
+        # 筛选有漏洞结果的数据
+        vulnerability_data = []
+        for entity in entities:
+            # 调试每个实体的详细信息
+            has_result = bool(entity.result)
+            has_yes = has_result and ("yes" in str(entity.result).lower())
+            has_business_code = hasattr(entity, 'business_flow_code') and entity.business_flow_code and len(entity.business_flow_code) > 0
+            
+            if has_result and has_yes and has_business_code:
+                vulnerability_data.append({
+                    '漏洞结果': entity.result,
+                    'ID': entity.id,
+                    '项目名称': entity.project_id,
+                    '合同编号': entity.contract_code,
+                    'UUID': entity.uuid,
+                    '函数名称': entity.name,
+                    '函数代码': entity.content,
+                    '规则类型': entity.rule_key,
+                    '开始行': entity.start_line,
+                    '结束行': entity.end_line,
+                    '相对路径': entity.relative_file_path,
+                    '绝对路径': entity.absolute_file_path,
+                    '业务流程代码': entity.business_flow_code,
+                    '扫描记录': entity.scan_record,
+                    '推荐': entity.recommendation
+                })
+        
+        filtered_count = len(vulnerability_data)
+        print(f"🔍 调试信息 - 通过筛选条件的实体: {filtered_count}")
+        
+        if not vulnerability_data:
+            print(f"⚠️  严格筛选条件未找到数据，尝试宽松筛选条件...")
+            print(f"   - 总实体数: {total_entities}")
+            print(f"   - 有result的: {entities_with_result}")
+            print(f"   - result包含'yes'的: {entities_with_yes}")
+            print(f"   - 有business_flow_code的: {entities_with_business_code}")
+            print(f"   - 通过所有筛选条件的: {filtered_count}")
+            
+            # 尝试宽松筛选条件：只要有result就进行去重
+            print(f"🔄 尝试宽松筛选条件（只要有result）...")
+            for entity in entities:
+                if entity.result and entity.result.strip():  # 只要有非空result
+                    vulnerability_data.append({
+                        '漏洞结果': entity.result,
+                        'ID': entity.id,
+                        '项目名称': entity.project_id,
+                        '合同编号': getattr(entity, 'contract_code', ''),
+                        'UUID': getattr(entity, 'uuid', ''),
+                        '函数名称': entity.name,
+                        '函数代码': getattr(entity, 'content', ''),
+                        '规则类型': getattr(entity, 'rule_key', ''),
+                        '开始行': getattr(entity, 'start_line', ''),
+                        '结束行': getattr(entity, 'end_line', ''),
+                        '相对路径': getattr(entity, 'relative_file_path', ''),
+                        '绝对路径': getattr(entity, 'absolute_file_path', ''),
+                        '业务流程代码': getattr(entity, 'business_flow_code', ''),
+                        '扫描记录': getattr(entity, 'scan_record', ''),
+                        '推荐': getattr(entity, 'recommendation', '')
+                    })
+            
+            fallback_count = len(vulnerability_data)
+            print(f"🔍 宽松筛选条件找到: {fallback_count} 个实体")
+            
+            if not vulnerability_data:
+                print(f"❌ 即使使用宽松筛选条件也未找到数据，跳过去重处理")
+                log_warning(logger, f"严格和宽松筛选条件都未找到数据 - 总实体:{total_entities}, 有result:{entities_with_result}")
+                return
+            else:
+                print(f"✅ 使用宽松筛选条件进行去重处理")
+                log_warning(logger, f"使用宽松筛选条件进行去重 - 原始条件筛选出:{filtered_count}, 宽松条件筛选出:{fallback_count}")
+        
+        original_df = pd.DataFrame(vulnerability_data)
+        original_count = len(original_df)
+        original_ids = set(original_df['ID'].astype(str))
+        
+        log_data_info(logger, "去重前漏洞数量", original_count)
+        log_data_info(logger, "去重前漏洞ID", f"{', '.join(sorted(original_ids))}")
+        
+        # 使用ResProcessor进行去重
+        log_step(logger, "开始ResProcessor去重处理")
+        res_processor = ResProcessor(original_df, max_group_size=5, iteration_rounds=4, enable_chinese_translation=False)
+        processed_df = res_processor.process()
+        
+        deduplicated_count = len(processed_df)
+        deduplicated_ids = set(processed_df['ID'].astype(str))
+        
+        log_data_info(logger, "去重后漏洞数量", deduplicated_count)
+        log_data_info(logger, "去重后漏洞ID", f"{', '.join(sorted(deduplicated_ids))}")
+        
+        # 计算被去重的ID
+        removed_ids = original_ids - deduplicated_ids
+        removed_count = len(removed_ids)
+        
+        # 打印去重结果
+        print(f"\n{'='*60}")
+        print(f"🔄 Reasoning后去重处理结果")
+        print(f"{'='*60}")
+        print(f"去重前漏洞数量: {original_count}")
+        print(f"去重后漏洞数量: {deduplicated_count}")
+        print(f"被去重的漏洞数量: {removed_count}")
+        
+        if removed_ids:
+            print(f"\n🗑️  被去重的漏洞ID列表:")
+            for i, removed_id in enumerate(sorted(removed_ids), 1):
+                print(f"  {i:2d}. ID: {removed_id}")
+            
+            # 逻辑删除被去重的记录 - 将short_result设置为"delete"
+            print(f"\n🗑️  开始逻辑删除被去重的记录(设置short_result='delete')...")
+            marked_count = 0
+            failed_marks = []
+            
+            for removed_id in removed_ids:
+                try:
+                    # 转换为整数类型的ID
+                    id_int = int(removed_id)
+                    project_taskmgr.update_short_result(id_int, "delete")
+                    marked_count += 1
+                    print(f"    ✅ 标记成功: ID {removed_id} -> short_result='delete'")
+                except Exception as e:
+                    failed_marks.append(removed_id)
+                    print(f"    ❌ 标记出错: ID {removed_id}, 错误: {str(e)}")
+                    logger.error(f"标记删除ID {removed_id} 时出错: {str(e)}")
+            
+            print(f"\n📊 逻辑删除结果:")
+            print(f"    成功标记: {marked_count} 条记录")
+            if failed_marks:
+                print(f"    标记失败: {len(failed_marks)} 条记录 - IDs: {', '.join(failed_marks)}")
+                logger.warning(f"标记失败的IDs: {', '.join(failed_marks)}")
+            
+            log_success(logger, "逻辑删除操作完成", f"成功标记: {marked_count}/{removed_count}")
+        else:
+            print("✅ 没有漏洞被去重")
+        
+        print(f"{'='*60}\n")
+        
+        # 记录到日志
+        log_success(logger, "去重处理完成", f"原始: {original_count} -> 去重后: {deduplicated_count}, 逻辑删除: {removed_count}")
+        if removed_ids:
+            logger.info(f"被去重的漏洞ID: {', '.join(sorted(removed_ids))}")
+            logger.info(f"逻辑删除了 {marked_count} 条被去重的记录(设置short_result='delete')")
+        
+    except Exception as e:
+        log_error(logger, "去重处理失败", e)
+        import traceback
+        logger.error(f"详细错误信息: {traceback.format_exc()}")
+
 def scan_project(project, db_engine):
     logger = get_logger("scan_project")
     scan_start_time = time.time()
@@ -115,11 +292,18 @@ def scan_project(project, db_engine):
     planning_duration = time.time() - planning_start
     log_success(logger, "项目规划完成", f"耗时: {planning_duration:.2f}秒")
     
-    log_step(logger, "执行漏洞扫描")
+    log_step(logger, "执行漏洞扫描(Reasoning)")
     scan_start = time.time()
     engine.do_scan()
     scan_duration = time.time() - scan_start
-    log_success(logger, "漏洞扫描完成", f"耗时: {scan_duration:.2f}秒")
+    log_success(logger, "漏洞扫描(Reasoning)完成", f"耗时: {scan_duration:.2f}秒")
+    
+    # 在reasoning完成后，validation开始前进行去重
+    log_step(logger, "Reasoning后去重处理")
+    dedup_start = time.time()
+    _perform_post_reasoning_deduplication(project.id, db_engine, logger)
+    dedup_duration = time.time() - dedup_start
+    log_success(logger, "Reasoning后去重处理完成", f"耗时: {dedup_duration:.2f}秒")
     
     total_scan_duration = time.time() - scan_start_time
     log_section_end(logger, "项目扫描", total_scan_duration)
@@ -159,7 +343,15 @@ def generate_excel(output_path, project_id):
     
     # 创建一个空的DataFrame来存储所有实体的数据
     data = []
+    total_entities = len(entities)
+    deleted_entities = 0
+    
     for entity in entities:
+        # 跳过已逻辑删除的记录
+        if getattr(entity, 'short_result', '') == 'delete':
+            deleted_entities += 1
+            continue
+            
         # 使用result字段和business_flow_code进行筛选
         if entity.result and ("yes" in str(entity.result).lower()) and len(entity.business_flow_code)>0:
             data.append({
@@ -179,6 +371,13 @@ def generate_excel(output_path, project_id):
                 '扫描记录': entity.scan_record,  # 使用新的scan_record字段
                 '推荐': entity.recommendation
             })
+    
+    # 打印数据统计信息
+    print(f"\n📊 Excel报告数据统计:")
+    print(f"   总记录数: {total_entities}")
+    print(f"   逻辑删除的记录数: {deleted_entities}")
+    print(f"   有效记录数: {total_entities - deleted_entities}")
+    print(f"   符合条件的漏洞记录数: {len(data)}")
     
     # 将数据转换为DataFrame
     if not data:  # 检查是否有数据

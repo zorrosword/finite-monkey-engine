@@ -15,8 +15,18 @@ class ConfirmationProcessor:
     
     def execute_vulnerability_confirmation(self, task_manager):
         """Execute vulnerability confirmation checks"""
-        tasks = task_manager.get_task_list()
+        all_tasks = task_manager.get_task_list()
+        
+        # 过滤掉已逻辑删除的任务（short_result为"delete"）
+        tasks = [task for task in all_tasks if getattr(task, 'short_result', '') != 'delete']
+        
+        print(f"📊 任务过滤统计:")
+        print(f"   总任务数: {len(all_tasks)}")
+        print(f"   已逻辑删除的任务数: {len(all_tasks) - len(tasks)}")
+        print(f"   待验证的任务数: {len(tasks)}")
+        
         if len(tasks) == 0:
+            print("✅ 没有需要验证的任务")
             return []
 
         # Define number of threads in thread pool, get from env

@@ -93,6 +93,24 @@ class ProjectTaskMgr(object):
     def _update_short_result(self, session, id, short_result):
         session.query(Project_Task).filter_by(id=id).update({Project_Task.short_result: short_result})
         session.commit()
+    
+    def delete_task_by_id(self, id):
+        """根据ID删除任务记录"""
+        return self._operate_in_session(self._delete_task_by_id, id)
+    def _delete_task_by_id(self, session, id):
+        """执行删除操作的内部方法"""
+        try:
+            # 查找要删除的记录
+            task = session.query(Project_Task).filter_by(id=id).first()
+            if task:
+                session.delete(task)
+                session.commit()
+                return True
+            else:
+                return False
+        except Exception as e:
+            session.rollback()
+            raise e
     # update_title方法已删除，因为title字段不再存在
         
     def import_file(self, filename):
