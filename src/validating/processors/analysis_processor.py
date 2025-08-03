@@ -39,7 +39,6 @@ class AnalysisProcessor:
             # 获取project_audit对象
             project_audit = self.context_data.get('project_audit')
             if not project_audit:
-                print("⚠️ Validating模块: project_audit为None，无法初始化RAG处理器")
                 self.rag_processor = None
                 return
             
@@ -49,11 +48,8 @@ class AnalysisProcessor:
                 "./src/codebaseQA/lancedb", 
                 self.project_id
             )
-            print("✅ Validating模块: RAG处理器初始化完成")
         except Exception as e:
-            print(f"⚠️ Validating模块: RAG处理器初始化失败: {e}")
             import traceback
-            print(f"⚠️ 详细错误: {traceback.format_exc()}")
             self.rag_processor = None
 
     def get_available_rag_types(self) -> Dict[str, str]:
@@ -161,10 +157,7 @@ class AnalysisProcessor:
             reason = rag_choice.get('reason', '默认选择')
             validation_focus = rag_choice.get('validation_focus', '常规验证')
             
-            print(f"🤖 验证阶段大模型选择的RAG类型: {chosen_rag}")
-            print(f"🔍 验证查询内容: {query_content}")
-            print(f"🎯 验证重点: {validation_focus}")
-            print(f"💭 选择原因: {reason}")
+
             
             # 根据选择执行相应的RAG查询
             rag_results = self._execute_rag_query(chosen_rag, query_content)
@@ -173,7 +166,6 @@ class AnalysisProcessor:
             if not rag_results and rag_choice.get('backup_rag_type'):
                 backup_rag = rag_choice.get('backup_rag_type')
                 backup_query = rag_choice.get('backup_query', query_content)
-                print(f"🔄 验证阶段尝试备选RAG: {backup_rag}")
                 rag_results = self._execute_rag_query(backup_rag, backup_query)
                 chosen_rag = backup_rag
                 query_content = backup_query
@@ -188,7 +180,6 @@ class AnalysisProcessor:
             }
             
         except Exception as e:
-            print(f"❌ 验证RAG选择过程失败: {e}")
             # 回退到简单的content搜索
             rag_results = self._execute_rag_query('content', validation_question)
             return {
@@ -237,11 +228,9 @@ class AnalysisProcessor:
             elif rag_type == 'file_natural':
                 return self.rag_processor.search_files_by_natural_language(query, k)
             else:
-                print(f"⚠️ 未知的RAG类型: {rag_type}，使用默认content搜索")
                 return self.rag_processor.search_functions_by_content(query, k)
                 
         except Exception as e:
-            print(f"❌ RAG查询失败 ({rag_type}): {e}")
             return []
 
     def extract_required_info(self, response_text: str) -> List[str]:
@@ -276,7 +265,7 @@ class AnalysisProcessor:
                 extracted = json.loads(response) if isinstance(response, str) else response
                 return extracted.get('required_info', [])
         except Exception as e:
-            print(f"⚠️ AI信息提取失败，使用简化方法: {e}")
+            pass
         
         # 回退到简化的实现
         required_info = []
@@ -309,7 +298,6 @@ class AnalysisProcessor:
         
         for i, info in enumerate(required_info, 1):
             try:
-                print(f"🔍 处理信息点 {i}: {info[:50]}...")
                 
                 # 为每个信息点让大模型选择RAG类型
                 validation_question = f"需要验证或分析：{info}"
@@ -339,7 +327,6 @@ class AnalysisProcessor:
                         enhanced_context_parts.append(f"  传统分析结果: {traditional_context}")
                 
             except Exception as e:
-                print(f"❌ 处理信息点 {i} 失败: {e}")
                 enhanced_context_parts.append(f"  处理失败: {str(e)}")
         
         return '\n'.join(enhanced_context_parts)
@@ -382,7 +369,6 @@ class AnalysisProcessor:
         start_time = time.time()
         logs = []
         
-        print(f"\n🚀 启动Agent化漏洞检测流程 - 任务: {task.name}")
         logs.append(f"开始时间: {datetime.utcnow().isoformat()}")
         
         # 获取规则和业务流代码
@@ -396,7 +382,6 @@ class AnalysisProcessor:
         round_results = []
         
         for round_num in range(1, 4):  # 三轮检测
-            print(f"\n--- 第 {round_num} 轮独立检测 ---")
             logs.append(f"开始第 {round_num} 轮检测")
             
             try:
@@ -407,7 +392,6 @@ class AnalysisProcessor:
                 logs.append(f"第 {round_num} 轮结果: {round_result}")
                 
             except Exception as e:
-                print(f"❌ 第 {round_num} 轮检测失败: {e}")
                 logs.append(f"第 {round_num} 轮失败: {str(e)}")
                 round_results.append("not_sure")
         
@@ -422,9 +406,6 @@ class AnalysisProcessor:
         logs.append(f"处理耗时: {process_time}秒")
         logs.append(f"结束时间: {datetime.utcnow().isoformat()}")
         
-        print(f"\n🎯 最终结果: {final_short_result}")
-        print(f"⏱️ 总耗时: {process_time}秒")
-        
         # 🔍 检查是否有任意轮次失败，决定是否保存
         not_sure_count = sum(1 for result in round_results if result == 'not_sure')
         valid_results_count = len(round_results) - not_sure_count
@@ -432,7 +413,6 @@ class AnalysisProcessor:
         # ⚠️ 只要有任意一个轮次失败(not_sure)，就不保存validation结果
         if not_sure_count > 0:
             logs.append("⚠️ 有轮次失败，不保存validation结果")
-            print(f"  ⚠️ 验证失败: not_sure={not_sure_count}/3, 不保存validation结果")
             
             # 只保存失败日志到scan_record，不设置short_result
             scan_data = {
@@ -453,7 +433,6 @@ class AnalysisProcessor:
         
         # ✅ 所有轮次都成功，正常保存
         logs.append(f"✅ 验证成功: 所有轮次成功={valid_results_count}/3, 保存validation结果")
-        print(f"  ✅ 验证成功: 所有轮次成功={valid_results_count}/3")
         
         # ⚠️ 保持reasoning阶段的原始result不变，不覆盖task.result
         # 原始reasoning结果: task.result (保持不变)
@@ -500,19 +479,13 @@ class AnalysisProcessor:
     
     def _perform_initial_analysis(self, code_to_be_tested: str, result: str, analysis_collection: List) -> Tuple:
         """Execute initial analysis"""
-        print("\n=== First Round Analysis Start ===")
-        print("📝 Analyzing potential vulnerabilities...")
         prompt = PromptAssembler.assemble_vul_check_prompt(code_to_be_tested, result)
         
         initial_response = common_ask_confirmation(prompt)
         if not initial_response or initial_response == "":
-            print(f"❌ Error: Empty response received")
             return "not sure", "Empty response"
         
-        print("\n📊 Initial Analysis Result Length:")
-        print("-" * 80)
-        print(len(initial_response))
-        print("-" * 80)
+
 
         # Collect initial analysis results
         analysis_collection.extend([
@@ -534,7 +507,6 @@ class AnalysisProcessor:
             analysis_collection.extend(required_info)
 
         if CheckUtils.should_skip_early(initial_result_status):
-            print("\n🛑 Initial analysis shows clear 'no vulnerability' - stopping further analysis")
             return "no", "Analysis stopped after initial round due to clear 'no vulnerability' result"
         
         return None, None  # Continue with multi-round confirmation
@@ -548,6 +520,7 @@ class AnalysisProcessor:
                                        ask_agent_final_analysis)
         from prompt_factory.vul_check_prompt import VulCheckPrompt
         
+        print(f"🔍 [Round {round_num}] 开始执行单轮检测流程")
         logs.append(f"第 {round_num} 轮: 开始初步确认")
         
         # 第一步：使用prompt factory生成完整的初步分析prompt
@@ -566,11 +539,9 @@ class AnalysisProcessor:
             
             if not natural_response:
                 logs.append(f"第 {round_num} 轮: 初始分析模型无响应")
-                print(f"  ❌ 初始分析无响应")
                 return "not_sure"
             
             logs.append(f"第 {round_num} 轮: 初始分析自然语言响应长度={len(natural_response)}")
-            print(f"  ✅ 初始分析成功，长度: {len(natural_response)}")
             
             # 使用prompt factory生成JSON提取prompt
             json_extraction_prompt = VulCheckPrompt.vul_check_prompt_agent_json_extraction(
@@ -595,8 +566,6 @@ class AnalysisProcessor:
             except json.JSONDecodeError as e:
                 logs.append(f"第 {round_num} 轮: JSON解析失败 - {str(e)}")
                 logs.append(f"第 {round_num} 轮: 原始内容={repr(initial_response)}")
-                print(f"  ❌ JSON解析错误: {e}")
-                print(f"  📄 原始响应: {repr(initial_response)}")
                 return "not_sure"
             assessment = initial_result.get('initial_assessment', 'not_sure')
             additional_info = initial_result.get('additional_info_needed', '')
@@ -604,17 +573,15 @@ class AnalysisProcessor:
             logs.append(f"第 {round_num} 轮: 初步评估={assessment}")
             logs.append(f"第 {round_num} 轮: 自然语言分析={natural_response[:200]}...")
             
-            print(f"  📊 初步评估: {assessment}")
-            
             # 如果是明确的yes或no，直接返回
             if assessment in ['yes', 'no']:
+                print(f"✅ [Round {round_num}] 获得明确结果: {assessment}")
                 logs.append(f"第 {round_num} 轮: 明确结果，直接返回")
-                print(f"  ✅ 明确结果，直接返回: {assessment}")
                 return assessment
             
             # 如果需要更多信息，进入自循环（最多10轮）
             else:
-                print(f"  🔍 需要更多信息: {additional_info}")
+                print(f"🔄 [Round {round_num}] 需要更多信息，进入内部循环")
                 logs.append(f"第 {round_num} 轮: 需要更多信息: {additional_info}")
                 
                 # 进入自循环，最多10轮
@@ -625,7 +592,6 @@ class AnalysisProcessor:
                 
                 for inner_round in range(1, max_inner_rounds + 1):
                     logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 开始获取额外信息")
-                    print(f"    🔄 内部第 {inner_round} 次循环: 获取额外信息...")
                     
                     try:
                         # 获取所有类型的RAG信息
@@ -643,7 +609,6 @@ class AnalysisProcessor:
                             accumulated_context = additional_context
                         
                         logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 获取RAG信息完成")
-                        print(f"    ✅ 获取信息完成: Functions={len(all_additional_info['function_info'])}, Upstream/Downstream={len(all_additional_info['upstream_downstream_info'])}, Chunks={len(all_additional_info['chunk_info'])}")
                             
                         # 使用prompt factory生成最终分析prompt
                         final_analysis_prompt = VulCheckPrompt.vul_check_prompt_agent_final_analysis(
@@ -659,10 +624,9 @@ class AnalysisProcessor:
                         
                         if not final_natural_response:
                             logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终分析模型无响应")
-                            print(f"    ❌ 最终分析无响应，继续下一轮...")
                             continue
                         
-                        print(f"    ✅ 最终分析成功，长度: {len(final_natural_response)}")
+
                         
                         # 使用prompt factory生成最终结果提取prompt
                         final_extraction_prompt = VulCheckPrompt.vul_check_prompt_agent_final_extraction(
@@ -677,7 +641,6 @@ class AnalysisProcessor:
                         
                         if not final_response:
                             logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终提取失败 - 响应为空")
-                            print(f"    ❌ JSON提取失败，继续下一轮...")
                             continue
                         
                         try:
@@ -691,41 +654,34 @@ class AnalysisProcessor:
                             logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终结果={final_assessment}")
                             logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终分析={final_natural_response[:200]}...")
                             
-                            print(f"    🎯 第{inner_round}轮判断: {final_assessment}")
-                            
                             # 如果得到明确的yes或no，退出循环
                             if final_assessment in ['yes', 'no']:
+                                print(f"🎯 [Round {round_num}-{inner_round}] 内部循环获得明确结果: {final_assessment}")
                                 logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 得到明确结果，退出循环")
-                                print(f"    ✅ 得到明确结果，退出内部循环")
                                 return final_assessment
                             
                             # 如果仍然是need_more_info，继续下一轮
                             else:
                                 if inner_round < max_inner_rounds:
                                     logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 仍需更多信息，继续下一轮")
-                                    print(f"    🔄 仍需更多信息，继续第{inner_round + 1}轮...")
                                     current_assessment = final_assessment
                                     current_additional_info = final_additional_info if final_additional_info else current_additional_info
                                     continue
                                 else:
                                     logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 达到最大循环次数，退出")
-                                    print(f"    ⚠️ 达到最大循环次数({max_inner_rounds})，退出")
                                     return 'not_sure'
                                 
                         except json.JSONDecodeError as e:
                             logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终JSON解析失败 - {str(e)}")
                             logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终原始内容={repr(final_response)}")
-                            print(f"    ❌ JSON解析错误: {e}, 继续下一轮...")
                             continue
                         
                     except Exception as e:
                         logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 信息获取阶段失败: {str(e)}")
-                        print(f"    ❌ 信息获取失败: {e}, 继续下一轮...")
                         continue
                 
                 # 如果所有轮次都没有得到明确结果
                 logs.append(f"第 {round_num} 轮: 所有内部循环完成，未得到明确结果")
-                print(f"  ⚠️ 内部循环结束，未得到明确结果")
                 return 'not_sure'
             
             # 如果以上都失败，返回初步评估结果
@@ -734,10 +690,9 @@ class AnalysisProcessor:
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
+            print(f"❌ [Round {round_num}] 检测过程发生异常: {str(e)}")
             logs.append(f"第 {round_num} 轮: 检测失败: {str(e)}")
             logs.append(f"第 {round_num} 轮: 完整错误堆栈: {error_details}")
-            print(f"  ❌ 检测失败: {e}")
-            print(f"  📋 完整错误堆栈:\n{error_details}")
             return "not_sure"
 
    
@@ -752,28 +707,20 @@ class AnalysisProcessor:
         }
         
         # 🔍 添加调试信息
-        print(f"  🔍 第 {round_num} 轮: 搜索查询='{specific_query}'")
-        print(f"  🔍 第 {round_num} 轮: rag_processor状态={self.rag_processor is not None}")
-        if self.rag_processor:
-            print(f"  🔍 第 {round_num} 轮: rag_processor类型={type(self.rag_processor)}")
         
         try:
             # 1. Function RAG搜索 (topk=5) - 包括三种搜索类型
             if self.rag_processor:
-                print(f"  🔍 第 {round_num} 轮: 开始Function RAG搜索...")
                 
                 try:
                     # 按名称搜索
                     name_results = self.rag_processor.search_functions_by_name(specific_query, 2)
-                    print(f"  🔍 第 {round_num} 轮: 按名称搜索结果={len(name_results) if name_results else 0}")
                     
                     # 按内容搜索
                     content_results = self.rag_processor.search_functions_by_content(specific_query, 2)
-                    print(f"  🔍 第 {round_num} 轮: 按内容搜索结果={len(content_results) if content_results else 0}")
                     
                     # 按自然语言描述搜索
                     natural_results = self.rag_processor.search_functions_by_natural_language(specific_query, 2)
-                    print(f"  🔍 第 {round_num} 轮: 按自然语言搜索结果={len(natural_results) if natural_results else 0}")
                     
                     # 合并和去重，取前5个
                     function_results = self._merge_and_deduplicate_functions(
@@ -789,10 +736,10 @@ class AnalysisProcessor:
                             'type': 'function'
                         })
                     
-                    print(f"  🔍 第 {round_num} 轮: Function搜索合并后找到 {len(function_results)} 个结果")
+
                     
                 except Exception as e:
-                    print(f"  ❌ 第 {round_num} 轮: Function搜索失败: {str(e)}")
+                    pass
             else:
                 print(f"  ❌ 第 {round_num} 轮: rag_processor为None，跳过Function搜索")
             
@@ -812,21 +759,17 @@ class AnalysisProcessor:
             #     logs.append(f"第 {round_num} 轮: File搜索找到 {len(file_results)} 个结果")
             
             # 3. Upstream/Downstream搜索 (level=3/4)
-            print(f"  🔍 第 {round_num} 轮: 开始Upstream/Downstream搜索...")
-            print(f"  🔍 第 {round_num} 轮: 任务名称='{task.name}'")
+
             try:
                 upstream_downstream_results = self._get_upstream_downstream_with_levels(task, 3, 4, logs, round_num)
                 all_info['upstream_downstream_info'] = upstream_downstream_results
-                print(f"  🔍 第 {round_num} 轮: Upstream/Downstream搜索找到 {len(upstream_downstream_results)} 个结果")
             except Exception as e:
-                print(f"  ❌ 第 {round_num} 轮: Upstream/Downstream搜索失败: {str(e)}")
+                pass
             
             # 4. Chunk RAG搜索 (topk=3)
             if self.rag_processor:
-                print(f"  🔍 第 {round_num} 轮: 开始Chunk RAG搜索...")
                 try:
                     chunk_results = self.rag_processor.search_chunks_by_content(specific_query, 3)
-                    print(f"  🔍 第 {round_num} 轮: Chunk搜索原始结果={len(chunk_results) if chunk_results else 0}")
                     
                     for result in chunk_results:
                         chunk_text = result.get('chunk_text', '')  # 🔧 移除长度限制，保留完整内容
@@ -837,9 +780,9 @@ class AnalysisProcessor:
                             'type': 'chunk'
                         })
                     
-                    print(f"  🔍 第 {round_num} 轮: Chunk搜索处理后找到 {len(all_info['chunk_info'])} 个结果")
+
                 except Exception as e:
-                    print(f"  ❌ 第 {round_num} 轮: Chunk搜索失败: {str(e)}")
+                    pass
             else:
                 print(f"  ❌ 第 {round_num} 轮: rag_processor为None，跳过Chunk搜索")
             
@@ -849,7 +792,6 @@ class AnalysisProcessor:
             return all_info
             
         except Exception as e:
-            print(f"  ❌ 第 {round_num} 轮: 获取所有额外信息失败: {str(e)}")
             return all_info
     
     def _merge_and_deduplicate_functions(self, name_results, content_results, natural_results, max_count):
@@ -892,30 +834,24 @@ class AnalysisProcessor:
         
         # 获取project_audit实例
         project_audit = getattr(self, 'project_audit', None) or self.context_data.get('project_audit')
-        print(f"    🔍 第 {round_num} 轮: project_audit状态={project_audit is not None}")
         if not project_audit:
-            print(f"    ❌ 第 {round_num} 轮: project_audit为None，无法获取上下游信息")
             return upstream_downstream
         
         # 检查project_audit的call_trees属性
         has_call_trees = hasattr(project_audit, 'call_trees') and project_audit.call_trees
-        print(f"    🔍 第 {round_num} 轮: project_audit.call_trees存在={has_call_trees}")
+        # print(f"    🔍 第 {round_num} 轮: project_audit.call_trees存在={has_call_trees}")
         if has_call_trees:
-            print(f"    🔍 第 {round_num} 轮: call_trees数量={len(project_audit.call_trees)}")
+            pass
         
         try:
             # 复用planning中的方法获取downstream内容
-            print(f"    🔍 第 {round_num} 轮: 开始导入PlanningProcessor...")
             from planning.planning_processor import PlanningProcessor
             planning_processor = PlanningProcessor(project_audit, None)  # project_audit第一个，task_manager第二个
-            print(f"    ✅ 第 {round_num} 轮: PlanningProcessor创建成功")
             
             # 获取downstream内容（使用planning中的方法）
-            print(f"    🔍 第 {round_num} 轮: 获取downstream内容，函数名='{task.name}'，深度={downstream_level}")
             downstream_content = planning_processor.get_downstream_content_with_call_tree(
                 task.name, downstream_level
             )
-            print(f"    🔍 第 {round_num} 轮: downstream内容长度={len(downstream_content) if downstream_content else 0}")
             
             if downstream_content:
                 upstream_downstream.append({
@@ -924,16 +860,13 @@ class AnalysisProcessor:
                     'level': downstream_level,
                     'count': downstream_content.count('\n\n') + 1  # 简单估算函数数量
                 })
-                print(f"    ✅ 第 {round_num} 轮: 获取downstream代码内容，深度{downstream_level}，{len(downstream_content)} 字符")
             else:
                 print(f"    ❌ 第 {round_num} 轮: downstream内容为空")
             
             # 获取upstream内容（复用planning的逻辑，但修改为upstream）
-            print(f"    🔍 第 {round_num} 轮: 获取upstream内容，函数名='{task.name}'，深度={upstream_level}")
             upstream_content = self._get_upstream_content_with_call_tree(
                 task.name, upstream_level, planning_processor
             )
-            print(f"    🔍 第 {round_num} 轮: upstream内容长度={len(upstream_content) if upstream_content else 0}")
             
             if upstream_content:
                 upstream_downstream.append({
@@ -942,15 +875,12 @@ class AnalysisProcessor:
                     'level': upstream_level,
                     'count': upstream_content.count('\n\n') + 1  # 简单估算函数数量
                 })
-                print(f"    ✅ 第 {round_num} 轮: 获取upstream代码内容，深度{upstream_level}，{len(upstream_content)} 字符")
             else:
                 print(f"    ❌ 第 {round_num} 轮: upstream内容为空")
             
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
-            print(f"    ❌ 第 {round_num} 轮: 复用planning方法获取上下游内容失败: {str(e)}")
-            print(f"    ❌ 第 {round_num} 轮: 详细错误: {error_details}")
         
         return upstream_downstream
     
@@ -970,8 +900,8 @@ class AnalysisProcessor:
                 if upstream_tree and upstream_tree.get('tree'):
                     contents = planning_processor._extract_contents_from_tree(upstream_tree['tree'])
             except Exception as e:
-                print(f"    ⚠️ 使用高级call tree获取upstream失败: {e}")
                 # 这里可以加入后备方案，但planning中没有upstream的fallback
+                pass
         
         return '\n\n'.join(contents)
     
@@ -1087,7 +1017,7 @@ class AnalysisProcessor:
                         nested_names = self._extract_function_names_from_tree(item)
                         function_names.extend(nested_names)
         except Exception as e:
-            print(f"⚠️ 提取函数名失败: {e}")
+            pass
         
         return list(set(function_names))  # 去重
 
@@ -1120,7 +1050,7 @@ class AnalysisProcessor:
                         if nested_content:
                             function_contents.append(nested_content)
         except Exception as e:
-            print(f"⚠️ 提取函数内容失败: {e}")
+            pass
         
         return '\n\n'.join(function_contents) if function_contents else ""
 
@@ -1132,5 +1062,4 @@ class AnalysisProcessor:
                     return func.get('content', '')
             return ""
         except Exception as e:
-            print(f"⚠️ 根据函数名获取内容失败: {e}")
             return "" 
