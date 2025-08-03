@@ -130,6 +130,19 @@ def _perform_post_reasoning_deduplication(project_id, db_engine, logger):
         log_data_info(logger, "去重前漏洞数量", original_count)
         log_data_info(logger, "去重前漏洞ID", f"{', '.join(sorted(original_ids))}")
         
+        # 检查是否存在已经被逻辑删除的记录（short_result='delete'）
+        all_entities = project_taskmgr.query_task_by_project_id(project_id)
+        deleted_tasks = [entity for entity in all_entities if getattr(entity, 'short_result', '') == 'delete']
+        
+        if deleted_tasks:
+            deleted_count = len(deleted_tasks)
+            deleted_ids = [str(task.id) for task in deleted_tasks]
+            print(f"\n⚠️  检测到已有 {deleted_count} 个逻辑删除的记录，跳过ResProcessor去重处理")
+            print(f"已删除的ID: {', '.join(deleted_ids)}")
+            log_warning(logger, f"跳过ResProcessor去重处理 - 检测到{deleted_count}个已逻辑删除的记录")
+            log_warning(logger, f"已删除的ID: {', '.join(deleted_ids)}")
+            return
+        
         # 使用ResProcessor进行去重
         log_step(logger, "开始ResProcessor去重处理")
         res_processor = ResProcessor(original_df, max_group_size=5, iteration_rounds=4, enable_chinese_translation=False)

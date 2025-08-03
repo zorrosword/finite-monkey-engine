@@ -47,23 +47,11 @@ Built on Tree-sitter parsing engine and function-level analysis architecture, **
 - **Deep Business Logic Analysis**: Deep understanding of DeFi protocols, governance mechanisms, and tokenomics
 - **Intelligent Vulnerability Discovery**: AI-assisted complex vulnerability pattern recognition
 
-### 📊 Upgraded Business Flow Visualization
-- **Smart Chart Generation**: Automatic code analysis generating Mermaid business flow diagrams
-- **Multi-level Analysis Display**: Support for project-level, folder-level, and function-level visualization
-- **Cross-Contract Dependency Tracking**: Clear visualization of complex contract interaction relationships
-- **Real-time Interactive Charts**: Dynamic display of code structure and call chains
-
 ### 🔍 Comprehensive Security Detection System
 - **Precision Vulnerability Detection**: Focus on core languages for more accurate vulnerability identification
 - **Cross-Contract Deep Analysis**: Multi-contract interaction analysis and complex dependency tracking
 - **Business Scenario Review**: Professional security analysis for different DeFi scenarios
 - **Intelligent False Positive Filtering**: AI-assisted reduction of false positives, improving analysis accuracy
-
-### ⚡ v2.0 Architecture Optimization
-- **LanceDB 2-Table Architecture**: Unified storage strategy with 300% query efficiency improvement
-- **Multi-dimensional Embedding**: Content, name, and natural language triple embedding technology
-- **Memory Management Optimization**: 50% memory reduction, supporting larger-scale projects
-- **Concurrent Processing Upgrade**: Optimized thread management, improved analysis speed
 
 ### 🛠 Precision Language Architecture
 - **Core Language Focus**: Specialized framework for Solidity/Rust/C++/Move languages
