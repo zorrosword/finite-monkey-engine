@@ -639,7 +639,8 @@ class PlanningProcessor:
             str: 拼接的downstream内容
         """
         contents = []
-        
+        if "updateNftJson" in func_name:
+            print("yes")
         # 查找对应的call tree
         if hasattr(self.project_audit, 'call_trees') and self.project_audit.call_trees:
             # 如果有AdvancedCallTreeBuilder，使用get_call_tree_with_depth_limit
@@ -649,9 +650,10 @@ class PlanningProcessor:
                 downstream_tree = builder.get_call_tree_with_depth_limit(
                     self.project_audit.call_trees, func_name, 'downstream', max_depth
                 )
-                
                 if downstream_tree and downstream_tree.get('tree'):
-                    contents = self._extract_contents_from_tree(downstream_tree['tree'])
+                    # 如果total_count为0，说明没有真正的下游函数，跳过以避免重复
+                    if downstream_tree.get('total_count', 0) > 0:
+                        contents = self._extract_contents_from_tree(downstream_tree['tree'])
             except Exception as e:
                 print(f"    ⚠️ 使用高级call tree失败: {e}，使用简化方法")
                 contents = self._get_downstream_content_fallback(func_name, max_depth)

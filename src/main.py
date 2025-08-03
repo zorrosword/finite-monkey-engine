@@ -365,10 +365,12 @@ def generate_excel(output_path, project_id):
             deleted_entities += 1
             continue
             
-        # 使用result字段和business_flow_code进行筛选
-        if entity.result and ("yes" in str(entity.result).lower()) and len(entity.business_flow_code)>0:
+        # 优先使用validation后的short_result，如果没有则使用原始result
+        short_result=entity.short_result
+        result=entity.result
+        if short_result and ("yes" in str(short_result).lower()) and len(entity.business_flow_code)>0:
             data.append({
-                '漏洞结果': entity.result,
+                '漏洞结果': result,
                 'ID': entity.id,
                 '项目名称': entity.project_id,
                 '合同编号': entity.contract_code,
@@ -480,7 +482,7 @@ if __name__ == '__main__':
         log_success(main_logger, "数据集加载完成", f"找到 {len(projects)} 个项目")
  
         # 设置项目参数
-        project_id = 'fishcake0803021'  # 使用存在的项目ID
+        project_id = 'fishcake08030211'  # 使用存在的项目ID
         project_path = ''
         main_logger.info(f"目标项目ID: {project_id}")
         project = Project(project_id, projects[project_id])
