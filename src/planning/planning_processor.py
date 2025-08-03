@@ -22,10 +22,32 @@ from tree_sitter_parsing import TreeSitterProjectAudit, parse_project, TreeSitte
 try:
     from tree_sitter import Language, Parser, Node
     import tree_sitter_solidity as ts_solidity
+    # 尝试导入其他语言解析器
+    try:
+        import tree_sitter_rust as ts_rust
+        RUST_AVAILABLE = True
+    except ImportError:
+        RUST_AVAILABLE = False
+        
+    try:
+        import tree_sitter_cpp as ts_cpp
+        CPP_AVAILABLE = True
+    except ImportError:
+        CPP_AVAILABLE = False
+        
+    try:
+        import tree_sitter_move as ts_move
+        MOVE_AVAILABLE = True
+    except ImportError:
+        MOVE_AVAILABLE = False
+    
     COMPLEXITY_ANALYSIS_ENABLED = True
 except ImportError:
     print("⚠️ Tree-sitter模块未安装，复杂度过滤功能将被禁用")
     COMPLEXITY_ANALYSIS_ENABLED = False
+    RUST_AVAILABLE = False
+    CPP_AVAILABLE = False
+    MOVE_AVAILABLE = False
 
 
 class PlanningProcessor:
@@ -97,7 +119,8 @@ class PlanningProcessor:
                     public_functions_by_lang['rust'].append(func)
             elif func_name.endswith('.cpp') or func_name.endswith('.c') or 'cpp' in func.get('relative_file_path', '').lower():
                 if visibility == 'public' or not visibility:  # C++默认public
-                    public_functions_by_lang['cpp'].append(func)
+                    if "exec" in func_name:
+                        public_functions_by_lang['cpp'].append(func)
             elif func_name.endswith('.move') or 'move' in func.get('relative_file_path', '').lower():
                 if visibility == 'public' or visibility == 'public(friend)':
                     public_functions_by_lang['move'].append(func)
@@ -111,11 +134,12 @@ class PlanningProcessor:
         
         return public_functions_by_lang
     
-    def _calculate_simple_complexity(self, function_content: str) -> Dict:
-        """简化版复杂度计算（基于fishcake项目优化）
+    def _calculate_simple_complexity(self, function_content: str, language: str = 'solidity') -> Dict:
+        """简化版复杂度计算，支持多种语言
         
         Args:
             function_content: 函数代码内容
+            language: 编程语言类型 ('solidity', 'rust', 'cpp', 'move')
             
         Returns:
             Dict: 包含圈复杂度和认知复杂度的字典
@@ -124,10 +148,31 @@ class PlanningProcessor:
             return {'cyclomatic': 1, 'cognitive': 0, 'should_skip': False}
         
         try:
-            # 初始化Solidity解析器
+            # 根据语言选择相应的解析器
             parser = Parser()
-            language = Language(ts_solidity.language())
-            parser.language = language
+            parser_language = None
+            function_node_types = []
+            
+            if language == 'solidity':
+                parser_language = Language(ts_solidity.language())
+                function_node_types = ['function_definition']
+            elif language == 'rust' and RUST_AVAILABLE:
+                parser_language = Language(ts_rust.language())
+                function_node_types = ['function_item', 'function_signature_item']
+            elif language == 'cpp' and CPP_AVAILABLE:
+                parser_language = Language(ts_cpp.language())
+                function_node_types = ['function_definition', 'function_declarator']
+            elif language == 'move' and MOVE_AVAILABLE:
+                parser_language = Language(ts_move.language())
+                function_node_types = ['function_definition']
+            else:
+                print(f"⚠️ 不支持的语言或解析器未安装: {language}")
+                return {'cyclomatic': 1, 'cognitive': 0, 'should_skip': False, 'should_reduce_iterations': False}
+                
+            if not parser_language:
+                return {'cyclomatic': 1, 'cognitive': 0, 'should_skip': False, 'should_reduce_iterations': False}
+                
+            parser.language = parser_language
             
             # 解析代码
             tree = parser.parse(bytes(function_content, 'utf8'))
@@ -135,7 +180,7 @@ class PlanningProcessor:
             # 查找函数定义节点
             function_node = None
             for node in self._walk_tree(tree.root_node):
-                if node.type == 'function_definition':
+                if node.type in function_node_types:
                     function_node = node
                     break
             
@@ -143,10 +188,10 @@ class PlanningProcessor:
                 return {'cyclomatic': 1, 'cognitive': 0, 'should_skip': False}
             
             # 计算圈复杂度
-            cyclomatic = self._calculate_cyclomatic_complexity(function_node)
+            cyclomatic = self._calculate_cyclomatic_complexity(function_node, language)
             
             # 计算认知复杂度
-            cognitive = self._calculate_cognitive_complexity(function_node)
+            cognitive = self._calculate_cognitive_complexity(function_node, language)
             
             # 判断是否应该跳过（基于fishcake分析的最佳阈值）
             should_skip = (cognitive == 0 and cyclomatic <= 2) # 关键逻辑
@@ -174,43 +219,49 @@ class PlanningProcessor:
         for child in node.children:
             yield from self._walk_tree(child)
     
-    def _calculate_cyclomatic_complexity(self, function_node) -> int:
-        """计算圈复杂度"""
+    def _calculate_cyclomatic_complexity(self, function_node, language: str = 'solidity') -> int:
+        """计算圈复杂度，支持多种语言"""
         complexity = 1  # 基础路径
+        
+        # 根据语言定义决策点节点类型
+        decision_nodes = self._get_decision_node_types(language)
         
         for node in self._walk_tree(function_node):
             # 决策点
-            if node.type in ['if_statement', 'while_statement', 'for_statement']:
+            if node.type in decision_nodes['control_flow']:
                 complexity += 1
-            elif node.type == 'conditional_expression':  # 三元运算符
+            elif node.type in decision_nodes['conditional']:  # 三元运算符
                 complexity += 1
             elif node.type == 'binary_expression':
                 # 检查逻辑运算符
                 operator = node.child_by_field_name('operator')
                 if operator:
                     operator_text = operator.text.decode('utf8')
-                    if operator_text in ['&&', '||']:
+                    if operator_text in ['&&', '||', 'and', 'or']:
                         complexity += 1
         
         return complexity
     
-    def _calculate_cognitive_complexity(self, function_node) -> int:
-        """计算认知复杂度（简化版）"""
+    def _calculate_cognitive_complexity(self, function_node, language: str = 'solidity') -> int:
+        """计算认知复杂度（简化版），支持多种语言"""
+        # 根据语言定义决策点节点类型
+        decision_nodes = self._get_decision_node_types(language)
+        
         def calculate_recursive(node, nesting_level: int = 0) -> int:
             complexity = 0
             node_type = node.type
             
             # 基础增量结构
-            if node_type in ['if_statement', 'while_statement', 'for_statement']:
+            if node_type in decision_nodes['control_flow']:
                 complexity += 1 + nesting_level
                 # 递归处理子节点，增加嵌套层级
                 for child in node.children:
                     complexity += calculate_recursive(child, nesting_level + 1)
-            elif node_type == 'conditional_expression':
+            elif node_type in decision_nodes['conditional']:
                 complexity += 1 + nesting_level
             elif node_type == 'binary_expression':
                 operator = node.child_by_field_name('operator')
-                if operator and operator.text.decode('utf8') in ['&&', '||']:
+                if operator and operator.text.decode('utf8') in ['&&', '||', 'and', 'or']:
                     complexity += 1
                 # 不增加嵌套层级处理逻辑运算符
                 for child in node.children:
@@ -223,6 +274,29 @@ class PlanningProcessor:
             return complexity
         
         return calculate_recursive(function_node)
+    
+    def _get_decision_node_types(self, language: str) -> Dict[str, List[str]]:
+        """获取不同语言的决策节点类型"""
+        node_types = {
+            'solidity': {
+                'control_flow': ['if_statement', 'while_statement', 'for_statement', 'try_statement'],
+                'conditional': ['conditional_expression']
+            },
+            'rust': {
+                'control_flow': ['if_expression', 'while_expression', 'for_expression', 'loop_expression', 'match_expression'],
+                'conditional': ['if_let_expression']
+            },
+            'cpp': {
+                'control_flow': ['if_statement', 'while_statement', 'for_statement', 'do_statement', 'switch_statement'],
+                'conditional': ['conditional_expression']
+            },
+            'move': {
+                'control_flow': ['if_expression', 'while_expression', 'loop_expression'],
+                'conditional': ['conditional_expression']
+            }
+        }
+        
+        return node_types.get(language, node_types['solidity'])  # 默认使用solidity的节点类型
     
     def _should_reduce_iterations(self, cognitive: int, cyclomatic: int, function_content: str) -> bool:
         """判断是否应该降低迭代次数（基于fishcake项目分析）
@@ -338,7 +412,7 @@ class PlanningProcessor:
                 func_content = func.get('content', '')
                 
                 # 计算复杂度
-                complexity = self._calculate_simple_complexity(func_content)
+                complexity = self._calculate_simple_complexity(func_content, lang)
                 
                 # 判断是否跳过
                 if complexity['should_skip']:
@@ -543,7 +617,7 @@ class PlanningProcessor:
                 for public_func in public_funcs:
                     func_name = public_func['name']
                     
-                    print(f"  🔍 分析public函数: {func_name}")
+                    # print(f"  🔍 分析public函数: {func_name}")
                     
                     # 使用call tree获取downstream内容
                     downstream_content = self.get_downstream_content_with_call_tree(func_name, max_depth)
@@ -589,7 +663,7 @@ class PlanningProcessor:
                 for public_func in public_funcs:
                     func_name = public_func['name']
                     
-                    print(f"  🔍 分析public函数: {func_name}")
+                    # print(f"  🔍 分析public函数: {func_name}")
                     
                     # 使用call tree获取downstream内容
                     downstream_content = self.get_downstream_content_with_call_tree(func_name, max_depth)
@@ -717,7 +791,7 @@ class PlanningProcessor:
             for public_func in public_funcs:
                 func_name = public_func['name']
                 
-                print(f"  🔍 分析public函数: {func_name}")
+                # print(f"  🔍 分析public函数: {func_name}")
                 
                 # 提取该public函数的所有downstream函数
                 downstream_chain = self.extract_downstream_to_deepest(func_name)
