@@ -502,16 +502,7 @@ def ask_o3_mini(prompt):
     except requests.exceptions.RequestException as e:
         print(f"wokaai deepseek API调用失败。错误: {str(e)}")
         return ""
-def common_ask(prompt):
-    model_type = os.environ.get('AZURE_OR_OPENAI', 'CLAUDE')
-    if model_type == 'AZURE':
-        return azure_openai(prompt)
-    elif model_type == 'CLAUDE':
-        return ask_claude(prompt)
-    elif model_type == 'DEEPSEEK':
-        return ask_deepseek(prompt)
-    else:
-        return ask_openai_common(prompt)
+
 
 def clean_text(text: str) -> str:
     return str(text).replace(" ", "").replace("\n", "").replace("\r", "")
@@ -522,7 +513,7 @@ def common_get_embedding(text: str):
         raise ValueError("OPENAI_API_KEY environment variable is not set")
 
     api_base = os.getenv('OPENAI_API_BASE', 'api.openai.com')
-    model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-large")
+    model = get_model("embedding_model")
     
     headers = {
         "Authorization": f"Bearer {api_key}",

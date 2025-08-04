@@ -90,36 +90,22 @@ class TreeSitterProjectAudit(object):
             log_data_info(self.logger, "待检查函数数", len(self.functions_to_check))
             log_data_info(self.logger, "文档分块数", len(self.chunks))
         
-        # 检查 huge_project 开关，如果为 true 则跳过 call tree 构建
-        huge_project = eval(os.environ.get('HUGE_PROJECT', 'False'))
+        # 使用TreeSitterCallTreeBuilder构建调用树
+        if self.logger:
+            log_step(self.logger, "开始构建调用树")
+        else:
+            print("🌳 开始构建调用树...")
+            
+        self.call_trees = self.call_tree_builder.build_call_trees(functions_to_check, max_workers=1)
         
         if self.logger:
-            self.logger.info(f"HUGE_PROJECT设置: {huge_project}")
-        
-        if huge_project:
-            if self.logger:
-                log_warning(self.logger, "检测到 HUGE_PROJECT=True，跳过调用树和调用图构建")
-            else:
-                print("🚀 检测到 HUGE_PROJECT=True，跳过 call tree 和 call graph 构建")
-            self.call_trees = []  # 设置为空列表，避免后续访问出错
-            self.call_graphs = []  # 设置为空列表，避免后续访问出错
+            log_success(self.logger, "调用树构建完成")
+            log_data_info(self.logger, "构建的调用树", len(self.call_trees))
         else:
-            # 使用TreeSitterCallTreeBuilder构建调用树
-            if self.logger:
-                log_step(self.logger, "开始构建调用树")
-            else:
-                print("🌳 开始构建调用树...")
-                
-            self.call_trees = self.call_tree_builder.build_call_trees(functions_to_check, max_workers=1)
-            
-            if self.logger:
-                log_success(self.logger, "调用树构建完成")
-                log_data_info(self.logger, "构建的调用树", len(self.call_trees))
-            else:
-                print(f"✅ 调用树构建完成，共构建 {len(self.call_trees)} 个调用树")
-            
-            # 构建 call graph
-            self._build_call_graphs()
+            print(f"✅ 调用树构建完成，共构建 {len(self.call_trees)} 个调用树")
+        
+        # 构建 call graph
+        self._build_call_graphs()
 
     def get_function_names(self):
         """获取所有函数名称"""

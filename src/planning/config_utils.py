@@ -111,10 +111,5 @@ class ConfigUtils:
             'scan_mode': scan_mode,
             'base_iteration_count': base_iteration_count,
             'total_checklist_count': total_checklist_count,
-            'actual_iteration_count': actual_iteration_count,
-            'threshold': int(os.getenv("THRESHOLD_OF_PLANNING", 200)),
-            'switch_business_code': eval(os.environ.get('SWITCH_BUSINESS_CODE', 'True')),
-            'switch_file_code': eval(os.environ.get('SWITCH_FILE_CODE', 'False')),
-            'cross_contract_scan': os.getenv("CROSS_CONTRACT_SCAN") == "True",
-            'huge_project': eval(os.environ.get('HUGE_PROJECT', 'False'))  # 🆕 新增 huge_project 开关
+            'actual_iteration_count': actual_iteration_count
         } 

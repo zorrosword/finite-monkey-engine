@@ -12,5 +12,6 @@
   "agent_info_extraction": "gpt-4o-mini",
   "agent_final_analysis": "deepseek-reasoner",
   "agent_final_extraction": "gpt-4o-mini",
-  "ask_json": "gpt-4.1"
+  "ask_json": "gpt-4.1",
+  "embedding_model": "text-embedding-3-large"
 }

@@ -263,15 +263,7 @@ def scan_project(project, db_engine):
         log_error(logger, "RAG处理器初始化失败", e)
         rag_processor = None
     
-    # 1.6 检查业务流模式配置
-    log_step(logger, "检查业务流模式配置")
-    switch_business_code = eval(os.environ.get('SWITCH_BUSINESS_CODE', 'True'))
-    logger.info(f"SWITCH_BUSINESS_CODE: {switch_business_code}")
-    
-    if switch_business_code:
-        log_step(logger, "启用业务代码扫描模式")
-    else:
-        log_step(logger, "使用传统扫描模式", "SWITCH_BUSINESS_CODE=False")
+
     
     # 2. planning & scanning - 直接使用project_audit
     log_step(logger, "创建任务管理器")
