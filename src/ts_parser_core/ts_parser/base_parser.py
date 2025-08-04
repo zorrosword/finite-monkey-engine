@@ -63,8 +63,8 @@ class BaseParser(ABC):
         if not code.strip():
             return
         
-        # 清理之前的结果
-        self.clear_results()
+        # 不要清理之前的结果，让结果累积
+        # self.clear_results()
         
         try:
             # 解析AST
@@ -96,8 +96,8 @@ class BaseParser(ABC):
             print(f"目录不存在: {directory_path}")
             return
         
-        # 清理之前的结果
-        self.clear_results()
+        # 不要清理之前的结果，让结果累积
+        # self.clear_results()
         
         # 遍历所有相关文件
         for file_path in directory.rglob("*"):

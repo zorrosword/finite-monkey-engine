@@ -35,7 +35,14 @@ class CppParser(BaseParser):
                 module_info = self.extract_cpp_namespace(child, lines, context)
                 if module_info:
                     self.modules[module_info.full_name] = module_info
+                
+                # 无论命名空间提取是否成功，都要递归处理其子节点
+                self.extract_structures(child, lines, context)
+            elif child.type == "declaration_list":
+                # 处理声明列表（如命名空间内的声明）
+                self.extract_structures(child, lines, context)
             else:
+                # 递归处理其他节点
                 self.extract_structures(child, lines, context)
     
     def extract_cpp_function(self, node, lines: List[str], file_context: str) -> Optional[FunctionInfo]:
@@ -45,10 +52,8 @@ class CppParser(BaseParser):
         # 查找函数声明器
         declarator = self.find_function_declarator(node)
         if declarator:
-            for child in declarator.children:
-                if child.type == 'identifier':
-                    func_name = self.get_node_text(child, lines)
-                    break
+            # 尝试多种方式获取函数名
+            func_name = self.extract_function_name_from_declarator(declarator, lines)
         
         if not func_name:
             return None
@@ -85,6 +90,37 @@ class CppParser(BaseParser):
             if child.type == 'function_declarator':
                 return child
         return node
+    
+    def extract_function_name_from_declarator(self, declarator, lines: List[str]) -> Optional[str]:
+        """从函数声明器中提取函数名"""
+        # 方法1: 查找identifier
+        for child in declarator.children:
+            if child.type == 'identifier':
+                return self.get_node_text(child, lines)
+        
+        # 方法2: 查找qualified_identifier
+        for child in declarator.children:
+            if child.type == 'qualified_identifier':
+                # 获取限定标识符的最后一个部分作为函数名
+                parts = []
+                self.collect_identifier_parts(child, parts, lines)
+                if parts:
+                    return parts[-1]  # 返回最后一个部分作为函数名
+        
+        # 方法3: 查找field_identifier
+        for child in declarator.children:
+            if child.type == 'field_identifier':
+                return self.get_node_text(child, lines)
+        
+        return None
+    
+    def collect_identifier_parts(self, node, parts: List[str], lines: List[str]) -> None:
+        """收集标识符的各个部分"""
+        for child in node.children:
+            if child.type == 'identifier':
+                parts.append(self.get_node_text(child, lines))
+            elif child.type == 'qualified_identifier':
+                self.collect_identifier_parts(child, parts, lines)
     
     def extract_cpp_visibility(self, node, lines: List[str]) -> str:
         """提取C++可见性"""
