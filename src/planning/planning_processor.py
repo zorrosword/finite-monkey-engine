@@ -194,7 +194,8 @@ class PlanningProcessor:
             cognitive = self._calculate_cognitive_complexity(function_node, language)
             
             # 判断是否应该跳过（基于fishcake分析的最佳阈值）
-            should_skip = (cognitive == 0 and cyclomatic <= 2) # 关键逻辑
+            # 过滤条件：认知复杂度=0且圈复杂度≤2，或者圈复杂度=2且认知复杂度=1，或者圈复杂度=3且认知复杂度=2
+            should_skip = (cognitive == 0 and cyclomatic <= 2) or (cyclomatic == 2 and cognitive == 1) or (cyclomatic == 3 and cognitive == 2) # 关键逻辑
             
             # 🎯 判断是否为中等复杂度函数（需要降低迭代次数）
             # 基于tokenURI、buyFccAmount等函数的特征分析
@@ -373,6 +374,8 @@ class PlanningProcessor:
         
         过滤策略：
         - 认知复杂度 = 0 且 圈复杂度 ≤ 2 → 跳过扫描（简单函数）
+        - 圈复杂度 = 2 且 认知复杂度 = 1 → 跳过扫描（简单函数）
+        - 圈复杂度 = 3 且 认知复杂度 = 2 → 跳过扫描（简单函数）
         - 其他函数 → 保留扫描（复杂函数）
         
         Args:
@@ -398,7 +401,7 @@ class PlanningProcessor:
         reduced_iteration_functions = []
         
         print("\n🎯 开始基于复杂度过滤函数...")
-        print("📋 过滤策略: 认知复杂度=0 且 圈复杂度≤2 的函数将被跳过")
+        print("📋 过滤策略: 认知复杂度=0且圈复杂度≤2，或者圈复杂度=2且认知复杂度=1，或者圈复杂度=3且认知复杂度=2的函数将被跳过")
         
         for lang, funcs in public_functions_by_lang.items():
             if not funcs:
@@ -462,7 +465,7 @@ class PlanningProcessor:
             for func in skipped_functions:
                 print(f"  • {func['language']}.{func['name']} (圈:{func['cyclomatic']}, 认知:{func['cognitive']})")
         elif skipped_functions:
-            print(f"\n⏭️  跳过了 {len(skipped_functions)} 个简单函数 (认知复杂度=0 且 圈复杂度≤2)")
+            print(f"\n⏭️  跳过了 {len(skipped_functions)} 个简单函数 (认知复杂度=0且圈复杂度≤2，或圈复杂度=2且认知复杂度=1，或圈复杂度=3且认知复杂度=2)")
         
         # 显示降低迭代次数的函数列表
         if reduced_iteration_functions:
