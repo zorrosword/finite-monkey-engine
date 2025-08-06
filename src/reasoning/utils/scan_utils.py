@@ -12,50 +12,6 @@ class ScanUtils:
     """扫描相关的工具函数类"""
     
     @staticmethod
-    def get_scan_prompt(code_to_be_tested: str, task, current_index: int = None) -> str:
-        """根据扫描模式获取相应的提示词"""
-        scan_mode = os.getenv("SCAN_MODE", "COMMON_VUL")
-        
-        if scan_mode == "OPTIMIZE":
-            return PromptAssembler.assemble_optimize_prompt(code_to_be_tested)
-        elif scan_mode == "CHECKLIST":
-            print("📋Generating checklist...")
-            prompt = PromptAssembler.assemble_checklists_prompt(code_to_be_tested)
-            response_checklist = cut_reasoning_content(ask_deepseek(prompt))
-            print("[DEBUG🐞]📋response_checklist length: ", len(response_checklist))
-            print(f"[DEBUG🐞]📋response_checklist: {response_checklist[:50]}...")
-            return PromptAssembler.assemble_checklists_prompt_for_scan(code_to_be_tested, response_checklist)
-        elif scan_mode == "COMMON_PROJECT":
-            return PromptAssembler.assemble_prompt_common(code_to_be_tested)
-        elif scan_mode == "COMMON_PROJECT_FINE_GRAINED":
-            # 在COMMON_PROJECT_FINE_GRAINED模式下，直接使用task.recommendation中的checklist类型
-            if hasattr(task, 'recommendation') and task.recommendation:
-                # print(f"[DEBUG🐞]📋Using pre-set checklist type from recommendation: {task.recommendation}")
-                # 根据checklist类型名称获取对应的索引
-                all_checklists = VulPromptCommon.vul_prompt_common_new()
-                checklist_keys = list(all_checklists.keys())
-                if task.recommendation in checklist_keys:
-                    checklist_index = checklist_keys.index(task.recommendation)
-                    return PromptAssembler.assemble_prompt_common_fine_grained(code_to_be_tested, checklist_index)
-                else:
-                    print(f"[WARNING] Checklist type '{task.recommendation}' not found, using index 0")
-                    return PromptAssembler.assemble_prompt_common_fine_grained(code_to_be_tested, 0)
-            elif current_index is not None:
-                print(f"[DEBUG🐞]📋Using prompt index {current_index} for fine-grained scan (fallback)")
-                return PromptAssembler.assemble_prompt_common_fine_grained(code_to_be_tested, current_index)
-            else:
-                raise ValueError("Neither task.recommendation nor current_index is available for COMMON_PROJECT_FINE_GRAINED mode")
-        elif scan_mode == "PURE_SCAN":
-            return PromptAssembler.assemble_prompt_pure(code_to_be_tested)
-        elif scan_mode == "SPECIFIC_PROJECT":
-            business_type = task.recommendation
-            business_type_list = business_type.split(',')
-            return PromptAssembler.assemble_prompt_for_specific_project(code_to_be_tested, business_type_list)
-        else:
-            # 默认使用 COMMON_PROJECT
-            return PromptAssembler.assemble_prompt_common(code_to_be_tested)
-    
-    @staticmethod
     def update_recommendation_for_fine_grained(task_manager, task_id: int, current_index: int):
         """为细粒度扫描更新推荐信息"""
         # 在新的实现中，recommendation已经在planning阶段设置好了，这里不需要再更新

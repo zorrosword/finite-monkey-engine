@@ -66,10 +66,6 @@ Reasoning Module
 │   ├── Threading Management
 │   └── AI Model Integration
 └── Utils (Supporting Components)
-    ├── DialogueHistory
-    │   ├── Conversation Management
-    │   ├── Session Tracking
-    │   └── Context Preservation
     └── ScanUtils
         ├── Filter Functions
         ├── Result Processing
@@ -130,17 +126,6 @@ results = scanner.do_scan(
 )
 ```
 
-### Advanced Configuration
-```python
-# Configure dialogue history
-from reasoning.utils.dialogue_manager import DialogueHistory
-
-dialogue = DialogueHistory(project_id="my_project")
-dialogue.add_message("system", "Starting security analysis...")
-
-# Use with scanner
-scanner.dialogue_history = dialogue
-```
 
 ## Integration Points
 

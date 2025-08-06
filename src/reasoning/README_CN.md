@@ -66,10 +66,6 @@
 │   ├── 线程管理
 │   └── AI模型集成
 └── Utils (支持组件)
-    ├── DialogueHistory
-    │   ├── 对话管理
-    │   ├── 会话跟踪
-    │   └── 上下文保持
     └── ScanUtils
         ├── 过滤函数
         ├── 结果处理
@@ -130,17 +126,6 @@ results = scanner.do_scan(
 )
 ```
 
-### 高级配置
-```python
-# 配置对话历史
-from reasoning.utils.dialogue_manager import DialogueHistory
-
-dialogue = DialogueHistory(project_id="my_project")
-dialogue.add_message("system", "开始安全分析...")
-
-# 与扫描器一起使用
-scanner.dialogue_history = dialogue
-```
 
 ## 集成接口
 

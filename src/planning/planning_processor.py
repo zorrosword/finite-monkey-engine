@@ -4,13 +4,16 @@ import csv
 import sys
 import os
 import os.path
+
+from dao.task_mgr import ProjectTaskMgr
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from typing import List, Dict, Tuple
 from tqdm import tqdm
 from dao.entity import Project_Task
-from openai_api.openai import common_ask_for_json
+from openai_api.openai import common_ask_for_json, ask_claude
 from prompt_factory.core_prompt import CorePrompt
 from prompt_factory.vul_prompt_common import VulPromptCommon
+from prompt_factory.assumption_prompt import AssumptionPrompt
 import json
 from .business_flow_utils import BusinessFlowUtils
 from .config_utils import ConfigUtils
@@ -53,7 +56,7 @@ except ImportError:
 class PlanningProcessor:
     """规划处理器，负责基于public函数downstream深度扫描的新planning逻辑"""
     
-    def __init__(self, project_audit, taskmgr):
+    def __init__(self, project_audit: TreeSitterProjectAudit, taskmgr: ProjectTaskMgr):
         """
         直接接受项目审计结果，而不是通过ContextFactory间接获取
         
@@ -68,9 +71,6 @@ class PlanningProcessor:
         self.functions = project_audit.functions
         self.functions_to_check = project_audit.functions_to_check
         self.call_trees = project_audit.call_trees
-        
-        # 为COMMON_PROJECT_FINE_GRAINED模式添加计数器
-        self.fine_grained_counter = 0
         
         # RAG功能（可选，如果需要的话）
         self.rag_processor = None
@@ -575,11 +575,11 @@ class PlanningProcessor:
 
     def create_public_function_tasks_v3(self, max_depth: int = 5) -> List[Dict]:
         """为每个public函数创建新版任务（V3版本）
-        使用call tree获取downstream内容，根据base_iteration_count创庺多个任务
+        使用call tree获取downstream内容，根据base_iteration_count创建多个任务
         
         根据scan_mode的不同：
-        - PURE_SCAN: 忽略checklist，为每个public函数创庺 base_iteration_count 个任务
-        - 其他模式: 为每个public函数 + 每个rule_key 创庺 base_iteration_count 个任务
+        - PURE_SCAN: 忽略checklist，为每个public函数创建 base_iteration_count 个任务
+        - 其他模式: 为每个public函数 + 每个rule_key 创建 base_iteration_count 个任务
         
         Args:
             max_depth: 最大深度限制
@@ -607,7 +607,7 @@ class PlanningProcessor:
         tasks = []
         task_id = 0
         
-        # 根据scan_mode决定任务创庺逻辑
+        # 根据scan_mode决定任务创建逻辑
         if scan_mode == 'PURE_SCAN':
             print("🎯 PURE_SCAN模式: 忽略所有checklist")
             
@@ -631,7 +631,7 @@ class PlanningProcessor:
                         actual_iteration_count = 3  # 降低到4次
                         print(f"  🔄 检测到中等复杂函数，迭代次数降低到{actual_iteration_count}次")
                     
-                    # 为每个public函数创庺实际迭代次数个任务
+                    # 为每个public函数创建实际迭代次数个任务
                     for iteration in range(actual_iteration_count):
                         task_data = {
                             'task_id': task_id,
@@ -677,7 +677,7 @@ class PlanningProcessor:
                         actual_iteration_count = 4  # 降低到4次
                         print(f"  🔄 检测到中等复杂函数，迭代次数降低到{actual_iteration_count}次")
                     
-                    # 为每个检查类型创庺实际迭代次数个任务
+                    # 为每个检查类型创建实际迭代次数个任务
                     for rule_key, rule_list in all_checklists.items():
                         for iteration in range(actual_iteration_count):
                             task_data = {
@@ -695,9 +695,63 @@ class PlanningProcessor:
                             tasks.append(task_data)
                             task_id += 1
                         
-                        
+        if os.getenv("SCAN_MODE_AVA", "False").lower() == "true":
+            #==========新的检测模式AVA(Assumption Violation Analysis)==========
+            #在这个模式下会进行代码假设评估，并根据假设生成checklist，然后放入task后进行扫描
+            print("🎯 AVA模式: 进行代码假设评估checklist生成")
+            # 输入待测代码，输出checklist，对应的rule key叫做 assumption_violation
+            # 然后根据checklist生成task，放入task
+            for lang, public_funcs in public_functions_by_lang.items():
+                if not public_funcs:
+                    continue
+                    
+                print(f"\n📋 处理 {lang} 语言的 {len(public_funcs)} 个public函数，进行代码假设评估checklist生成...")
+                
+                for public_func in public_funcs:
+                    func_name = public_func['name']
+                    
+                    # print(f"  🔍 分析public函数: {func_name}")
+                    
+                    # 使用call tree获取downstream内容
+                    downstream_content = self.get_downstream_content_with_call_tree(func_name, max_depth)
+                    
+                    # 进行代码假设评估checklist生成，以downstream_content为输入，输出是一系列的list
+                    print(f"  🔍 正在为函数 {func_name} 生成假设评估清单...")
+                    
+                    # 使用Claude分析代码假设
+                    raw_assumptions = self.analyze_code_assumptions(downstream_content)
+                    
+                    # 解析分割格式的结果
+                    assumption_violation_checklist = self.parse_assumptions_from_text(raw_assumptions)
+                    
+                    if not assumption_violation_checklist:
+                        print(f"  ⚠️ 函数 {func_name} 未能生成有效的假设清单，跳过...")
+                        continue
+
+                    # 为每个assumption statement创建单独的任务（每个任务重复actual_iteration_count次）
+                    for assumption_statement in assumption_violation_checklist:
+                        for iteration in range(actual_iteration_count):
+                            task_data = {
+                                'task_id': task_id,
+                                'iteration_index': iteration + 1,
+                                'language': lang,
+                                'root_function': public_func,
+                                'rule_key': "assumption_violation",
+                                'rule_list': assumption_statement,  # 每个任务只处理一个assumption
+                                'downstream_content': downstream_content,
+                                'max_depth': max_depth,
+                                'task_type': 'public_function_checklist_scan'
+                            }
+                            
+                            tasks.append(task_data)
+                            task_id += 1
+                    
+                    total_tasks_created = len(assumption_violation_checklist) * actual_iteration_count
+                    print(f"  ✅ 为函数 {func_name} 创建了 {total_tasks_created} 个任务 ({len(assumption_violation_checklist)} 个假设 × {actual_iteration_count} 次迭代)")
+
+
         
-        print(f"\n🎉 任务创庺完成！")
+        print(f"\n🎉 任务创建完成！")
         print(f"  总计: {len(tasks)} 个任务")
         print(f"  扫描模式: {scan_mode}")
         print(f"  基础迭代次数: {base_iteration_count}")
@@ -1048,6 +1102,58 @@ class PlanningProcessor:
             'file_natural': '文件自然语言检索 - 基于文件的自然语言描述'
         }
     
+    def analyze_code_assumptions(self, downstream_content: str) -> str:
+        """使用Claude分析代码中的业务逻辑假设
+        
+        Args:
+            downstream_content: 下游代码内容
+            
+        Returns:
+            str: Claude分析的原始结果
+        """
+        assumption_prompt = AssumptionPrompt.get_assumption_analysis_prompt(downstream_content)
+        
+        try:
+            print("🤖 正在使用Claude分析代码假设...")
+            result = ask_claude(assumption_prompt)
+            print("✅ Claude分析完成")
+            return result
+        except Exception as e:
+            print(f"❌ Claude分析失败: {e}")
+            return ""
+    
+    def parse_assumptions_from_text(self, raw_assumptions: str) -> List[str]:
+        """从Claude的原始输出中解析assumption列表
+        
+        Args:
+            raw_assumptions: Claude分析的原始结果（使用<|ASSUMPTION_SPLIT|>分割）
+            
+        Returns:
+            List[str]: 解析后的assumption列表
+        """
+        if not raw_assumptions:
+            return []
+            
+        try:
+            print("🧹 正在解析assumption结果...")
+            
+            # 使用<|ASSUMPTION_SPLIT|>分割字符串
+            assumptions_raw = raw_assumptions.strip().split("<|ASSUMPTION_SPLIT|>")
+            
+            # 清理每个assumption，去除前后空白和空行
+            assumptions_list = []
+            for assumption in assumptions_raw:
+                cleaned_assumption = assumption.strip()
+                if cleaned_assumption:  # 过滤空字符串
+                    assumptions_list.append(cleaned_assumption)
+            
+            print(f"✅ 解析完成，提取到 {len(assumptions_list)} 个假设")
+            return assumptions_list
+            
+        except Exception as e:
+            print(f"❌ 解析失败: {e}")
+            return []
+
     def do_planning(self):
         """执行规划处理 - 调用process_for_common_project_mode方法"""
         return self.process_for_common_project_mode() 

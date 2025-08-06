@@ -8,6 +8,5 @@
 """
 
 from .scanner import VulnerabilityScanner
-from .utils.dialogue_manager import DialogueHistory
 
-__all__ = ['VulnerabilityScanner', 'DialogueHistory'] 
+__all__ = ['VulnerabilityScanner'] 
