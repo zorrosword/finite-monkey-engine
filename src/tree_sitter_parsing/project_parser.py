@@ -18,6 +18,7 @@ import tree_sitter_solidity
 import tree_sitter_rust
 import tree_sitter_cpp
 import tree_sitter_move
+import tree_sitter_go
 
 # 导入文档分块器
 try:
@@ -33,11 +34,12 @@ LANGUAGES = {
     'solidity': Language(tree_sitter_solidity.language()),
     'rust': Language(tree_sitter_rust.language()),
     'cpp': Language(tree_sitter_cpp.language()),
-    'move': Language(tree_sitter_move.language())
+    'move': Language(tree_sitter_move.language()),
+    'go': Language(tree_sitter_go.language())
 }
 
 TREE_SITTER_AVAILABLE = True
-print("✅ Tree-sitter解析器已加载，支持四种语言")
+print("✅ Tree-sitter解析器已加载，支持五种语言")
 
 
 class LanguageType:
@@ -45,6 +47,7 @@ class LanguageType:
     RUST = 'rust'
     CPP = 'cpp'
     MOVE = 'move'
+    GO = 'go'
 
 
 class TreeSitterProjectFilter(object):
@@ -55,8 +58,8 @@ class TreeSitterProjectFilter(object):
 
     def filter_file(self, path, filename):
         """过滤文件"""
-        # 检查文件后缀 - 只支持四种语言：Solidity, Rust, C++, Move
-        valid_extensions = ('.sol', '.rs', '.move', '.c', '.cpp', '.cxx', '.cc', '.C', '.h', '.hpp', '.hxx')
+        # 检查文件后缀 - 支持五种语言：Solidity, Rust, C++, Move, Go
+        valid_extensions = ('.sol', '.rs', '.move', '.c', '.cpp', '.cxx', '.cc', '.C', '.h', '.hpp', '.hxx', '.go')
         if not any(filename.endswith(ext) for ext in valid_extensions) or filename.endswith('.t.sol'):
             return True
         
@@ -99,6 +102,8 @@ def _detect_language_from_path(file_path: Path) -> Optional[str]:
         return 'cpp'
     elif suffix == '.move':
         return 'move'
+    elif suffix == '.go':
+        return 'go'
     return None
 
 
@@ -128,6 +133,12 @@ def _extract_functions_from_node(node: Node, source_code: bytes, language: str, 
         elif node.type == 'function_definition' and language == 'move':
             # Move函数定义
             func_info = _parse_move_function(node, source_code, file_path)
+            if func_info:
+                functions.append(func_info)
+        
+        elif node.type == 'function_declaration' and language == 'go':
+            # Go函数定义
+            func_info = _parse_go_function(node, source_code, file_path)
             if func_info:
                 functions.append(func_info)
         
@@ -491,6 +502,71 @@ def _parse_move_function(node: Node, source_code: bytes, file_path: str) -> Opti
         }
     except Exception as e:
         print(f"解析Move函数失败: {e}")
+        return None
+
+
+def _parse_go_function(node: Node, source_code: bytes, file_path: str) -> Optional[Dict]:
+    """解析Go函数"""
+    try:
+        name_node = node.child_by_field_name('name')
+        if not name_node:
+            return None
+        
+        func_name = _get_node_text(name_node, source_code)
+        func_content = _get_node_text(node, source_code)
+        
+        # 提取可见性、修饰符、参数和返回类型
+        visibility = 'private'  # Go默认为私有
+        modifiers = []
+        parameters = []
+        return_type = ''
+        
+        # Go语言的可见性是基于首字母大小写
+        if func_name and func_name[0].isupper():
+            visibility = 'public'
+        
+        # 遍历子节点提取参数和返回类型
+        for child in node.children:
+            if child.type == 'parameter_list':
+                # 解析参数列表
+                param_text = _get_node_text(child, source_code).strip().strip('(').strip(')')
+                if param_text:
+                    # 简单分割参数
+                    params = [p.strip() for p in param_text.split(',') if p.strip()]
+                    parameters.extend(params)
+            elif child.type in ['type_identifier', 'pointer_type', 'slice_type', 'array_type']:
+                # 可能是返回类型
+                return_type = _get_node_text(child, source_code).strip()
+        
+        # 检查是否为方法（receiver）
+        receiver_node = node.child_by_field_name('receiver')
+        if receiver_node:
+            receiver_text = _get_node_text(receiver_node, source_code).strip()
+            modifiers.append(f"method:{receiver_text}")
+        
+        # 提取函数调用
+        function_calls = _extract_function_calls(node, source_code)
+        
+        return {
+            'name': f"_go.{func_name}",
+            'contract_name': 'GoPackage',
+            'content': func_content,
+            'signature': func_content.split('{')[0].strip() if '{' in func_content else func_content,
+            'visibility': visibility,
+            'modifiers': modifiers,
+            'parameters': parameters,
+            'return_type': return_type,
+            'calls': function_calls,
+            'line_number': node.start_point[0] + 1,
+            'start_line': node.start_point[0] + 1,
+            'end_line': node.end_point[0] + 1,
+            'file_path': file_path,
+            'relative_file_path': os.path.relpath(file_path) if file_path else '',
+            'absolute_file_path': os.path.abspath(file_path) if file_path else '',
+            'type': 'FunctionDefinition'
+        }
+    except Exception as e:
+        print(f"解析Go函数失败: {e}")
         return None
 
 

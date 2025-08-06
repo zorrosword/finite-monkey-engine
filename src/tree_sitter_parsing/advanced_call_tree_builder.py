@@ -49,6 +49,8 @@ class AdvancedCallTreeBuilder:
             return LanguageType.CPP
         elif suffix == '.move':
             return LanguageType.MOVE
+        elif suffix == '.go':
+            return LanguageType.GO
         
         return LanguageType.SOLIDITY  # 默认
     
@@ -89,7 +91,11 @@ class AdvancedCallTreeBuilder:
         return str(path.parent if path.is_file() else path)
     
     def _create_temp_files_from_functions(self, functions_to_check: List[Dict]) -> Dict[str, str]:
-        """从函数数据创建临时文件用于分析"""
+        """从函数数据创建临时文件用于分析
+        
+        ⚠️ 不推荐使用：这是一个临时解决方案，应该优先使用 _get_original_files_from_functions
+        直接使用原始文件进行分析而不是创建临时文件
+        """
         temp_files_map = {}
         
         # 按文件路径分组函数
@@ -124,6 +130,38 @@ class AdvancedCallTreeBuilder:
                 temp_files_map[file_path] = temp_file_path
         
         return temp_files_map
+    
+    def _get_original_files_from_functions(self, functions_to_check: List[Dict]) -> Dict[str, List[Dict]]:
+        """从函数数据获取原始文件映射"""
+        files_map = {}
+        
+        # 按文件路径分组函数
+        for func in functions_to_check:
+            file_path = func.get('file_path', 'unknown.sol')
+            if os.path.exists(file_path):
+                if file_path not in files_map:
+                    files_map[file_path] = []
+                files_map[file_path].append(func)
+            else:
+                print(f"⚠️ 文件不存在: {file_path}")
+        
+        return files_map
+    
+    def _map_analyzer_to_original_function(self, analyzer_func_name: str, func_map: Dict) -> str:
+        """将分析器的函数名映射回原始函数名"""
+        if not analyzer_func_name:
+            return None
+        
+        # 提取函数的简单名称（最后一个.后面的部分）
+        simple_func_name = analyzer_func_name.split('.')[-1]
+        
+        # 在func_map中查找匹配的原始函数名
+        for original_func_name in func_map.keys():
+            # 检查原始函数名是否以simple_func_name结尾
+            if original_func_name.endswith('.' + simple_func_name) or original_func_name == simple_func_name:
+                return original_func_name
+        
+        return None
     
     def _reconstruct_file_content(self, funcs: List[Dict], file_path: str) -> str:
         """重构文件内容"""
@@ -177,89 +215,87 @@ class AdvancedCallTreeBuilder:
         
         return content
     
-    def analyze_function_relationships(self, functions_to_check: List[Dict]) -> Tuple[Dict, Dict]:
-        """使用高级分析器分析整个项目目录的函数关系"""
+    def analyze_function_relationships(self, functions_to_check: List[Dict]) -> Tuple[Dict, Dict, str]:
+        """分析函数关系，使用高级语言分析器"""
         if not self.analyzer:
-            print("⚠️ MultiLanguageAnalyzer不可用，使用简化分析方法")
-            return self._fallback_analyze_relationships(functions_to_check)
+            print("⚠️ MultiLanguageAnalyzer不可用，回退到简化实现")
+            relationships, func_map = self._simple_analyze_function_relationships(functions_to_check)
+            return relationships, func_map, 'simplified'
         
-        print(f"🔍 使用高级分析器分析整个项目目录的调用关系...")
+        print(f"🔍 使用高级分析器分析 {len(functions_to_check)} 个函数的调用关系...")
         
-        # 构建函数映射
-        func_map = {}
-        relationships = {'upstream': {}, 'downstream': {}}
-        
-        for idx, func in enumerate(functions_to_check):
-            func_name = func['name']  # 使用完整的函数名（包括合约名）
-            func_map[func_name] = {
-                'index': idx,
-                'data': func
-            }
-            relationships['upstream'][func_name] = set()
-            relationships['downstream'][func_name] = set()
-        
-        # 分析整个项目目录 - 按语言分组分析
-        project_paths = set()
-        language_paths = {}
-        
-        # 从functions_to_check中提取项目路径和语言信息
-        for func in functions_to_check:
-            file_path = func.get('absolute_file_path', '')
-            if file_path and os.path.exists(file_path):
-                # 获取项目根目录（向上找到包含多个代码文件的目录）
-                project_root = self._find_project_root(file_path)
-                if project_root:
-                    language = self._detect_language_from_file_path(file_path)
-                    if language not in language_paths:
-                        language_paths[language] = set()
-                    language_paths[language].add(project_root)
-        
-        # 对每种语言的项目目录进行分析
-        total_call_graph = []
-        for language, paths in language_paths.items():
-            for project_path in paths:
-                try:
-                    print(f"  📁 分析 {language.value} 项目目录: {project_path}")
-                    
-                    # 使用MultiLanguageAnalyzer分析整个目录
-                    self.analyzer.analyze_directory(project_path, language)
-                    
-                    # 获取完整的调用图
-                    call_graph = self.analyzer.get_call_graph(language)
-                    functions = self.analyzer.get_functions(language)
-                    
-                    total_call_graph.extend(call_graph)
-                    
-                    print(f"  ✅ 发现 {len(call_graph)} 个调用关系，{len(functions)} 个函数")
-                    
-                except Exception as e:
-                    print(f"  ⚠️ 分析目录 {project_path} 失败: {e}")
-                    continue
-        
-        # 处理所有调用关系
-        processed_relations = 0
-        for edge in total_call_graph:
-            caller_name = edge.caller.split('.')[-1] if '.' in edge.caller else edge.caller
-            callee_name = edge.callee.split('.')[-1] if '.' in edge.callee else edge.callee
+        try:
+            # 直接使用原始文件进行分析，不创建临时文件
+            original_files_map = self._get_original_files_from_functions(functions_to_check)
             
-            # 只处理我们关心的函数
-            if caller_name in func_map and callee_name in func_map:
-                relationships['downstream'][caller_name].add(callee_name)
-                relationships['upstream'][callee_name].add(caller_name)
-                processed_relations += 1
-        
-        print(f"✅ 项目目录调用关系分析完成: 处理了 {processed_relations} 个相关调用关系")
-        
-        # 如果高级分析器没有找到足够的调用关系，回退到使用functions的calls字段
-        if processed_relations == 0:
-            print("🔄 高级分析器未找到调用关系，回退到使用函数calls字段...")
-            fallback_relationships, fallback_func_map = self._fallback_analyze_relationships(functions_to_check)
-            return fallback_relationships, fallback_func_map
-        
-        return relationships, func_map
+            if not original_files_map:
+                print("⚠️ 无法找到原始文件，回退到简化分析")
+                relationships, func_map = self._simple_analyze_function_relationships(functions_to_check)
+                return relationships, func_map, 'simplified'
+            
+            relationships = {'upstream': {}, 'downstream': {}}
+            func_map = {}
+            call_graph_found = False
+            
+            # 构建函数映射
+            for idx, func in enumerate(functions_to_check):
+                func_name = func['name']
+                func_map[func_name] = {
+                    'index': idx,
+                    'data': func
+                }
+                relationships['upstream'][func_name] = set()
+                relationships['downstream'][func_name] = set()
+            
+            # 使用语言分析器分析每个文件
+            for original_path in original_files_map.keys():
+                try:
+                    language = self._detect_language_from_file_path(original_path)
+                    self.analyzer.analyze_file(original_path, language)
+                    
+                    # 获取调用图
+                    call_graph = self.analyzer.get_call_graph(language)
+                    
+                    # 检查调用图是否有效
+                    if call_graph and len(call_graph) > 0:
+                        call_graph_found = True
+                        # 处理调用关系
+                        for edge in call_graph:
+                            caller = edge.caller
+                            callee = edge.callee
+                            
+                            # 将分析器的函数名映射回原始函数名
+                            original_caller = self._map_analyzer_to_original_function(caller, func_map)
+                            original_callee = self._map_analyzer_to_original_function(callee, func_map)
+                            
+                            # 检查函数是否在我们的分析列表中
+                            if original_caller and original_callee and original_caller in func_map and original_callee in func_map:
+                                relationships['downstream'][original_caller].add(original_callee)
+                                relationships['upstream'][original_callee].add(original_caller)
+                        
+                except Exception as e:
+                    print(f"⚠️ 分析文件失败 {original_path}: {e}")
+                    continue
+            
+            # 检查是否找到了有效的调用关系
+            total_relationships = sum(len(v) for v in relationships['upstream'].values()) + sum(len(v) for v in relationships['downstream'].values())
+            
+            # 如果高级分析器没有找到任何调用关系，回退到简化实现
+            if not call_graph_found or total_relationships == 0:
+                print("🔄 使用简化实现进行调用关系分析...")
+                relationships, func_map = self._simple_analyze_function_relationships(functions_to_check)
+                return relationships, func_map, 'simplified'
+            
+            print(f"✅ 高级调用关系分析完成")
+            return relationships, func_map, 'advanced'
+            
+        except Exception as e:
+            print(f"⚠️ 高级分析失败: {e}，回退到简化实现")
+            relationships, func_map = self._simple_analyze_function_relationships(functions_to_check)
+            return relationships, func_map, 'simplified'
     
-    def _fallback_analyze_relationships(self, functions_to_check: List[Dict]) -> Tuple[Dict, Dict]:
-        """简化的备选分析方法（与原实现相同）"""
+    def _simple_analyze_function_relationships(self, functions_to_check: List[Dict]) -> Tuple[Dict, Dict]:
+        """简化的函数关系分析（备选方案）"""
         func_map = {}
         relationships = {'upstream': {}, 'downstream': {}}
         
@@ -384,7 +420,7 @@ class AdvancedCallTreeBuilder:
         print(f"🌳 开始使用高级分析器为 {len(functions_to_check)} 个函数构建调用树...")
         
         # 使用高级分析器分析函数关系
-        relationships, func_map = self.analyze_function_relationships(functions_to_check)
+        relationships, func_map, analyzer_used = self.analyze_function_relationships(functions_to_check)
         
         call_trees = []
         
@@ -406,7 +442,7 @@ class AdvancedCallTreeBuilder:
                 'upstream_count': len(relationships['upstream'].get(func_name, [])),
                 'downstream_count': len(relationships['downstream'].get(func_name, [])),
                 'relationships': relationships,
-                'analyzer_type': 'advanced'
+                'analyzer_type': analyzer_used
             }
             
             call_trees.append(call_tree_info)
@@ -525,16 +561,20 @@ class AdvancedCallTreeBuilder:
             print("⚠️ MultiLanguageAnalyzer不可用，高级依赖分析不可用")
             return {'upstream_functions': {}, 'downstream_functions': {}}
         
-        # 创建临时文件并分析
-        temp_files_map = self._create_temp_files_from_functions(functions_to_check)
+        # 直接使用原始文件进行分析，不创建临时文件
+        original_files_map = self._get_original_files_from_functions(functions_to_check)
+        
+        if not original_files_map:
+            print("⚠️ 无法找到原始文件，依赖分析失败")
+            return {'upstream_functions': {}, 'downstream_functions': {}}
         
         dependency_result = {'upstream_functions': {}, 'downstream_functions': {}}
         
-        for original_path, temp_path in temp_files_map.items():
+        for original_path in original_files_map.keys():
             language = self._detect_language_from_file_path(original_path)
             
             try:
-                self.analyzer.analyze_file(temp_path, language)
+                self.analyzer.analyze_file(original_path, language)
                 
                 # 获取目标函数的完整名称
                 functions = self.analyzer.get_functions(language)

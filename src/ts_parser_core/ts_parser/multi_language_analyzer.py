@@ -18,7 +18,7 @@ from .data_structures import (
     ModuleInfo, CallGraphEdge, AnalysisStats
 )
 from .language_configs import get_language_by_extension
-from .parsers import SolidityParser, RustParser, CppParser, MoveParser
+from .parsers import SolidityParser, RustParser, CppParser, MoveParser, GoParser
 
 
 class MultiLanguageAnalyzer:
@@ -31,6 +31,7 @@ class MultiLanguageAnalyzer:
             LanguageType.RUST: RustParser(),
             LanguageType.CPP: CppParser(),
             LanguageType.MOVE: MoveParser(),
+            LanguageType.GO: GoParser(),
         }
         
         print("✅ 使用高级调用树构建器")

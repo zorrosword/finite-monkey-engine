@@ -16,6 +16,7 @@ import tree_sitter_solidity as ts_solidity
 import tree_sitter_rust as ts_rust
 import tree_sitter_cpp as ts_cpp
 import tree_sitter_move as ts_move
+import tree_sitter_go as ts_go
 
 from .data_structures import (
     LanguageType, CallType, FunctionInfo, StructInfo, 
@@ -51,6 +52,8 @@ class BaseParser(ABC):
             language = Language(ts_cpp.language())
         elif self.language == LanguageType.MOVE:
             language = Language(ts_move.language())
+        elif self.language == LanguageType.GO:
+            language = Language(ts_go.language())
         else:
             raise ValueError(f"Unsupported language: {self.language}")
         

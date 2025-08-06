@@ -121,12 +121,33 @@ MOVE_CONFIG = LanguageConfig(
 )
 
 
+# Go配置
+GO_CONFIG = LanguageConfig(
+    language=LanguageType.GO,
+    file_extensions=['.go'],
+    separator='.',
+    module_types=['package_clause'],
+    function_types=['function_declaration', 'method_declaration'],
+    struct_types=['type_declaration'],
+    class_types=[],  # Go没有类
+    interface_types=['interface_type'],
+    enum_types=[],  # Go没有专门的enum
+    visibility_keywords={'public'},  # Go中大写开头表示public
+    special_keywords={'go', 'defer', 'select', 'chan', 'var', 'const', 'type', 'func', 'import', 'package'},
+    call_expression_types=['call_expression'],
+    line_comment='//',
+    block_comment_start='/*',
+    block_comment_end='*/'
+)
+
+
 # 配置映射
 LANGUAGE_CONFIGS: Dict[LanguageType, LanguageConfig] = {
     LanguageType.SOLIDITY: SOLIDITY_CONFIG,
     LanguageType.RUST: RUST_CONFIG,
     LanguageType.CPP: CPP_CONFIG,
     LanguageType.MOVE: MOVE_CONFIG,
+    LanguageType.GO: GO_CONFIG,
 }
 
 

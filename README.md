@@ -26,6 +26,7 @@ Built on Tree-sitter parsing engine and function-level analysis architecture, **
 - **Rust** (.rs) - Solana ecosystem, Substrate, system-level programming
 - **C/C++** (.c/.cpp/.cxx/.cc/.C/.h/.hpp/.hxx) - Blockchain core, node clients
 - **Move** (.move) - Aptos, Sui blockchain language
+- **Go** (.go) - Blockchain infrastructure, TEE projects~~
 
 **🔄 Planned Support (Future Versions):**
 - ~~**Cairo** (.cairo) - StarkNet smart contract language~~
@@ -34,7 +35,6 @@ Built on Tree-sitter parsing engine and function-level analysis architecture, **
 - ~~**FA** (.fr) - Functional smart contract language~~
 - ~~**Python** (.py) - Web3, DeFi backend projects~~
 - ~~**JavaScript/TypeScript** (.js/.ts) - Web3 frontend, Node.js projects~~
-- ~~**Go** (.go) - Blockchain infrastructure, TEE projects~~
 - ~~**Java** (.java) - Enterprise blockchain applications~~
 
 > 💡 **v2.0 Design Philosophy**: Focus on core languages to provide deeply optimized analysis capabilities. Based on function-granularity code analysis architecture, theoretically extensible to any programming language. Future versions will gradually support more languages.

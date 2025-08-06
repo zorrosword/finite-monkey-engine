@@ -232,6 +232,11 @@ class TreeSitterProjectAudit(object):
         if move_files:
             language_paths[LanguageType.MOVE] = [str(project_path)]
         
+        # 检测 Go 文件
+        go_files = list(project_path.rglob('*.go'))
+        if go_files:
+            language_paths[LanguageType.GO] = [str(project_path)]
+        
         return language_paths
     
     def get_call_graphs(self):

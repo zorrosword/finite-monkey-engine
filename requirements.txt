@@ -37,6 +37,7 @@ tree-sitter-solidity
 tree-sitter-rust
 tree-sitter-cpp
 tree-sitter-move
+tree-sitter-go
 
 # Optional visualization dependencies
 matplotlib

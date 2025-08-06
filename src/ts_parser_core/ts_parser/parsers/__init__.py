@@ -10,10 +10,12 @@ from .solidity_parser import SolidityParser
 from .rust_parser import RustParser
 from .cpp_parser import CppParser
 from .move_parser import MoveParser
+from .go_parser import GoParser
 
 __all__ = [
     'SolidityParser',
     'RustParser', 
     'CppParser',
-    'MoveParser'
+    'MoveParser',
+    'GoParser'
 ] 

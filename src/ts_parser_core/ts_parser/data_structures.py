@@ -17,6 +17,7 @@ class LanguageType(Enum):
     RUST = "rust"
     CPP = "cpp"
     MOVE = "move"
+    GO = "go"
 
 
 class CallType(Enum):
