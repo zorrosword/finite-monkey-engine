@@ -628,7 +628,7 @@ class PlanningProcessor:
                     # 检查是否需要降低迭代次数
                     actual_iteration_count = base_iteration_count
                     if public_func.get('reduced_iterations', False):
-                        actual_iteration_count = 3  # 降低到4次
+                        actual_iteration_count = 4  # 降低到4次
                         print(f"  🔄 检测到中等复杂函数，迭代次数降低到{actual_iteration_count}次")
                     
                     # 为每个public函数创建实际迭代次数个任务

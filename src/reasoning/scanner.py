@@ -8,6 +8,7 @@ from prompt_factory.vul_prompt_common import VulPromptCommon
 from prompt_factory.periphery_prompt import PeripheryPrompt
 from prompt_factory.core_prompt import CorePrompt
 from prompt_factory.assumption_validation_prompt import AssumptionValidationPrompt
+from prompt_factory.prompt_assembler import PromptAssembler
 from openai_api.openai import ask_vul, ask_claude
 from logging_config import get_logger
 import json
@@ -114,6 +115,11 @@ class VulnerabilityScanner:
             return AssumptionValidationPrompt.get_assumption_validation_prompt(
                 code, rule_list
             )
+        
+        # 🎯 专门处理PURE_SCAN类型的任务
+        if rule_key == "PURE_SCAN":
+            # 使用pure scan的prompt组装器
+            return PromptAssembler.assemble_prompt_pure(code)
         
         # 原有的漏洞扫描逻辑（非assumption类型）
         else:
