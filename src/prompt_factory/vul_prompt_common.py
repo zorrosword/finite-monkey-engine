@@ -163,14 +163,14 @@ class VulPromptCommon:
 
         # 将所有检查列表组织成一个有序字典
         all_checklists = {
-            # "parameter_validation": parameter_validation_list,
-            # "arithmetic_calculation": arithmetic_calculation_list,
-            # "state_updates": state_updates_list,
+            "parameter_validation": parameter_validation_list,
+            "arithmetic_calculation": arithmetic_calculation_list,
+            "state_updates": state_updates_list,
             "consistency": consistency_list,
-            # "permission_reentrancy": permission_reentrancy_list,
-            # "business_logic": business_logic_list,
-            # "module_call_fund": module_call_fund_list,
-            # "external_dependency_trade": external_dependency_trade_list,
+            "permission_reentrancy": permission_reentrancy_list,
+            "business_logic": business_logic_list,
+            "module_call_fund": module_call_fund_list,
+            "external_dependency_trade": external_dependency_trade_list,
             
         }
 

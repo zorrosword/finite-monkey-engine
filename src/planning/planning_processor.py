@@ -4,10 +4,12 @@ import csv
 import sys
 import os
 import os.path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+from typing import List, Dict, Tuple, Optional
 
 from dao.task_mgr import ProjectTaskMgr
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from typing import List, Dict, Tuple
 from tqdm import tqdm
 from dao.entity import Project_Task
 from openai_api.openai import common_ask_for_json, ask_claude
@@ -114,7 +116,7 @@ class PlanningProcessor:
             if func_name.endswith('.sol') or 'sol' in func.get('relative_file_path', '').lower():
                 if visibility in ['public', 'external']:
                     public_functions_by_lang['solidity'].append(func)
-            elif func_name.endswith('.rs') or 'rust' in func.get('relative_file_path', '').lower():
+            elif func_name.endswith('.rs') or 'rs' in func.get('relative_file_path', '').lower():
                 if visibility == 'pub' or visibility == 'public':
                     public_functions_by_lang['rust'].append(func)
             elif func_name.endswith('.cpp') or func_name.endswith('.c') or 'cpp' in func.get('relative_file_path', '').lower():
@@ -545,17 +547,17 @@ class PlanningProcessor:
         visited.add(func_name)
         downstream_chain = []
         
-        # 在调用树中查找当前函数的下游函数
+        # 使用新的调用树格式查找当前函数的下游函数
         for call_tree in self.call_trees:
-            if call_tree.get('function_name') == func_name.split('.')[-1]:
+            # 使用完整的函数名匹配，适配新的 filename.function_name 格式
+            if call_tree.get('function_name') == func_name:
                 relationships = call_tree.get('relationships', {})
-                func_name_short = func_name.split('.')[-1]
-                downstream_funcs = relationships.get('downstream', {}).get(func_name_short, set())
+                downstream_funcs = relationships.get('downstream', {}).get(func_name, set())
                 
                 for downstream_func in downstream_funcs:
                     # 找到下游函数的完整信息
                     for func in self.functions_to_check:
-                        if func['name'].split('.')[-1] == downstream_func:
+                        if func['name'] == downstream_func:
                             downstream_info = {
                                 'function': func,
                                 'depth': depth + 1,
@@ -602,7 +604,8 @@ class PlanningProcessor:
         
         # 🎯 基于复杂度过滤函数（基于fishcake项目分析优化）
         # 过滤策略：认知复杂度=0 且 圈复杂度≤2 的简单函数将被跳过
-        public_functions_by_lang = self.filter_functions_by_complexity(public_functions_by_lang)
+        if os.getenv("COMPLEXITY_ANALYSIS_ENABLED", "False").lower() == "true":
+            public_functions_by_lang = self.filter_functions_by_complexity(public_functions_by_lang)
         
         tasks = []
         task_id = 0
@@ -670,6 +673,9 @@ class PlanningProcessor:
                     
                     # 使用call tree获取downstream内容
                     downstream_content = self.get_downstream_content_with_call_tree(func_name, max_depth)
+
+                    # 加上root func 的content
+                    downstream_content = public_func['content'] + '\n\n' + downstream_content
                     
                     # 检查是否需要降低迭代次数
                     actual_iteration_count = base_iteration_count
@@ -701,53 +707,9 @@ class PlanningProcessor:
             print("🎯 AVA模式: 进行代码假设评估checklist生成")
             # 输入待测代码，输出checklist，对应的rule key叫做 assumption_violation
             # 然后根据checklist生成task，放入task
-            for lang, public_funcs in public_functions_by_lang.items():
-                if not public_funcs:
-                    continue
-                    
-                print(f"\n📋 处理 {lang} 语言的 {len(public_funcs)} 个public函数，进行代码假设评估checklist生成...")
-                
-                for public_func in public_funcs:
-                    func_name = public_func['name']
-                    
-                    # print(f"  🔍 分析public函数: {func_name}")
-                    
-                    # 使用call tree获取downstream内容
-                    downstream_content = self.get_downstream_content_with_call_tree(func_name, max_depth)
-                    
-                    # 进行代码假设评估checklist生成，以downstream_content为输入，输出是一系列的list
-                    print(f"  🔍 正在为函数 {func_name} 生成假设评估清单...")
-                    
-                    # 使用Claude分析代码假设
-                    raw_assumptions = self.analyze_code_assumptions(downstream_content)
-                    
-                    # 解析分割格式的结果
-                    assumption_violation_checklist = self.parse_assumptions_from_text(raw_assumptions)
-                    
-                    if not assumption_violation_checklist:
-                        print(f"  ⚠️ 函数 {func_name} 未能生成有效的假设清单，跳过...")
-                        continue
-
-                    # 为每个assumption statement创建单独的任务（每个任务重复actual_iteration_count次）
-                    for assumption_statement in assumption_violation_checklist:
-                        for iteration in range(actual_iteration_count):
-                            task_data = {
-                                'task_id': task_id,
-                                'iteration_index': iteration + 1,
-                                'language': lang,
-                                'root_function': public_func,
-                                'rule_key': "assumption_violation",
-                                'rule_list': assumption_statement,  # 每个任务只处理一个assumption
-                                'downstream_content': downstream_content,
-                                'max_depth': max_depth,
-                                'task_type': 'public_function_checklist_scan'
-                            }
-                            
-                            tasks.append(task_data)
-                            task_id += 1
-                    
-                    total_tasks_created = len(assumption_violation_checklist) * actual_iteration_count
-                    print(f"  ✅ 为函数 {func_name} 创建了 {total_tasks_created} 个任务 ({len(assumption_violation_checklist)} 个假设 × {actual_iteration_count} 次迭代)")
+            
+            # 使用多线程处理函数分析
+            self._process_ava_mode_with_threading(public_functions_by_lang, max_depth, tasks, task_id)
 
 
         
@@ -760,7 +722,7 @@ class PlanningProcessor:
         return tasks
     
     def get_downstream_content_with_call_tree(self, func_name: str, max_depth: int = 5) -> str:
-        """使用call tree获取函数的downstream内容
+        """使用call tree获取函数的downstream内容（使用统一的提取逻辑）
         
         Args:
             func_name: 函数名
@@ -769,29 +731,45 @@ class PlanningProcessor:
         Returns:
             str: 拼接的downstream内容
         """
-        contents = []
-        if "updateNftJson" in func_name:
-            print("yes")
-        # 查找对应的call tree
         if hasattr(self.project_audit, 'call_trees') and self.project_audit.call_trees:
-            # 如果有AdvancedCallTreeBuilder，使用get_call_tree_with_depth_limit
             try:
                 from tree_sitter_parsing.advanced_call_tree_builder import AdvancedCallTreeBuilder
                 builder = AdvancedCallTreeBuilder()
-                downstream_tree = builder.get_call_tree_with_depth_limit(
+                # 使用统一的内容提取方法
+                return builder.get_call_content_with_direction(
                     self.project_audit.call_trees, func_name, 'downstream', max_depth
                 )
-                if downstream_tree and downstream_tree.get('tree'):
-                    # 如果total_count为0，说明没有真正的下游函数，跳过以避免重复
-                    if downstream_tree.get('total_count', 0) > 0:
-                        contents = self._extract_contents_from_tree(downstream_tree['tree'])
             except Exception as e:
-                print(f"    ⚠️ 使用高级call tree失败: {e}，使用简化方法")
+                print(f"    ⚠️ 使用统一call tree提取失败: {e}，使用简化方法")
                 contents = self._get_downstream_content_fallback(func_name, max_depth)
+                return '\n\n'.join(contents)
         else:
             contents = self._get_downstream_content_fallback(func_name, max_depth)
+            return '\n\n'.join(contents)
+    
+    def get_upstream_content_with_call_tree(self, func_name: str, max_depth: int = 5) -> str:
+        """使用call tree获取函数的upstream内容（使用统一的提取逻辑）
         
-        return '\n\n'.join(contents)
+        Args:
+            func_name: 函数名
+            max_depth: 最大深度
+            
+        Returns:
+            str: 拼接的upstream内容
+        """
+        if hasattr(self.project_audit, 'call_trees') and self.project_audit.call_trees:
+            try:
+                from tree_sitter_parsing.advanced_call_tree_builder import AdvancedCallTreeBuilder
+                builder = AdvancedCallTreeBuilder()
+                # 使用统一的内容提取方法
+                return builder.get_call_content_with_direction(
+                    self.project_audit.call_trees, func_name, 'upstream', max_depth
+                )
+            except Exception as e:
+                print(f"    ⚠️ 使用统一call tree提取upstream失败: {e}")
+                return ""
+        else:
+            return ""
     
     def _extract_contents_from_tree(self, tree_node: Dict) -> List[str]:
         """从tree节点中提取所有函数内容"""
@@ -1156,4 +1134,119 @@ class PlanningProcessor:
 
     def do_planning(self):
         """执行规划处理 - 调用process_for_common_project_mode方法"""
-        return self.process_for_common_project_mode() 
+        return self.process_for_common_project_mode()
+    
+    def _process_ava_mode_with_threading(self, public_functions_by_lang: Dict, max_depth: int, tasks: List, task_id: int):
+        """使用多线程处理AVA模式的函数分析
+        
+        Args:
+            public_functions_by_lang: 按语言分组的public函数
+            max_depth: 最大深度
+            tasks: 任务列表（引用传递）
+            task_id: 当前任务ID
+        """
+        # 获取线程数配置，默认为4
+        max_workers = int(os.getenv("AVA_THREAD_COUNT", "4"))
+        print(f"🚀 使用 {max_workers} 个线程进行并发处理")
+        
+        # 为了线程安全，使用锁保护共享资源
+        tasks_lock = threading.Lock()
+        task_id_lock = threading.Lock()
+        task_id_counter = [task_id]  # 使用列表来实现引用传递
+        
+        # 收集所有需要处理的函数
+        all_functions = []
+        for lang, public_funcs in public_functions_by_lang.items():
+            if public_funcs:
+                for public_func in public_funcs:
+                    all_functions.append((lang, public_func))
+        
+        print(f"📋 总计需要处理 {len(all_functions)} 个函数")
+        
+        def process_single_function(lang_func_pair):
+            """处理单个函数的假设分析"""
+            lang, public_func = lang_func_pair
+            func_name = public_func['name']
+            
+            try:
+                # 使用call tree获取downstream内容
+                downstream_content = self.get_downstream_content_with_call_tree(func_name, max_depth)
+                
+                # 加上root func的content
+                downstream_content = public_func['content'] + '\n\n' + downstream_content
+                
+                print(f"  🔍 正在为函数 {func_name} 生成假设评估清单...")
+                
+                # 使用Claude分析代码假设
+                raw_assumptions = self.analyze_code_assumptions(downstream_content)
+                
+                # 解析分割格式的结果
+                assumption_violation_checklist = self.parse_assumptions_from_text(raw_assumptions)
+                
+                if not assumption_violation_checklist:
+                    print(f"  ⚠️ 函数 {func_name} 未能生成有效的假设清单，跳过...")
+                    return []
+                
+                actual_iteration_count = 2
+                function_tasks = []
+                
+                # 为每个assumption statement创建单独的任务
+                for assumption_statement in assumption_violation_checklist:
+                    for iteration in range(actual_iteration_count):
+                        # 线程安全地获取task_id
+                        with task_id_lock:
+                            current_task_id = task_id_counter[0]
+                            task_id_counter[0] += 1
+                        
+                        task_data = {
+                            'task_id': current_task_id,
+                            'iteration_index': iteration + 1,
+                            'language': lang,
+                            'root_function': public_func,
+                            'rule_key': "assumption_violation",
+                            'rule_list': assumption_statement,  # 每个任务只处理一个assumption
+                            'downstream_content': downstream_content,
+                            'max_depth': max_depth,
+                            'task_type': 'public_function_checklist_scan'
+                        }
+                        
+                        function_tasks.append(task_data)
+                
+                total_tasks_created = len(assumption_violation_checklist) * actual_iteration_count
+                print(f"  ✅ 为函数 {func_name} 创建了 {total_tasks_created} 个任务 ({len(assumption_violation_checklist)} 个假设 × {actual_iteration_count} 次迭代)")
+                
+                return function_tasks
+                
+            except Exception as e:
+                print(f"  ❌ 处理函数 {func_name} 时出错: {e}")
+                return []
+        
+        # 使用ThreadPoolExecutor进行并发处理
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 提交所有任务
+            future_to_function = {
+                executor.submit(process_single_function, lang_func_pair): lang_func_pair
+                for lang_func_pair in all_functions
+            }
+            
+            # 使用进度条显示处理进度
+            with tqdm(total=len(all_functions), desc="处理函数假设分析") as pbar:
+                for future in as_completed(future_to_function):
+                    lang_func_pair = future_to_function[future]
+                    lang, public_func = lang_func_pair
+                    
+                    try:
+                        function_tasks = future.result()
+                        
+                        # 线程安全地添加任务到主列表
+                        if function_tasks:
+                            with tasks_lock:
+                                tasks.extend(function_tasks)
+                        
+                    except Exception as e:
+                        func_name = public_func['name']
+                        print(f"❌ 函数 {func_name} 处理失败: {e}")
+                    
+                    pbar.update(1)
+        
+        print(f"🎉 多线程处理完成！共创建了 {len([t for t in tasks if t.get('rule_key') == 'assumption_violation'])} 个AVA任务") 

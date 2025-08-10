@@ -248,8 +248,8 @@
         "exclude_in_planning":"false",
         "exclude_directory":[]
     },
-    "tee0807":{
-        "path":"tee-wallet",
+    "capstone":{
+        "path":"capstone",
         "files":[
         ],
         "functions":[],

@@ -3,6 +3,7 @@ import time
 import json
 from datetime import datetime
 from typing import List, Tuple, Dict, Any
+import tiktoken
 
 from dao.entity import Project_Task
 
@@ -51,6 +52,23 @@ class AnalysisProcessor:
         except Exception as e:
             import traceback
             self.rag_processor = None
+
+    def _count_tokens(self, text: str, model: str = "gpt-4") -> int:
+        """计算文本的token数量
+        
+        Args:
+            text: 要计算的文本
+            model: 模型名称，默认gpt-4
+            
+        Returns:
+            token数量
+        """
+        try:
+            encoding = tiktoken.encoding_for_model(model)
+            return len(encoding.encode(text))
+        except Exception:
+            # 如果失败，使用简单估算：大约4字符=1token
+            return len(text) // 4
 
     def get_available_rag_types(self) -> Dict[str, str]:
         """获取可用的RAG类型列表及其描述"""
@@ -766,18 +784,27 @@ class AnalysisProcessor:
             except Exception as e:
                 pass
             
-            # 4. Chunk RAG搜索 (topk=3)
+            # 4. Chunk RAG搜索 (topk=3) - 过滤超长内容
             if self.rag_processor:
                 try:
                     chunk_results = self.rag_processor.search_chunks_by_content(specific_query, 3)
+                    max_tokens = 150000  # 设置150k token阈值
                     
                     for result in chunk_results:
-                        chunk_text = result.get('chunk_text', '')  # 🔧 移除长度限制，保留完整内容
+                        chunk_text = result.get('chunk_text', '')
                         original_file = result.get('original_file', 'Unknown')
+                        
+                        # 计算token数量，如果超过阈值则跳过
+                        token_count = self._count_tokens(chunk_text)
+                        if token_count > max_tokens:
+                            print(f"  ⚠️ 第 {round_num} 轮: Chunk搜索结果过长 ({token_count} tokens > {max_tokens})，跳过文件 {original_file}")
+                            continue
+                        
                         all_info['chunk_info'].append({
                             'text': chunk_text,
                             'file': original_file,
-                            'type': 'chunk'
+                            'type': 'chunk',
+                            'token_count': token_count  # 可选：记录token数量
                         })
                     
 
@@ -885,25 +912,13 @@ class AnalysisProcessor:
         return upstream_downstream
     
     def _get_upstream_content_with_call_tree(self, func_name: str, max_depth: int, planning_processor) -> str:
-        """获取upstream内容（参考planning中的downstream实现）"""
-        contents = []
-        
-        # 查找对应的call tree
-        if hasattr(planning_processor.project_audit, 'call_trees') and planning_processor.project_audit.call_trees:
-            try:
-                from tree_sitter_parsing.advanced_call_tree_builder import AdvancedCallTreeBuilder
-                builder = AdvancedCallTreeBuilder()
-                upstream_tree = builder.get_call_tree_with_depth_limit(
-                    planning_processor.project_audit.call_trees, func_name, 'upstream', max_depth
-                )
-                
-                if upstream_tree and upstream_tree.get('tree'):
-                    contents = planning_processor._extract_contents_from_tree(upstream_tree['tree'])
-            except Exception as e:
-                # 这里可以加入后备方案，但planning中没有upstream的fallback
-                pass
-        
-        return '\n\n'.join(contents)
+        """获取upstream内容（使用统一的提取逻辑）"""
+        try:
+            # 使用planning_processor的统一upstream方法
+            return planning_processor.get_upstream_content_with_call_tree(func_name, max_depth)
+        except Exception as e:
+            print(f"⚠️ 获取upstream内容失败: {e}")
+            return ""
     
     def _remove_function_duplicates_from_upstream_downstream(self, all_info):
         """从upstream/downstream中去除与function相同的结果"""

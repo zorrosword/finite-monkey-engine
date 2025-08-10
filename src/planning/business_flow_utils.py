@@ -102,12 +102,14 @@ class BusinessFlowUtils:
             # 从现有的calls字段获取调用信息
             if "calls" in function and function["calls"]:
                 for called_func in function["calls"]:
-                    calls[func_name]["sub_calls"].add(called_func)
-                    # 如果被调用的函数在我们的列表中，添加父调用关系
-                    for other_function in functions_to_check:
-                        if other_function["name"] == called_func:
-                            calls[called_func]["parent_calls"].add(func_name)
-                            break
+                    # 避免自引用
+                    if called_func != func_name:
+                        calls[func_name]["sub_calls"].add(called_func)
+                        # 如果被调用的函数在我们的列表中，添加父调用关系
+                        for other_function in functions_to_check:
+                            if other_function["name"] == called_func:
+                                calls[called_func]["parent_calls"].add(func_name)
+                                break
         
         # 转换set为list以便JSON序列化
         result = {}

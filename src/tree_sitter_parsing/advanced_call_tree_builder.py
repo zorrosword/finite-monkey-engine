@@ -321,7 +321,7 @@ class AdvancedCallTreeBuilder:
                                 clean_called_func = full_name
                                 break
                     
-                    if clean_called_func and clean_called_func in func_map:
+                    if clean_called_func and clean_called_func in func_map and clean_called_func != func_name:
                         relationships['downstream'][func_name].add(clean_called_func)
                         relationships['upstream'][clean_called_func].add(func_name)
         
@@ -603,6 +603,51 @@ class AdvancedCallTreeBuilder:
                 continue
         
         return dependency_result
+
+    def get_call_content_with_direction(self, call_trees: List[Dict], func_name: str, direction: str, max_depth: int = 5) -> str:
+        """通用的调用内容提取方法（统一upstream和downstream逻辑）
+        
+        Args:
+            call_trees: 调用树列表
+            func_name: 函数名
+            direction: 'upstream' 或 'downstream'
+            max_depth: 最大深度
+            
+        Returns:
+            str: 拼接的内容
+        """
+        contents = []
+        
+        try:
+            # 使用深度限制获取调用树
+            tree_result = self.get_call_tree_with_depth_limit(call_trees, func_name, direction, max_depth)
+            
+            if tree_result and tree_result.get('tree'):
+                # 如果total_count为0，说明没有真正的调用函数，返回空内容
+                if tree_result.get('total_count', 0) > 0:
+                    contents = self._extract_contents_from_tree_recursive(tree_result['tree'])
+                    
+        except Exception as e:
+            print(f"⚠️ 使用高级call tree提取{direction}内容失败: {e}")
+            # 这里可以添加简化的fallback逻辑
+            
+        return '\n\n'.join(contents)
+    
+    def _extract_contents_from_tree_recursive(self, tree_node: Dict) -> List[str]:
+        """从tree节点中递归提取所有函数内容"""
+        contents = []
+        
+        # 提取当前节点的函数内容
+        if tree_node.get('function_data'):
+            function_data = tree_node['function_data']
+            if function_data and function_data.get('content'):
+                contents.append(function_data['content'])
+        
+        # 递归处理子节点
+        for child in tree_node.get('children', []):
+            contents.extend(self._extract_contents_from_tree_recursive(child))
+        
+        return contents
 
 
 # 向后兼容的别名

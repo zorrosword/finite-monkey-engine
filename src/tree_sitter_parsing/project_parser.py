@@ -68,6 +68,17 @@ class TreeSitterProjectFilter(object):
     def filter_contract(self, function):
         """过滤合约函数"""
         # 支持的语言不进行筛选：rust, move, cpp
+        # 检查文件扩展名或函数名特征来识别语言类型
+        file_path = function.get('file_path', '')
+        if file_path:
+            if file_path.endswith('.rs'):  # Rust文件
+                return False
+            if file_path.endswith('.move'):  # Move文件
+                return False
+            if file_path.endswith(('.c', '.cpp', '.cxx', '.cc', '.C', '.h', '.hpp', '.hxx')):  # C++文件
+                return False
+        
+        # 兼容旧的命名方式
         if '_rust' in function["name"]:
             return False
         if '_move' in function["name"]:
@@ -185,7 +196,31 @@ def _get_function_call_name(call_node: Node, source_code: bytes) -> Optional[str
     try:
         # 遍历call_expression的子节点查找函数名
         for child in call_node.children:
-            if child.type == 'expression':
+            # Rust: scoped_identifier (如 instructions::borrow)
+            if child.type == 'scoped_identifier':
+                scoped_text = _get_node_text(child, source_code).strip()
+                # 将 Rust 模块调用转换为我们的命名格式
+                # instructions::withdraw -> withdraw.withdraw
+                if '::' in scoped_text:
+                    parts = scoped_text.split('::')
+                    if len(parts) >= 2:
+                        module_name = parts[-2]  # instructions
+                        func_name = parts[-1]    # withdraw
+                        # 对于 instructions 模块，函数名就是文件名
+                        if module_name == 'instructions':
+                            return f"{func_name}.{func_name}"
+                        else:
+                            return f"{module_name}.{func_name}"
+                return scoped_text  # 保留原始名称作为备选
+            # Rust: identifier (如 simple_function_call)
+            elif child.type == 'identifier':
+                return _get_node_text(child, source_code).strip()
+            # Rust: field_expression (如 obj.method)
+            elif child.type == 'field_expression':
+                field_text = _get_node_text(child, source_code).strip()
+                return field_text
+            # Solidity: expression
+            elif child.type == 'expression':
                 # 在expression中查找实际的函数名
                 for expr_child in child.children:
                     if expr_child.type == 'identifier':
@@ -197,11 +232,8 @@ def _get_function_call_name(call_node: Node, source_code: bytes) -> Optional[str
                         if '.' in member_text:
                             return member_text.split('.')[-1]  # 返回方法名
                         return member_text
-            elif child.type == 'identifier':
-                # 直接的identifier（作为备选方案）
-                return _get_node_text(child, source_code).strip()
+            # Solidity: member_expression（作为备选方案）
             elif child.type == 'member_expression':
-                # 直接的member_expression（作为备选方案）
                 member_text = _get_node_text(child, source_code).strip()
                 if '.' in member_text:
                     return member_text.split('.')[-1]
@@ -288,6 +320,10 @@ def _parse_rust_function(node: Node, source_code: bytes, file_path: str) -> Opti
         func_name = _get_node_text(name_node, source_code)
         func_content = _get_node_text(node, source_code)
         
+        # 从文件路径提取文件名（不包含扩展名）
+        import os
+        file_name = os.path.splitext(os.path.basename(file_path))[0] if file_path else 'unknown'
+        
         # 提取可见性修饰符
         visibility = 'private'  # Rust默认为私有
         modifiers = []
@@ -323,8 +359,8 @@ def _parse_rust_function(node: Node, source_code: bytes, file_path: str) -> Opti
         function_calls = _extract_function_calls(node, source_code)
         
         return {
-            'name': f"_rust.{func_name}",
-            'contract_name': 'RustModule',
+            'name': f"{file_name}.{func_name}",  # 修改为 文件名.函数名 格式
+            'contract_name': file_name,  # 修改为文件名
             'content': func_content,
             'signature': func_content.split('{')[0].strip() if '{' in func_content else func_content,
             'visibility': visibility,

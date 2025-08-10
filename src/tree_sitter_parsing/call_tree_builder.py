@@ -77,8 +77,8 @@ class SimplifiedCallTreeBuilder:
                     # 清理函数名
                     clean_called_func = called_func.split('.')[-1] if '.' in called_func else called_func
                     
-                    # 检查被调用的函数是否在我们的函数列表中
-                    if clean_called_func in func_map:
+                    # 检查被调用的函数是否在我们的函数列表中，并且不是自引用
+                    if clean_called_func in func_map and clean_called_func != func_name:
                         relationships['downstream'][func_name].add(clean_called_func)
                         if clean_called_func not in relationships['upstream']:
                             relationships['upstream'][clean_called_func] = set()
@@ -92,15 +92,15 @@ class SimplifiedCallTreeBuilder:
                 other_name = other_func['name']  # 使用完整的函数名（包括合约名） 
                 other_content = other_func.get('content', '').lower()
                 
-                # 检查其他函数是否调用了当前函数
-                if self._is_function_called_in_content(func_name, other_content):
+                # 检查其他函数是否调用了当前函数（避免自引用）
+                if other_name != func_name and self._is_function_called_in_content(func_name, other_content):
                     relationships['upstream'][func_name].add(other_name)
                     if other_name not in relationships['downstream']:
                         relationships['downstream'][other_name] = set()
                     relationships['downstream'][other_name].add(func_name)
                 
-                # 检查当前函数是否调用了其他函数
-                if self._is_function_called_in_content(other_name, content):
+                # 检查当前函数是否调用了其他函数（避免自引用）
+                if other_name != func_name and self._is_function_called_in_content(other_name, content):
                     relationships['downstream'][func_name].add(other_name)
                     if other_name not in relationships['upstream']:
                         relationships['upstream'][other_name] = set()
