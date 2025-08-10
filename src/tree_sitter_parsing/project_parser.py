@@ -130,7 +130,7 @@ def _extract_functions_from_node(node: Node, source_code: bytes, language: str, 
             if func_info:
                 functions.append(func_info)
         
-        elif node.type == 'function_definition' and language == 'move':
+        elif node.type == 'function_decl' and language == 'move':
             # Move函数定义
             func_info = _parse_move_function(node, source_code, file_path)
             if func_info:
