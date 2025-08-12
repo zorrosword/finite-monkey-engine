@@ -248,8 +248,8 @@
         "exclude_in_planning":"false",
         "exclude_directory":[]
     },
-    "capstone":{
-        "path":"capstone",
+    "size-vault":{
+        "path":"size-vault",
         "files":[
         ],
         "functions":[],

@@ -225,10 +225,6 @@ class CheckUtils:
             task_manager.update_scan_record(task_id, json.dumps(scan_data, ensure_ascii=False))
             print(f"✅ 验证结果已保存到scan_record，任务ID: {task_id}，保持reasoning原始result不变")
     
-    @staticmethod
-    def should_skip_early(result_status: str) -> bool:
-        """Determine if should exit early"""
-        return "no" in result_status
     
     @staticmethod
     def perform_confirmation_round(code_to_be_tested: str, result: str, 

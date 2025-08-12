@@ -129,7 +129,7 @@ class VulnerabilityScanner:
         
         # 组装完整prompt
         ret_prompt = code + "\n" \
-                    + PeripheryPrompt.role_set_rust_common() + "\n" \
+                    + PeripheryPrompt.role_set_solidity_common() + "\n" \
                     + PeripheryPrompt.task_set_blockchain_common() + "\n" \
                     + CorePrompt.core_prompt_assembled() + "\n" \
                     + rule_content + "\n" \

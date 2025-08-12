@@ -777,32 +777,14 @@ class ResProcessor:
             log_data_info(logger, "总任务实体数量", total_entities)
             print(f"🔍 调试信息 - 总任务实体数量: {total_entities}")
             
-            # 详细分析每个筛选条件
-            entities_with_result = 0
-            entities_with_yes = 0
-            entities_with_business_code = 0
-            
-            for entity in entities:
-                if entity.result:
-                    entities_with_result += 1
-                    if "yes" in str(entity.result).lower():
-                        entities_with_yes += 1
-                    if hasattr(entity, 'business_flow_code') and entity.business_flow_code and len(entity.business_flow_code) > 0:
-                        entities_with_business_code += 1
-            
-            print(f"🔍 调试信息 - 有result的实体: {entities_with_result}")
-            print(f"🔍 调试信息 - result包含'yes'的实体: {entities_with_yes}")
-            print(f"🔍 调试信息 - 有business_flow_code的实体: {entities_with_business_code}")
-            
             # 筛选有漏洞结果的数据
             vulnerability_data = []
             for entity in entities:
                 # 调试每个实体的详细信息
                 has_result = bool(entity.result)
-                has_yes = has_result and ("yes" in str(entity.result).lower())
                 has_business_code = hasattr(entity, 'business_flow_code') and entity.business_flow_code and len(entity.business_flow_code) > 0
                 
-                if has_result and has_yes and has_business_code:
+                if has_result and has_business_code:
                     vulnerability_data.append({
                         '漏洞结果': entity.result,
                         'ID': entity.id,
@@ -823,48 +805,7 @@ class ResProcessor:
             
             filtered_count = len(vulnerability_data)
             print(f"🔍 调试信息 - 通过筛选条件的实体: {filtered_count}")
-            
-            if not vulnerability_data:
-                print(f"⚠️  严格筛选条件未找到数据，尝试宽松筛选条件...")
-                print(f"   - 总实体数: {total_entities}")
-                print(f"   - 有result的: {entities_with_result}")
-                print(f"   - result包含'yes'的: {entities_with_yes}")
-                print(f"   - 有business_flow_code的: {entities_with_business_code}")
-                print(f"   - 通过所有筛选条件的: {filtered_count}")
-                
-                # 尝试宽松筛选条件：只要有result就进行去重
-                print(f"🔄 尝试宽松筛选条件（只要有result）...")
-                for entity in entities:
-                    if entity.result and entity.result.strip():  # 只要有非空result
-                        vulnerability_data.append({
-                            '漏洞结果': entity.result,
-                            'ID': entity.id,
-                            '项目名称': entity.project_id,
-                            '合同编号': getattr(entity, 'contract_code', ''),
-                            'UUID': getattr(entity, 'uuid', ''),
-                            '函数名称': entity.name,
-                            '函数代码': getattr(entity, 'content', ''),
-                            '规则类型': getattr(entity, 'rule_key', ''),
-                            '开始行': getattr(entity, 'start_line', ''),
-                            '结束行': getattr(entity, 'end_line', ''),
-                            '相对路径': getattr(entity, 'relative_file_path', ''),
-                            '绝对路径': getattr(entity, 'absolute_file_path', ''),
-                            '业务流程代码': getattr(entity, 'business_flow_code', ''),
-                            '扫描记录': getattr(entity, 'scan_record', ''),
-                            '推荐': getattr(entity, 'recommendation', '')
-                        })
-                
-                fallback_count = len(vulnerability_data)
-                print(f"🔍 宽松筛选条件找到: {fallback_count} 个实体")
-                
-                if not vulnerability_data:
-                    print(f"❌ 即使使用宽松筛选条件也未找到数据，跳过去重处理")
-                    log_warning(logger, f"严格和宽松筛选条件都未找到数据 - 总实体:{total_entities}, 有result:{entities_with_result}")
-                    return
-                else:
-                    print(f"✅ 使用宽松筛选条件进行去重处理")
-                    log_warning(logger, f"使用宽松筛选条件进行去重 - 原始条件筛选出:{filtered_count}, 宽松条件筛选出:{fallback_count}")
-            
+                        
             original_df = pd.DataFrame(vulnerability_data)
             original_count = len(original_df)
             original_ids = set(original_df['ID'].astype(str))
@@ -887,7 +828,7 @@ class ResProcessor:
             
             # 使用ResProcessor进行去重
             log_step(logger, "开始ResProcessor去重处理")
-            res_processor = ResProcessor(original_df, max_group_size=5, iteration_rounds=4, enable_chinese_translation=False)
+            res_processor = ResProcessor(original_df, max_group_size=5, iteration_rounds=8, enable_chinese_translation=False)
             processed_df = res_processor.process()
             
             deduplicated_count = len(processed_df)
@@ -975,24 +916,24 @@ class ResProcessor:
             # 优先使用validation后的short_result，如果没有则使用原始result
             short_result = entity.short_result
             result = entity.result
-            # if short_result and ("yes" in str(short_result).lower()) and len(entity.business_flow_code)>0:
-            data.append({
-                '漏洞结果': result,
-                'ID': entity.id,
-                '项目名称': entity.project_id,
-                '合同编号': entity.contract_code,
-                'UUID': entity.uuid,  # 使用uuid而不是key
-                '函数名称': entity.name,
-                '函数代码': entity.content,
-                '规则类型': entity.rule_key,  # 新增rule_key
-                '开始行': entity.start_line,
-                '结束行': entity.end_line,
-                '相对路径': entity.relative_file_path,
-                '绝对路径': entity.absolute_file_path,
-                '业务流程代码': entity.business_flow_code,
-                '扫描记录': entity.scan_record,  # 使用新的scan_record字段
-                '推荐': entity.recommendation
-            })
+            if short_result and ("yes" in str(short_result).lower()) and len(entity.business_flow_code)>0:
+                data.append({
+                    '漏洞结果': result,
+                    'ID': entity.id,
+                    '项目名称': entity.project_id,
+                    '合同编号': entity.contract_code,
+                    'UUID': entity.uuid,  # 使用uuid而不是key
+                    '函数名称': entity.name,
+                    '函数代码': entity.content,
+                    '规则类型': entity.rule_key,  # 新增rule_key
+                    '开始行': entity.start_line,
+                    '结束行': entity.end_line,
+                    '相对路径': entity.relative_file_path,
+                    '绝对路径': entity.absolute_file_path,
+                    '业务流程代码': entity.business_flow_code,
+                    '扫描记录': entity.scan_record,  # 使用新的scan_record字段
+                    '推荐': entity.recommendation
+                })
         
         # 打印数据统计信息
         print(f"\n📊 Excel报告数据统计:")
@@ -1010,7 +951,7 @@ class ResProcessor:
         
         try:
             # 对df进行漏洞归集处理
-            res_processor = ResProcessor(df, max_group_size=10, iteration_rounds=5, enable_chinese_translation=True)
+            res_processor = ResProcessor(df, max_group_size=10, iteration_rounds=8, enable_chinese_translation=True)
             processed_df = res_processor.process()
             
             # 确保所有必需的列都存在

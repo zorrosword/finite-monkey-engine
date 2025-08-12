@@ -409,6 +409,12 @@ class AnalysisProcessor:
                 round_results.append(round_result)
                 logs.append(f"第 {round_num} 轮结果: {round_result}")
                 
+                # 🔧 如果任何一轮得到 'no' 结果，直接跳出循环，不执行后续轮次
+                if round_result == 'no':
+                    print(f"🚫 [Round {round_num}] 检测到 'no' 结果，跳过剩余轮次")
+                    logs.append(f"第 {round_num} 轮: 检测到 'no' 结果，跳过剩余轮次")
+                    break
+                
             except Exception as e:
                 logs.append(f"第 {round_num} 轮失败: {str(e)}")
                 round_results.append("not_sure")
@@ -474,63 +480,7 @@ class AnalysisProcessor:
         task_manager.save_task(task)
         
         return final_short_result
-
-    def _build_confirmation_prompt(self, task, comprehensive_analysis: str, round_num: int, max_rounds: int) -> str:
-        """构建确认提示（包含RAG增强信息）"""
-        base_prompt = PromptAssembler.confirmation_analysis_prompt(
-            task.content, comprehensive_analysis
-        )
-        
-        # Add round-specific instructions
-        round_instruction = f"""
-这是第 {round_num}/{max_rounds} 轮确认分析。
-
-上述分析中包含了基于RAG检索的增强上下文信息，请特别注意：
-1. RAG检索到的相关函数和代码片段
-2. 上游/下游函数调用关系信息
-3. 相似功能或漏洞模式的代码
-
-请基于这些增强信息进行更准确的漏洞确认。
-"""
-        
-        return base_prompt + round_instruction
     
-    def _perform_initial_analysis(self, code_to_be_tested: str, result: str, analysis_collection: List) -> Tuple:
-        """Execute initial analysis"""
-        prompt = PromptAssembler.assemble_vul_check_prompt(code_to_be_tested, result)
-        
-        initial_response = common_ask_confirmation(prompt)
-        if not initial_response or initial_response == "":
-            return "not sure", "Empty response"
-        
-
-
-        # Collect initial analysis results
-        analysis_collection.extend([
-            "=== Initial Analysis Results ===",
-            initial_response
-        ])
-
-        # Process initial response
-        initial_result_status = CheckUtils.process_round_response(initial_response)
-        analysis_collection.extend([
-            "=== Initial Analysis Status ===",
-            initial_result_status
-        ])
-
-        # Extract required information
-        required_info = self.context_data.get("extract_required_info")(initial_response)
-        if required_info:
-            analysis_collection.append("=== Information Requiring Further Analysis ===")
-            analysis_collection.extend(required_info)
-
-        if CheckUtils.should_skip_early(initial_result_status):
-            return "no", "Analysis stopped after initial round due to clear 'no vulnerability' result"
-        
-        return None, None  # Continue with multi-round confirmation
-    
-
-
     def _execute_single_detection_round(self, vulnerability_result, business_flow_code, task, round_num, logs):
         """执行单轮检测流程"""
         from openai_api.openai import (ask_agent_initial_analysis,
@@ -595,6 +545,10 @@ class AnalysisProcessor:
             if assessment in ['yes', 'no']:
                 print(f"✅ [Round {round_num}] 获得明确结果: {assessment}")
                 logs.append(f"第 {round_num} 轮: 明确结果，直接返回")
+                # 🔧 特别是在遇到 'no' 时，直接退出不进行后续确认
+                if assessment == 'no':
+                    print(f"🚫 [Round {round_num}] 检测到 'no' 结果，跳过所有后续确认流程")
+                    logs.append(f"第 {round_num} 轮: 检测到 'no' 结果，提前结束验证")
                 return assessment
             
             # 如果需要更多信息，进入自循环（最多10轮）
@@ -676,6 +630,10 @@ class AnalysisProcessor:
                             if final_assessment in ['yes', 'no']:
                                 print(f"🎯 [Round {round_num}-{inner_round}] 内部循环获得明确结果: {final_assessment}")
                                 logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 得到明确结果，退出循环")
+                                # 🔧 特别是在遇到 'no' 时，直接退出不进行后续确认
+                                if final_assessment == 'no':
+                                    print(f"🚫 [Round {round_num}-{inner_round}] 内部循环检测到 'no' 结果，跳过所有后续确认流程")
+                                    logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 检测到 'no' 结果，提前结束验证")
                                 return final_assessment
                             
                             # 如果仍然是need_more_info，继续下一轮
@@ -974,6 +932,19 @@ class AnalysisProcessor:
         """汇总三轮结果，生成最终判断"""
         logs.append("开始汇总三轮结果")
         
+        # 🔧 特殊处理：如果第一轮就是 'no' 并且只有一轮结果，直接返回 'no'
+        if len(round_results) == 1 and round_results[0] == 'no':
+            logs.append("特殊情况: 第一轮即为 'no' 结果，提前退出验证")
+            final_short_result = "no"
+            decision_reason = "第一轮检测确认不存在漏洞，提前结束验证"
+            detailed_result = f"""Agent化检测结果（提前退出）:
+轮次结果: {round_results}
+最终判断: {final_short_result}
+决策依据: {decision_reason}
+"""
+            logs.append(f"最终汇总: {final_short_result} - {decision_reason}")
+            return final_short_result, detailed_result
+        
         # 统计各种结果
         yes_count = sum(1 for result in round_results if result == 'yes')
         no_count = sum(1 for result in round_results if result == 'no')
@@ -988,16 +959,19 @@ class AnalysisProcessor:
         elif no_count >= 2:  # 至少2轮说no
             final_short_result = "no"
             decision_reason = f"3轮检测中{no_count}轮确认不存在漏洞"
+        elif no_count >= 1:  # 🔧 改进：任何一轮说no，就倾向于no（特别是提前退出的情况）
+            final_short_result = "no"
+            decision_reason = f"检测中{no_count}轮确认不存在漏洞"
         else:  # 结果不一致或都是not_sure
             if yes_count > no_count:
                 final_short_result = "yes"
-                decision_reason = f"3轮检测结果不一致，但{yes_count}轮倾向于存在漏洞"
+                decision_reason = f"检测结果不一致，但{yes_count}轮倾向于存在漏洞"
             elif no_count > yes_count:
                 final_short_result = "no"
-                decision_reason = f"3轮检测结果不一致，但{no_count}轮倾向于不存在漏洞"
+                decision_reason = f"检测结果不一致，但{no_count}轮倾向于不存在漏洞"
             else:
                 final_short_result = "not_sure"
-                decision_reason = f"3轮检测结果无法确定，需人工复核"
+                decision_reason = f"检测结果无法确定，需人工复核"
         
         # 生成详细结果
         detailed_result = f"""Agent化三轮检测结果:
