@@ -177,8 +177,13 @@ def _extract_function_calls(node: Node, source_code: bytes) -> List[str]:
     calls = []
     
     def traverse_for_calls(node):
-        if node.type == 'call_expression':
-            # 获取被调用的函数名
+        # Move语言的函数调用节点类型
+        if node.type in ['call_expr', 'receiver_call']:
+            called_func = _get_function_call_name(node, source_code)
+            if called_func:
+                calls.append(called_func)
+        # 其他语言的函数调用节点类型
+        elif node.type == 'call_expression':
             called_func = _get_function_call_name(node, source_code)
             if called_func:
                 calls.append(called_func)
@@ -194,7 +199,29 @@ def _extract_function_calls(node: Node, source_code: bytes) -> List[str]:
 def _get_function_call_name(call_node: Node, source_code: bytes) -> Optional[str]:
     """从call_expression节点中提取被调用的函数名"""
     try:
-        # 遍历call_expression的子节点查找函数名
+        # Move语言: call_expr 和 receiver_call
+        if call_node.type == 'call_expr':
+            # Move函数调用: name_access_chain + call_args
+            for child in call_node.children:
+                if child.type == 'name_access_chain':
+                    chain_text = _get_node_text(child, source_code).strip()
+                    # 处理模块调用: module::function -> module.function
+                    if '::' in chain_text:
+                        parts = chain_text.split('::')
+                        if len(parts) >= 2:
+                            module_name = parts[-2]
+                            func_name = parts[-1]
+                            return f"{module_name}.{func_name}"
+                    # 简单函数调用
+                    return chain_text
+        elif call_node.type == 'receiver_call':
+            # Move方法调用: obj.method()
+            for child in call_node.children:
+                if child.type == 'identifier':
+                    # 返回方法名
+                    return _get_node_text(child, source_code).strip()
+        
+        # 遍历call_expression的子节点查找函数名（Rust/Solidity）
         for child in call_node.children:
             # Rust: scoped_identifier (如 instructions::borrow)
             if child.type == 'scoped_identifier':
@@ -473,10 +500,33 @@ def _parse_move_function(node: Node, source_code: bytes, file_path: str) -> Opti
         func_content = _get_node_text(node, source_code)
         
         # 提取可见性、修饰符、参数和返回类型
-        visibility = 'private'  # Move默认为私有
+        visibility = 'public'  # Move默认为公开（与其他语言不同）
         modifiers = []
         parameters = []
         return_type = ''
+        is_test_function = False
+        
+        # 检查是否是测试函数（测试函数默认为private）
+        func_content_str = func_content
+        if '#[test' in func_content_str or 'test_only' in func_content_str:
+            visibility = 'private'
+            is_test_function = True
+        
+        # 检查父节点中的可见性修饰符（Move特有的结构）
+        if node.parent and node.parent.type == 'declaration':
+            for sibling in node.parent.children:
+                if sibling.type == 'module_member_modifier':
+                    modifier_text = _get_node_text(sibling, source_code).strip()
+                    if modifier_text.startswith('public'):
+                        visibility = 'public'
+                        if '(' in modifier_text:  # public(script), public(friend), public(package)
+                            modifiers.append(modifier_text)
+                elif sibling.type == 'attributes' or '#[test' in _get_node_text(sibling, source_code):
+                    # 检查属性节点中的测试标记
+                    attr_text = _get_node_text(sibling, source_code)
+                    if '#[test' in attr_text or 'test_only' in attr_text:
+                        visibility = 'private'
+                        is_test_function = True
         
         for child in node.children:
             if child.type == 'visibility':
@@ -486,6 +536,21 @@ def _parse_move_function(node: Node, source_code: bytes, file_path: str) -> Opti
                     visibility = 'public'
                     if '(' in vis_text:  # public(script), public(friend)
                         modifiers.append(vis_text)
+            elif child.type == 'public':
+                # Move AST中的public节点
+                visibility = 'public'
+                # 检查是否有修饰符如public(friend)
+                next_sibling = child.next_sibling
+                if next_sibling and next_sibling.type == '(':
+                    # 收集public(...)形式的修饰符
+                    pub_modifier = 'public'
+                    current = next_sibling
+                    while current and current.type != ')':
+                        pub_modifier += _get_node_text(current, source_code)
+                        current = current.next_sibling
+                    if current and current.type == ')':
+                        pub_modifier += ')'
+                        modifiers.append(pub_modifier)
             elif child.type == 'ability':
                 # Move特有的 ability
                 ability_text = _get_node_text(child, source_code).strip()
@@ -515,12 +580,16 @@ def _parse_move_function(node: Node, source_code: bytes, file_path: str) -> Opti
         if 'native' in func_content:
             modifiers.append('native')
         
+        # 从文件路径提取文件名（不包含扩展名）
+        import os
+        file_name = os.path.splitext(os.path.basename(file_path))[0] if file_path else 'unknown'
+        
         # 提取函数调用
         function_calls = _extract_function_calls(node, source_code)
         
         return {
-            'name': f"_move.{func_name}",
-            'contract_name': 'MoveModule',
+            'name': f"{file_name}.{func_name}",  # 修改为 文件名.函数名 格式
+            'contract_name': file_name,  # 使用文件名作为模块名
             'content': func_content,
             'signature': func_content.split('{')[0].strip() if '{' in func_content else func_content,
             'visibility': visibility,

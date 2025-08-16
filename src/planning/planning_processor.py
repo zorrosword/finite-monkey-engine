@@ -12,7 +12,7 @@ from dao.task_mgr import ProjectTaskMgr
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tqdm import tqdm
 from dao.entity import Project_Task
-from openai_api.openai import common_ask_for_json, ask_claude
+from openai_api.openai import extract_structured_json, analyze_code_assumptions
 from prompt_factory.core_prompt import CorePrompt
 from prompt_factory.vul_prompt_common import VulPromptCommon
 from prompt_factory.assumption_prompt import AssumptionPrompt
@@ -81,11 +81,11 @@ class PlanningProcessor:
         """初始化RAG处理器（可选功能）"""
         try:
             from context.rag_processor import RAGProcessor
-            # 正确传递参数：functions_to_check作为第一个参数，并传递调用树数据
-            call_trees = getattr(self.project_audit, 'call_trees', [])
-            self.rag_processor = RAGProcessor(self.functions_to_check, lancedb_path, project_id, call_trees)
+            # 正确传递参数：project_audit作为第一个参数
+            self.rag_processor = RAGProcessor(self.project_audit, lancedb_path, project_id)
             print("✅ RAG处理器初始化完成")
             print(f"📊 基于 {len(self.functions_to_check)} 个tree-sitter解析的函数构建RAG")
+            call_trees = getattr(self.project_audit, 'call_trees', [])
             print(f"🔗 使用 {len(call_trees)} 个调用树构建关系型RAG")
         except ImportError:
             print("⚠️  RAG处理器不可用，将使用简化搜索")
@@ -123,7 +123,7 @@ class PlanningProcessor:
                 if visibility == 'public' or not visibility:  # C++默认public
                     if "exec" in func_name:
                         public_functions_by_lang['cpp'].append(func)
-            elif func_name.endswith('.move') or 'move' in func.get('relative_file_path', '').lower():
+            elif 'move' in func.get('relative_file_path', '').lower():
                 if visibility == 'public' or visibility == 'public(friend)':
                     public_functions_by_lang['move'].append(func)
         
@@ -235,13 +235,21 @@ class PlanningProcessor:
                 complexity += 1
             elif node.type in decision_nodes['conditional']:  # 三元运算符
                 complexity += 1
-            elif node.type == 'binary_expression':
+            elif node.type in ['binary_expression', 'bin_op_expr']:
                 # 检查逻辑运算符
                 operator = node.child_by_field_name('operator')
                 if operator:
                     operator_text = operator.text.decode('utf8')
                     if operator_text in ['&&', '||', 'and', 'or']:
                         complexity += 1
+                else:
+                    # Move语言中可能需要遍历子节点寻找操作符
+                    for child in node.children:
+                        if child.type == 'binary_operator':
+                            operator_text = child.text.decode('utf8')
+                            if operator_text in ['&&', '||', 'and', 'or']:
+                                complexity += 1
+                                break
         
         return complexity
     
@@ -262,10 +270,18 @@ class PlanningProcessor:
                     complexity += calculate_recursive(child, nesting_level + 1)
             elif node_type in decision_nodes['conditional']:
                 complexity += 1 + nesting_level
-            elif node_type == 'binary_expression':
+            elif node_type in ['binary_expression', 'bin_op_expr']:
                 operator = node.child_by_field_name('operator')
                 if operator and operator.text.decode('utf8') in ['&&', '||', 'and', 'or']:
                     complexity += 1
+                else:
+                    # Move语言中可能需要遍历子节点寻找操作符
+                    for child in node.children:
+                        if child.type == 'binary_operator':
+                            operator_text = child.text.decode('utf8')
+                            if operator_text in ['&&', '||', 'and', 'or']:
+                                complexity += 1
+                                break
                 # 不增加嵌套层级处理逻辑运算符
                 for child in node.children:
                     complexity += calculate_recursive(child, nesting_level)
@@ -294,8 +310,8 @@ class PlanningProcessor:
                 'conditional': ['conditional_expression']
             },
             'move': {
-                'control_flow': ['if_expression', 'while_expression', 'loop_expression'],
-                'conditional': ['conditional_expression']
+                'control_flow': ['if_expr', 'while_expr', 'for_expr', 'loop_expr', 'match_expr'],
+                'conditional': []
             }
         }
         
@@ -378,6 +394,7 @@ class PlanningProcessor:
         - 认知复杂度 = 0 且 圈复杂度 ≤ 2 → 跳过扫描（简单函数）
         - 圈复杂度 = 2 且 认知复杂度 = 1 → 跳过扫描（简单函数）
         - 圈复杂度 = 3 且 认知复杂度 = 2 → 跳过扫描（简单函数）
+        - 函数内容长度 < 200 → 跳过扫描（短函数）
         - 其他函数 → 保留扫描（复杂函数）
         
         Args:
@@ -403,7 +420,7 @@ class PlanningProcessor:
         reduced_iteration_functions = []
         
         print("\n🎯 开始基于复杂度过滤函数...")
-        print("📋 过滤策略: 认知复杂度=0且圈复杂度≤2，或者圈复杂度=2且认知复杂度=1，或者圈复杂度=3且认知复杂度=2的函数将被跳过")
+        print("📋 过滤策略: 认知复杂度=0且圈复杂度≤2，或者圈复杂度=2且认知复杂度=1，或者圈复杂度=3且认知复杂度=2，或者函数内容长度<200的函数将被跳过")
         
         for lang, funcs in public_functions_by_lang.items():
             if not funcs:
@@ -419,15 +436,25 @@ class PlanningProcessor:
                 # 计算复杂度
                 complexity = self._calculate_simple_complexity(func_content, lang)
                 
-                # 判断是否跳过
-                if complexity['should_skip']:
+                # 判断是否跳过 - 添加内容长度过滤
+                content_length = len(func_content)
+                should_skip_by_length = content_length < 200
+                
+                if complexity['should_skip'] or should_skip_by_length:
+                    skip_reason = []
+                    if complexity['should_skip']:
+                        skip_reason.append(f"圈:{complexity['cyclomatic']}, 认知:{complexity['cognitive']}")
+                    if should_skip_by_length:
+                        skip_reason.append(f"长度:{content_length}<200")
+                    
                     skipped_functions.append({
                         'name': func_name,
                         'language': lang,
                         'cyclomatic': complexity['cyclomatic'],
-                        'cognitive': complexity['cognitive']
+                        'cognitive': complexity['cognitive'],
+                        'content_length': content_length
                     })
-                    print(f"  ⏭️  跳过简单函数: {func_name} (圈:{complexity['cyclomatic']}, 认知:{complexity['cognitive']})")
+                    print(f"  ⏭️  跳过函数: {func_name} ({', '.join(skip_reason)})")
                 else:
                     # 检查是否需要降低迭代次数
                     if complexity.get('should_reduce_iterations', False):
@@ -440,7 +467,7 @@ class PlanningProcessor:
                         })
                         print(f"  🔄 中等复杂函数(降低迭代): {func_name} (圈:{complexity['cyclomatic']}, 认知:{complexity['cognitive']})")
                     else:
-                        print(f"  ✅ 保留复杂函数: {func_name} (圈:{complexity['cyclomatic']}, 认知:{complexity['cognitive']})")
+                        print(f"  ✅ 保留复杂函数: {func_name} (圈:{complexity['cyclomatic']}, 认知:{complexity['cognitive']}),函数长度：{len(func_content)}")
                     
                     filtered_functions[lang].append(func)
                     total_filtered += 1
@@ -465,9 +492,9 @@ class PlanningProcessor:
         if len(skipped_functions) <= 10:
             print(f"\n⏭️  跳过的简单函数列表:")
             for func in skipped_functions:
-                print(f"  • {func['language']}.{func['name']} (圈:{func['cyclomatic']}, 认知:{func['cognitive']})")
+                print(f"  • {func['language']}.{func['name']} (圈:{func['cyclomatic']}, 认知:{func['cognitive']}, 长度:{func['content_length']})")
         elif skipped_functions:
-            print(f"\n⏭️  跳过了 {len(skipped_functions)} 个简单函数 (认知复杂度=0且圈复杂度≤2，或圈复杂度=2且认知复杂度=1，或圈复杂度=3且认知复杂度=2)")
+            print(f"\n⏭️  跳过了 {len(skipped_functions)} 个简单函数 (认知复杂度=0且圈复杂度≤2，或圈复杂度=2且认知复杂度=1，或圈复杂度=3且认知复杂度=2，或函数内容长度<200)")
         
         # 显示降低迭代次数的函数列表
         if reduced_iteration_functions:
@@ -604,7 +631,7 @@ class PlanningProcessor:
         
         # 🎯 基于复杂度过滤函数（基于fishcake项目分析优化）
         # 过滤策略：认知复杂度=0 且 圈复杂度≤2 的简单函数将被跳过
-        if os.getenv("COMPLEXITY_ANALYSIS_ENABLED", "False").lower() == "true":
+        if COMPLEXITY_ANALYSIS_ENABLED:
             public_functions_by_lang = self.filter_functions_by_complexity(public_functions_by_lang)
         
         tasks = []
@@ -621,10 +648,13 @@ class PlanningProcessor:
                 print(f"\n📋 处理 {lang} 语言的 {len(public_funcs)} 个public函数...")
                 
                 for public_func in public_funcs:
-                    func_name = public_func['name']
-                    
+                    func_name = public_func['name']                    
                     # print(f"  🔍 分析public函数: {func_name}")
                     
+                    if "test" in str(func_name).lower():
+                        print("发现测试函数，跳过")
+                        continue
+
                     # 使用call tree获取downstream内容
                     downstream_content = self.get_downstream_content_with_call_tree(func_name, max_depth)
                     
@@ -670,6 +700,10 @@ class PlanningProcessor:
                     func_name = public_func['name']
                     
                     # print(f"  🔍 分析public函数: {func_name}")
+                    if "test" in str(func_name).lower():
+                        print("发现测试函数，跳过")
+                        continue
+
                     
                     # 使用call tree获取downstream内容
                     downstream_content = self.get_downstream_content_with_call_tree(func_name, max_depth)
@@ -812,7 +846,8 @@ class PlanningProcessor:
         
         # 🎯 基于复杂度过滤函数（基于fishcake项目分析优化）
         # 过滤策略：认知复杂度=0 且 圈复杂度≤2 的简单函数将被跳过
-        public_functions_by_lang = self.filter_functions_by_complexity(public_functions_by_lang)
+        if COMPLEXITY_ANALYSIS_ENABLED:
+            public_functions_by_lang = self.filter_functions_by_complexity(public_functions_by_lang)
         
         tasks = []
         task_id = 0
@@ -827,6 +862,9 @@ class PlanningProcessor:
                 func_name = public_func['name']
                 
                 # print(f"  🔍 分析public函数: {func_name}")
+                if "test" in str(func_name).lower():
+                    print("发现测试函数，跳过")
+                    continue
                 
                 # 提取该public函数的所有downstream函数
                 downstream_chain = self.extract_downstream_to_deepest(func_name)
@@ -1093,7 +1131,7 @@ class PlanningProcessor:
         
         try:
             print("🤖 正在使用Claude分析代码假设...")
-            result = ask_claude(assumption_prompt)
+            result = analyze_code_assumptions(assumption_prompt)
             print("✅ Claude分析完成")
             return result
         except Exception as e:

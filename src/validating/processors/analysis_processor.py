@@ -9,7 +9,7 @@ from dao.entity import Project_Task
 
 from ..utils.check_utils import CheckUtils
 from prompt_factory.prompt_assembler import PromptAssembler
-from openai_api.openai import ask_claude, common_ask_confirmation, common_ask_for_json
+from openai_api.openai import analyze_code_assumptions, extract_structured_json
 
 
 class AnalysisProcessor:
@@ -158,7 +158,7 @@ class AnalysisProcessor:
 
         try:
             # 询问大模型选择RAG类型
-            response = common_ask_for_json(rag_selection_prompt)
+            response = extract_structured_json(rag_selection_prompt)
             
             if not response:
                 return {
@@ -278,7 +278,7 @@ class AnalysisProcessor:
 
 只返回JSON，不要其他解释。"""
 
-            response = common_ask_for_json(extract_prompt)
+            response = extract_structured_json(extract_prompt)
             if response:
                 extracted = json.loads(response) if isinstance(response, str) else response
                 return extracted.get('required_info', [])
@@ -483,9 +483,9 @@ class AnalysisProcessor:
     
     def _execute_single_detection_round(self, vulnerability_result, business_flow_code, task, round_num, logs):
         """执行单轮检测流程"""
-        from openai_api.openai import (ask_agent_initial_analysis,
-                                       ask_agent_info_query, ask_agent_info_extraction,
-                                       ask_agent_final_analysis)
+        from openai_api.openai import (perform_initial_vulnerability_scan,
+                                       determine_additional_context_needed,
+                                       perform_comprehensive_vulnerability_analysis)
         from prompt_factory.vul_check_prompt import VulCheckPrompt
         
         print(f"🔍 [Round {round_num}] 开始执行单轮检测流程")
@@ -498,7 +498,7 @@ class AnalysisProcessor:
 
         try:
             # 使用专门的初始分析模型获取自然语言响应
-            natural_response = ask_agent_initial_analysis(initial_prompt)
+            natural_response = perform_initial_vulnerability_scan(initial_prompt)
             
             # 🔍 初始分析调试信息
             logs.append(f"第 {round_num} 轮: 初始分析响应类型={type(natural_response)}")
@@ -516,7 +516,7 @@ class AnalysisProcessor:
                 natural_response
             )
 
-            initial_response = common_ask_for_json(json_extraction_prompt)
+            initial_response = extract_structured_json(json_extraction_prompt)
             
             # 🔍 详细调试信息
             logs.append(f"第 {round_num} 轮: JSON提取原始响应类型={type(initial_response)}")
@@ -528,7 +528,7 @@ class AnalysisProcessor:
                 return "not_sure"
             
             try:
-                # 🔧 common_ask_for_json 已经处理了JSON提取，直接解析
+                # 🔧 ask_openai_for_json 已经处理了JSON提取，直接解析
                 initial_result = json.loads(initial_response) if isinstance(initial_response, str) else initial_response
                 logs.append(f"第 {round_num} 轮: JSON解析成功，结果类型={type(initial_result)}")
             except json.JSONDecodeError as e:
@@ -588,7 +588,7 @@ class AnalysisProcessor:
                         )
                         
                         # 使用专门的最终分析模型进行最终分析
-                        final_natural_response = ask_agent_final_analysis(final_analysis_prompt)
+                        final_natural_response = perform_comprehensive_vulnerability_analysis(final_analysis_prompt)
                         
                         # 🔍 最终分析调试信息
                         logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终分析响应类型={type(final_natural_response)}")
@@ -605,7 +605,7 @@ class AnalysisProcessor:
                             final_natural_response
                         )
 
-                        final_response = common_ask_for_json(final_extraction_prompt)
+                        final_response = extract_structured_json(final_extraction_prompt)
                         
                         # 🔍 最终结果提取调试信息
                         logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终提取原始响应类型={type(final_response)}")
@@ -616,7 +616,7 @@ class AnalysisProcessor:
                             continue
                         
                         try:
-                            # 🔧 common_ask_for_json 已经处理了JSON提取，直接解析
+                            # 🔧 extract_structured_json 已经处理了JSON提取，直接解析
                             final_result = json.loads(final_response) if isinstance(final_response, str) else final_response
                             logs.append(f"第 {round_num} 轮-内部第 {inner_round} 次: 最终JSON解析成功，结果类型={type(final_result)}")
                             

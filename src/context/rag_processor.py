@@ -8,7 +8,7 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 
-from openai_api.openai import common_get_embedding, common_ask_for_json
+from openai_api.openai import common_get_embedding, ask_openai_for_json
 
 
 class RAGProcessor:
@@ -189,7 +189,7 @@ Please respond with a comprehensive explanation in English:
 """
         
         try:
-            response = common_ask_for_json(prompt)
+            response = ask_openai_for_json(prompt)
             # 如果返回的是JSON格式，提取实际的描述内容
             if isinstance(response, dict):
                 return response.get('description', response.get('explanation', str(response)))
@@ -222,7 +222,7 @@ Response format: A clear, structured description in English.
 """
         
         try:
-            response = common_ask_for_json(prompt)
+            response = ask_openai_for_json(prompt)
             if isinstance(response, dict):
                 return response.get('description', response.get('explanation', str(response)))
             return str(response)
@@ -253,7 +253,7 @@ Response format: A clear, concise description in English (2-3 sentences).
 """
         
         try:
-            response = common_ask_for_json(prompt)
+            response = ask_openai_for_json(prompt)
             if isinstance(response, dict):
                 return response.get('description', response.get('explanation', str(response)))
             return str(response)

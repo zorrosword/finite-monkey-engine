@@ -25,7 +25,7 @@ The OpenAI API component provides integration with OpenAI's language models for 
 The component provides several key functions:
 - `ask_vul()`: Vulnerability analysis queries
 - `ask_claude()`: General code analysis queries
-- `common_ask_for_json()`: Structured JSON responses
+- `ask_openai_for_json()`: Structured JSON responses
 - `common_get_embedding()`: Text embedding generation
 
 ## Usage
@@ -55,10 +55,10 @@ print(f"Embedding dimension: {len(embedding)}")
 ### Structured Responses
 
 ```python
-from openai_api.openai import common_ask_for_json
+from openai_api.openai import ask_openai_for_json
 
 # Get structured JSON response
-json_response = common_ask_for_json(
+json_response = ask_openai_for_json(
     prompt="Analyze this code and return results as JSON",
     expected_structure={"vulnerabilities": [], "severity": "string"}
 )
@@ -178,10 +178,10 @@ def common_get_embedding(text: str, model: str = "text-embedding-3-small") -> Li
 
 - `List[float]`: Text embedding vector
 
-### common_ask_for_json Function
+### ask_openai_for_json Function
 
 ```python
-def common_ask_for_json(prompt: str, expected_structure: Dict) -> Dict:
+def ask_openai_for_json(prompt: str, expected_structure: Dict) -> Dict:
     """Get structured JSON response from OpenAI"""
     pass
 ```

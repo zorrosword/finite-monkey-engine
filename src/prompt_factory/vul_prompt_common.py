@@ -156,21 +156,73 @@ class VulPromptCommon:
             "Accepting high slippage allowing pool manipulation"
         ]
 
+        erc4626_security_list_1 = [
+            "Check if balance differences are recorded correctly instead of using expected transfer amounts",
+            "Verify all token operations support tokens that revert on zero transfers like LEND",
+            "Confirm system correctly handles precision conversion for tokens with different decimals",
+            "Check compatibility handling for rebasing tokens and fee-on-transfer tokens",
+            "Verify special handling for potentially blacklisted tokens like USDT",
+            "Check if first deposit has minimum value requirements or pre-minted share protection",
+            "Verify use of virtual share offset to prevent rate manipulation through donations",
+            "Confirm rounding direction in deposit and mint functions favors the protocol",
+            "Check consistency between preview functions and actual operation function rounding",
+            "Verify all external calls execute after state updates following CEI pattern",
+            "Check protection against reentrancy from ERC777 and tokens with hooks",
+            "Confirm comprehensive protection measures against cross-function reentrancy attacks",
+            "Check all sensitive functions have correct access control modifiers",
+            "Verify proxy withdrawal operations check correct authorized addresses"
+        ]
+
+        erc4626_security_list_2 = [
+            "Confirm admin functions cannot be bypassed by regular users",
+            "Check correct implementation of multisig or timelock controls",
+            "Verify Oracle prices check timeliness and reasonable boundary limits",
+            "Check validation for L2 sequencer downtime",
+            "Confirm price calculations use correct base and quote token order",
+            "Verify protection against Oracle manipulation with TWAP or other measures",
+            "Check if division executes before multiplication causing precision loss",
+            "Verify correct precision scaling when mixing different decimal tokens",
+            "Confirm critical calculations use rounding direction favoring protocol",
+            "Check liquidation only executes after actual default not premature liquidation",
+            "Verify liquidation incentive mechanisms are sufficient without enabling self-liquidation arbitrage",
+            "Confirm liquidation collateral calculations include correct token scaling",
+            "Check partial liquidations correctly handle bad debt and health improvement",
+            "Verify deposit/withdrawal limit checks consider actual underlying vault limits"
+        ]
+
+        erc4626_security_list_3 = [
+            "Check asset allocation and redemption logic completeness in multi-vault systems",
+            "Confirm user funds can be normally withdrawn when vault is paused",
+            "Check fee calculations use actual exchange amounts not input parameter amounts",
+            "Verify total supply syncs before fee minting during reward distribution",
+            "Confirm protocol fee collection cannot be bypassed or manipulated by users",
+            "Verify cross-chain messages validate sender and chain ID validity",
+            "Check Layer2 bridge operations use lock-unlock instead of mint-burn pattern",
+            "Confirm upgradeable contracts have storage gaps to prevent conflicts",
+            "Check critical parameter changes have timelocks or require rebalancing",
+            "Verify user operations have sufficient slippage protection parameters",
+            "Check automated operations like compounding prevent MEV arbitrage attacks",
+            "Confirm all division by zero underflow overflow and array bounds are handled",
+        ]
+
         # 组合后的检查列表 (3+3+3+2)
         permission_reentrancy_list = permission_control_list + reentrancy_list
-        module_call_fund_list = module_call_list + fund_management_list
+        # module_call_fund_list = module_call_list + fund_management_list
         external_dependency_trade_list = external_dependency_list + trade_execution_list
 
         # 将所有检查列表组织成一个有序字典
         all_checklists = {
             "parameter_validation": parameter_validation_list,
-            "arithmetic_calculation": arithmetic_calculation_list,
+            # "arithmetic_calculation": arithmetic_calculation_list,
             "state_updates": state_updates_list,
             "consistency": consistency_list,
-            "permission_reentrancy": permission_reentrancy_list,
+            # "permission_reentrancy": permission_reentrancy_list,
             "business_logic": business_logic_list,
-            "module_call_fund": module_call_fund_list,
-            "external_dependency_trade": external_dependency_trade_list,
+            "fund_management": fund_management_list,
+            # "external_dependency_trade": external_dependency_trade_list,
+            # "erc4626_security_1": erc4626_security_list_1,
+            # "erc4626_security_2": erc4626_security_list_2,
+            # "erc4626_security_3": erc4626_security_list_3,
             
         }
 

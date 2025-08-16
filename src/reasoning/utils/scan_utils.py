@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 from prompt_factory.prompt_assembler import PromptAssembler
 from prompt_factory.vul_prompt_common import VulPromptCommon
-from openai_api.openai import ask_vul, ask_deepseek, ask_claude, cut_reasoning_content
+from openai_api.openai import detect_vulnerabilities, ask_deepseek, analyze_code_assumptions
 
 
 class ScanUtils:

@@ -248,8 +248,8 @@
         "exclude_in_planning":"false",
         "exclude_directory":[]
     },
-    "size-vault":{
-        "path":"size-vault",
+    "pebble":{
+        "path":"pebble",
         "files":[
         ],
         "functions":[],

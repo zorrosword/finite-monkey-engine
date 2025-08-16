@@ -1,0 +1,441 @@
+2025-08-14 04:37:39 | INFO     | logging_config       | setup_logging   | ================================================================================
+2025-08-14 04:37:39 | INFO     | logging_config       | setup_logging   | 🚀 Finite Monkey Engine 日志系统启动
+2025-08-14 04:37:39 | INFO     | logging_config       | setup_logging   | 📁 日志文件路径: logs/finite_monkey_engine_20250814_043739.log
+2025-08-14 04:37:39 | INFO     | logging_config       | setup_logging   | 📊 日志级别: INFO
+2025-08-14 04:37:39 | INFO     | logging_config       | setup_logging   | 🕐 启动时间: 2025-08-14 04:37:39
+2025-08-14 04:37:39 | INFO     | logging_config       | setup_logging   | ================================================================================
+2025-08-14 04:37:39 | INFO     | main                 | <module>        | 🎯 程序启动参数:
+2025-08-14 04:37:39 | INFO     | main                 | <module>        |    Python版本: 3.9.6 (default, Nov 11 2024, 03:15:38) 
+[Clang 16.0.0 (clang-1600.0.26.6)]
+2025-08-14 04:37:39 | INFO     | main                 | <module>        |    工作目录: /Users/xueyue/Desktop/projects/finite-monkey-engine
+2025-08-14 04:37:39 | INFO     | main                 | <module>        |    环境变量已加载
+2025-08-14 04:37:39 | INFO     | main                 | <module>        | 运行模式: test
+2025-08-14 04:37:39 | INFO     | main                 | log_section_start | ============================================================
+2025-08-14 04:37:39 | INFO     | main                 | log_section_start | 🔥 开始执行: 测试模式执行
+2025-08-14 04:37:39 | INFO     | main                 | log_section_start | ============================================================
+2025-08-14 04:37:39 | INFO     | main                 | log_step        | 🔹 初始化数据库连接
+2025-08-14 04:37:39 | INFO     | main                 | <module>        | 数据库URL: postgresql://postgres:1234@127.0.0.1:5432/postgres
+2025-08-14 04:37:39 | INFO     | main                 | log_success     | ✅ 成功: 数据库连接创建完成
+2025-08-14 04:37:39 | INFO     | main                 | log_step        | 🔹 加载数据集
+2025-08-14 04:37:39 | INFO     | main                 | <module>        | 数据集路径: ./src/dataset/agent-v1-c4
+2025-08-14 04:37:39 | INFO     | main                 | log_success     | ✅ 成功: 数据集加载完成
+2025-08-14 04:37:39 | INFO     | main                 | log_success     |    详情: 找到 30 个项目
+2025-08-14 04:37:39 | INFO     | main                 | <module>        | 目标项目ID: dex_solana_v3
+2025-08-14 04:37:39 | INFO     | main                 | log_success     | ✅ 成功: 项目对象创建完成
+2025-08-14 04:37:39 | INFO     | main                 | <module>        | 扫描模式: COMMON_PROJECT_FINE_GRAINED
+2025-08-14 04:37:39 | INFO     | main                 | <module>        | 执行命令: detect_vul
+2025-08-14 04:37:39 | INFO     | scan_project         | log_section_start | ============================================================
+2025-08-14 04:37:39 | INFO     | scan_project         | log_section_start | 🔥 开始执行: 项目扫描
+2025-08-14 04:37:39 | INFO     | scan_project         | log_section_start | 📝 描述: 项目ID: dex_solana_v3, 路径: ./src/dataset/agent-v1-c4/dex_solana_v3
+2025-08-14 04:37:39 | INFO     | scan_project         | log_section_start | ============================================================
+2025-08-14 04:37:39 | INFO     | scan_project         | log_step        | 🔹 Tree-sitter解析项目
+2025-08-14 04:37:39 | INFO     | scan_project         | log_step        |    详情: 项目路径: ./src/dataset/agent-v1-c4/dex_solana_v3
+2025-08-14 04:37:39 | INFO     | ProjectAudit[dex_solana_v3] | __init__        | 初始化项目审计器: dex_solana_v3
+2025-08-14 04:37:39 | INFO     | ProjectAudit[dex_solana_v3] | __init__        | 项目路径: ./src/dataset/agent-v1-c4/dex_solana_v3
+2025-08-14 04:37:39 | INFO     | ProjectAudit[dex_solana_v3] | log_step        | 🔹 创建项目过滤器
+2025-08-14 04:37:39 | INFO     | ProjectAudit[dex_solana_v3] | log_step        | 🔹 开始解析项目文件
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | __init__        | Initialized TextSplitter with split_by=word, chunk_size=1000, chunk_overlap=250, batch_size=1000
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1261 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1261 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 656 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 656 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 1 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 262 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 262 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 1 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 382 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 382 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 1 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 6772 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 6772 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 9 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 9 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 9 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 448 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 448 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 1 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1831 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1831 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 3 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 3 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 3 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 21 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 21 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 1 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 563 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 563 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 1 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 2890 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 2890 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 4 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 4 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 4 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 8169 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 8169 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 11 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 11 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 11 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 391 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 391 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 1 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 4294 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 4294 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 6 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 6 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 6 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 25 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 25 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 1 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1042 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1042 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 8 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 8 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 1 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 199 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 199 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 1 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1332 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1332 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1646 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1646 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 462 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 462 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 1 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 13 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 13 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 1 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1144 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1144 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 2623 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 2623 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 4 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 4 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 4 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1482 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1482 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 17494 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 17494 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 23 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 23 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 23 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1051 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1051 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 3100 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 3100 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 4 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 4 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 4 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1423 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1423 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1253 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1253 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1697 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1697 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1639 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1639 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1391 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1391 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 3633 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 3633 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 5 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 5 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 5 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 17069 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 17069 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 23 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 23 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 23 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 6782 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 6782 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 9 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 9 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 9 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1175 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1175 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 4390 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 4390 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 6 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 6 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 6 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1271 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1271 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1433 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1433 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 2368 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 2368 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 3 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 3 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 3 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1239 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1239 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 2924 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 2924 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 4 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 4 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 4 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1033 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1033 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 79 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 79 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 1 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1342 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1342 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 2194 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 2194 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 3 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 3 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 3 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1074 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1074 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1310 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1310 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 2847 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 2847 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 4 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 4 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 4 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1566 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1566 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 7869 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 7869 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 11 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 11 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 11 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1664 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1664 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 2516 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 2516 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 4 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 4 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 4 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1335 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1335 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1715 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1715 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1403 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1403 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 970 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 970 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 1 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 1 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 2308 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 2308 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 3 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 3 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 3 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 3330 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 3330 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 5 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 5 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 5 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1126 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1126 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Splitting text with split_by: word, chunk_size: 1000, chunk_overlap: 250
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _split_text_into_units | Text split by ' ' into 1325 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text split into 1325 parts.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | _merge_units_to_chunks | Merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | split_text      | Text merged into 2 chunks.
+2025-08-14 04:37:39 | INFO     | adalflow.components.data_process.text_splitter | call            | Processed 1 documents into 2 split documents.
+2025-08-14 04:37:39 | INFO     | ProjectAudit[dex_solana_v3] | log_success     | ✅ 成功: 项目文件解析完成
+2025-08-14 04:37:39 | INFO     | ProjectAudit[dex_solana_v3] | log_data_info   | 📊 总函数数: 341个
+2025-08-14 04:37:39 | INFO     | ProjectAudit[dex_solana_v3] | log_data_info   | 📊 待检查函数数: 341个
+2025-08-14 04:37:39 | INFO     | ProjectAudit[dex_solana_v3] | log_data_info   | 📊 文档分块数: 212个
+2025-08-14 04:37:39 | INFO     | ProjectAudit[dex_solana_v3] | log_step        | 🔹 开始构建调用树
+2025-08-14 04:37:41 | INFO     | ProjectAudit[dex_solana_v3] | log_success     | ✅ 成功: 调用树构建完成
+2025-08-14 04:37:41 | INFO     | ProjectAudit[dex_solana_v3] | log_data_info   | 📊 构建的调用树: 341个
+2025-08-14 04:37:41 | INFO     | ProjectAudit[dex_solana_v3] | log_step        | 🔹 开始构建 call graph
+2025-08-14 04:37:41 | INFO     | ProjectAudit[dex_solana_v3] | _build_call_graphs | 分析 rust 项目目录: src/dataset/agent-v1-c4/dex_solana_v3
+2025-08-14 04:37:41 | INFO     | ProjectAudit[dex_solana_v3] | _build_call_graphs | 发现 1841 个调用关系
+2025-08-14 04:37:41 | INFO     | ProjectAudit[dex_solana_v3] | log_success     | ✅ 成功: Call graph 构建完成
+2025-08-14 04:37:41 | INFO     | ProjectAudit[dex_solana_v3] | log_data_info   | 📊 构建的调用关系: 1841个
+2025-08-14 04:37:41 | INFO     | scan_project         | log_success     | ✅ 成功: 项目解析完成
+2025-08-14 04:37:41 | INFO     | scan_project         | log_success     |    详情: 耗时: 2.32秒
+2025-08-14 04:37:41 | INFO     | scan_project         | log_data_info   | 📊 解析的函数: 341个
+2025-08-14 04:37:41 | INFO     | scan_project         | log_data_info   | 📊 调用树: 341个
+2025-08-14 04:37:41 | INFO     | scan_project         | log_data_info   | 📊 调用图: 1841个
+2025-08-14 04:37:41 | INFO     | scan_project         | log_step        | 🔹 初始化RAG处理器
+2025-08-14 04:46:24 | INFO     | scan_project         | log_success     | ✅ 成功: RAG处理器初始化完成
+2025-08-14 04:46:24 | INFO     | scan_project         | log_success     |    详情: 耗时: 523.03秒
+2025-08-14 04:46:24 | INFO     | scan_project         | log_data_info   | 📊 基于tree-sitter解析的函数构建RAG: 341个
+2025-08-14 04:46:24 | INFO     | scan_project         | log_data_info   | 📊 基于文档分块构建RAG: 212个
+2025-08-14 04:46:24 | INFO     | scan_project         | log_data_info   | 📊 使用调用树构建关系型RAG: 341个
+2025-08-14 04:46:24 | INFO     | scan_project         | log_data_info   | 📊 集成调用图(Call Graph): 1841个
+2025-08-14 04:46:24 | INFO     | scan_project         | log_data_info   | 📊 Call Graph统计: {'total_edges': 1841, 'languages': {'rust': 1841}, 'call_types': {'direct': 1278, 'macro': 214, 'trait': 349}, 'unique_functions_count': 483}个
+2025-08-14 04:46:24 | INFO     | scan_project         | log_step        | 🔹 创建任务管理器
+2025-08-14 04:46:26 | INFO     | scan_project         | log_success     | ✅ 成功: 任务管理器创建完成
+2025-08-14 04:46:26 | INFO     | scan_project         | log_step        | 🔹 创建规划处理器
+2025-08-14 04:46:26 | INFO     | scan_project         | log_success     | ✅ 成功: 规划处理器创建完成
+2025-08-14 04:46:26 | INFO     | scan_project         | log_step        | 🔹 初始化规划器的RAG功能
+2025-08-14 04:46:26 | INFO     | scan_project         | log_success     | ✅ 成功: 规划器RAG功能初始化完成
+2025-08-14 04:46:26 | INFO     | scan_project         | log_step        | 🔹 创建AI引擎
+2025-08-14 04:46:26 | INFO     | scan_project         | scan_project    | LanceDB表名: lancedb_function_dex_solana_v3
+2025-08-14 04:46:26 | INFO     | scan_project         | log_success     | ✅ 成功: AI引擎创建完成
+2025-08-14 04:46:26 | INFO     | scan_project         | log_step        | 🔹 执行项目规划
+2025-08-14 04:46:37 | INFO     | scan_project         | log_success     | ✅ 成功: 项目规划完成
+2025-08-14 04:46:37 | INFO     | scan_project         | log_success     |    详情: 耗时: 10.88秒
+2025-08-14 04:46:37 | INFO     | scan_project         | log_step        | 🔹 执行漏洞扫描(Reasoning)

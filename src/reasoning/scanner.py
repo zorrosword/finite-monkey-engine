@@ -9,7 +9,7 @@ from prompt_factory.periphery_prompt import PeripheryPrompt
 from prompt_factory.core_prompt import CorePrompt
 from prompt_factory.assumption_validation_prompt import AssumptionValidationPrompt
 from prompt_factory.prompt_assembler import PromptAssembler
-from openai_api.openai import ask_vul, ask_claude
+from openai_api.openai import detect_vulnerabilities, analyze_code_assumptions
 from logging_config import get_logger
 import json
 
@@ -76,7 +76,7 @@ class VulnerabilityScanner:
             )
             
             # 🎯 reasoning阶段核心漏洞检测统一使用vulnerability_detection配置(claude4sonnet)
-            result = ask_vul(assembled_prompt)
+            result = detect_vulnerabilities(assembled_prompt)
             
             # 保存结果
             if hasattr(task, 'id') and task.id:
@@ -129,7 +129,7 @@ class VulnerabilityScanner:
         
         # 组装完整prompt
         ret_prompt = code + "\n" \
-                    + PeripheryPrompt.role_set_solidity_common() + "\n" \
+                    + PeripheryPrompt.role_set_move_common() + "\n" \
                     + PeripheryPrompt.task_set_blockchain_common() + "\n" \
                     + CorePrompt.core_prompt_assembled() + "\n" \
                     + rule_content + "\n" \

@@ -1,7 +1,7 @@
 import json
 from typing import List, Dict, Tuple
 from prompt_factory.prompt_assembler import PromptAssembler
-from openai_api.openai import common_ask_confirmation, common_ask_for_json
+from openai_api.openai import extract_structured_json
 
 
 class CheckUtils:
@@ -55,8 +55,8 @@ class CheckUtils:
         """
         prompt_translate_to_json = PromptAssembler.brief_of_response()
         
-        # Use common_ask_for_json to get JSON response
-        round_json_response = str(common_ask_for_json(round_response + "\n" + prompt_translate_to_json))
+        # Use extract_structured_json to get JSON response
+        round_json_response = str(extract_structured_json(round_response + "\n" + prompt_translate_to_json))
         print("\n📋 JSON Response Length:")
         print(len(round_json_response))
         
@@ -226,16 +226,6 @@ class CheckUtils:
             print(f"✅ 验证结果已保存到scan_record，任务ID: {task_id}，保持reasoning原始result不变")
     
     
-    @staticmethod
-    def perform_confirmation_round(code_to_be_tested: str, result: str, 
-                                 round_num: int, request_num: int) -> str:
-        """Execute confirmation round"""
-        prompt = PromptAssembler.assemble_vul_check_prompt_final(code_to_be_tested, result)
-        sub_round_response = common_ask_confirmation(prompt)
-        
-        print(f"\n📋 Round {round_num + 1} Request {request_num + 1} result length: {len(sub_round_response)}")
-        
-        return sub_round_response
     
     @staticmethod
     def print_task_summary(time_cost: float, confirmation_count: int, response_final: str):

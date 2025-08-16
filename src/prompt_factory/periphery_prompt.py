@@ -23,7 +23,7 @@ class PeripheryPrompt:
     def task_set_blockchain_common():
         return """
         # Task #
-        Your task is to identify any logical or code-error or financial related vulnerabilities present in the code """
+        Your task is to identify any logical or code-error or financial related vulnerabilities present in this smart contract code """
     def task_set_tee_common():
         return """
         # Task #
@@ -50,12 +50,13 @@ class PeripheryPrompt:
         2. **Do not** describe any technical errors or just security advice or best practices.
         3. **Must** Output the analysis result in a Audit finding format.
         4. **Must** show step-by-step how to trigger this vulnerability.
-        5. **Must** Keep your description clear and concise. Avoid vague terms.
+        5. **Must** Keep your description clear and concise. Avoid vague terms. not More than 1000 words
         6. **Must Remember**, all numbers in the code are positive, the code execution is atomic, which means the excution would not be interuppted or manipulated by another address from another transaction.
         7. **Do not** response in "attaker use some way" the exploit method must be clear and useable
         8. **Do not** consider any corner case or extreme scenario, the vulnerability must be practical and exploitable.
         9. **Must** Assume that the attack can not have the role of the owner of the contract
         10. **Must** output a accessible and understandable result for the auditor, the result will delivered to them
+        11. **Must** output not more than 1000 words, must be concise and clear
         Ensure your response is as detailed as possible, and strictly adheres to all the above requirements
         """
     def impact_list():

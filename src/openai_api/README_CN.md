@@ -25,7 +25,7 @@ OpenAI API 组件为 Finite Monkey Engine 提供与 OpenAI 语言模型的集成
 组件提供几个关键函数：
 - `ask_vul()`: 漏洞分析查询
 - `ask_claude()`: 通用代码分析查询
-- `common_ask_for_json()`: 结构化 JSON 响应
+- `ask_openai_for_json()`: 结构化 JSON 响应
 - `common_get_embedding()`: 文本嵌入生成
 
 ## 使用方法
@@ -55,10 +55,10 @@ print(f"嵌入维度: {len(embedding)}")
 ### 结构化响应
 
 ```python
-from openai_api.openai import common_ask_for_json
+from openai_api.openai import ask_openai_for_json
 
 # 获取结构化 JSON 响应
-json_response = common_ask_for_json(
+json_response = ask_openai_for_json(
     prompt="分析这段代码并以 JSON 格式返回结果",
     expected_structure={"vulnerabilities": [], "severity": "string"}
 )
@@ -178,10 +178,10 @@ def common_get_embedding(text: str, model: str = "text-embedding-3-small") -> Li
 
 - `List[float]`: 文本嵌入向量
 
-### common_ask_for_json 函数
+### ask_openai_for_json 函数
 
 ```python
-def common_ask_for_json(prompt: str, expected_structure: Dict) -> Dict:
+def ask_openai_for_json(prompt: str, expected_structure: Dict) -> Dict:
     """从 OpenAI 获取结构化 JSON 响应"""
     pass
 ```

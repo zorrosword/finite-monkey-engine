@@ -1088,3 +1088,18 @@
 2025-08-13 02:35:20 | INFO     | check_function_vul   | log_step        | 🔹 初始化漏洞检查器
 2025-08-13 02:35:20 | INFO     | check_function_vul   | log_success     | ✅ 成功: 漏洞检查器初始化完成
 2025-08-13 02:35:20 | INFO     | check_function_vul   | log_step        | 🔹 执行漏洞验证
+2025-08-13 03:07:46 | INFO     | check_function_vul   | log_success     | ✅ 成功: 漏洞验证完成
+2025-08-13 03:07:46 | INFO     | check_function_vul   | log_success     |    详情: 耗时: 1945.98秒
+2025-08-13 03:07:46 | INFO     | check_function_vul   | log_section_end | ------------------------------------------------------------
+2025-08-13 03:07:46 | INFO     | check_function_vul   | log_section_end | ✅ 完成执行: 漏洞验证
+2025-08-13 03:07:46 | INFO     | check_function_vul   | log_section_end | ⏱️  执行时间: 1945.99秒
+2025-08-13 03:07:46 | INFO     | check_function_vul   | log_section_end | ------------------------------------------------------------
+2025-08-13 03:07:46 | INFO     | main                 | log_success     | ✅ 成功: 所有扫描任务完成
+2025-08-13 03:07:46 | INFO     | main                 | log_success     |    详情: 总耗时: 1946.56秒
+2025-08-13 03:07:46 | INFO     | main                 | log_step        | 🔹 生成Excel报告
+2025-08-13 03:10:52 | INFO     | main                 | log_success     | ✅ 成功: Excel报告生成完成
+2025-08-13 03:10:52 | INFO     | main                 | log_success     |    详情: 耗时: 185.92秒, 文件: ./output.xlsx
+2025-08-13 03:10:52 | INFO     | main                 | log_section_end | ------------------------------------------------------------
+2025-08-13 03:10:52 | INFO     | main                 | log_section_end | ✅ 完成执行: 测试模式执行
+2025-08-13 03:10:52 | INFO     | main                 | log_section_end | ⏱️  执行时间: 2132.49秒
+2025-08-13 03:10:52 | INFO     | main                 | log_section_end | ------------------------------------------------------------

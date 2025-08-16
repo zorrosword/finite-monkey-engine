@@ -6,7 +6,7 @@ import os
 import os.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from typing import List, Dict, Tuple
-from openai_api.openai import common_ask_for_json
+from openai_api.openai import extract_structured_json
 from prompt_factory.core_prompt import CorePrompt
 
 

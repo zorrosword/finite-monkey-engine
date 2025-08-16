@@ -1,7 +1,7 @@
 import pandas as pd
 from tqdm import tqdm
 import json
-from openai_api.openai import ask_claude, ask_deepseek, ask_o3_mini_json, common_ask_for_json,ask_claude_37
+from openai_api.openai import analyze_code_assumptions, ask_deepseek, extract_structured_json
 import concurrent.futures
 from threading import Lock
 import math
@@ -356,7 +356,7 @@ class ResProcessor:
         try:
             # 调用分类API
             print(f"    调用AI进行漏洞分类...")
-            classification_result = ask_claude(classification_prompt)
+            classification_result = analyze_code_assumptions(classification_prompt)
             classification_data = json.loads(self._extract_json_from_text(classification_result))
             
             print(f"    AI分类结果: {len(classification_data)} 个分组")
@@ -722,7 +722,7 @@ class ResProcessor:
                 else:
                     print(f"    漏洞 {index+1}: 第 {retry_count+1} 次重试翻译...")
                 
-                translated_description = ask_claude(translate_prompt)
+                translated_description = analyze_code_assumptions(translate_prompt)
                 
                 # 清理翻译结果
                 cleaned_description = self._clean_text_for_excel(translated_description)
@@ -951,7 +951,7 @@ class ResProcessor:
         
         try:
             # 对df进行漏洞归集处理
-            res_processor = ResProcessor(df, max_group_size=10, iteration_rounds=8, enable_chinese_translation=True)
+            res_processor = ResProcessor(df, max_group_size=5, iteration_rounds=5, enable_chinese_translation=True)
             processed_df = res_processor.process()
             
             # 确保所有必需的列都存在
