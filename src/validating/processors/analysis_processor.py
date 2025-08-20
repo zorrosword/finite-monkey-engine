@@ -483,7 +483,7 @@ class AnalysisProcessor:
     
     def _execute_single_detection_round(self, vulnerability_result, business_flow_code, task, round_num, logs):
         """执行单轮检测流程"""
-        from openai_api.openai import (perform_initial_vulnerability_scan,
+        from openai_api.openai import (perform_initial_vulnerability_validation,
                                        determine_additional_context_needed,
                                        perform_comprehensive_vulnerability_analysis)
         from prompt_factory.vul_check_prompt import VulCheckPrompt
@@ -498,7 +498,7 @@ class AnalysisProcessor:
 
         try:
             # 使用专门的初始分析模型获取自然语言响应
-            natural_response = perform_initial_vulnerability_scan(initial_prompt)
+            natural_response = perform_initial_vulnerability_validation(initial_prompt)
             
             # 🔍 初始分析调试信息
             logs.append(f"第 {round_num} 轮: 初始分析响应类型={type(natural_response)}")

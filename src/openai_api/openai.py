@@ -288,12 +288,12 @@ def common_get_embedding(text: str):
 
 # ========== 漏洞检测多轮分析专用函数 ==========
 
-def perform_initial_vulnerability_scan(prompt):
+def perform_initial_vulnerability_validation(prompt):
     """
     代理初始分析 - 执行初步漏洞检测分析
     环境变量: AGENT_INITIAL_MODEL (默认: claude-3-haiku-20240307)
     """
-    model = get_model('initial_vulnerability_scan')
+    model = get_model('initial_vulnerability_validation')
     api_key = os.environ.get('OPENAI_API_KEY')
     api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
     
