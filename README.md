@@ -80,8 +80,8 @@ finite-monkey-engine/
 
 ### Prerequisites
 - **Python 3.10+**
-- **PostgreSQL 13+** (optional, SQLite also supported)
-- **AI API Keys** (OpenAI, Claude, or other compatible services)
+- **PostgreSQL 13+** (required for storing analysis results)
+- **AI API Keys** (supports OpenAI, Claude, DeepSeek, and other compatible services)
 
 ### Installation
 
@@ -97,9 +97,65 @@ pip install -r requirements.txt
 cp env.example .env
 # Edit .env file with your API keys and database configuration
 
-# 4. Run analysis
+# 4. Initialize database
+psql -U postgres -d postgres -f project_task.sql
+
+# 5. Configure project dataset
+# Edit src/dataset/agent-v1-c4/datasets.json to add your project configuration
+
+# 6. Run analysis
 python src/main.py
 ```
+
+## 📊 Usage Guide
+
+### Database Initialization
+
+Initialize PostgreSQL database using the provided SQL file:
+
+```bash
+# Connect to PostgreSQL database
+psql -U postgres -d postgres
+
+# Execute SQL file to create table structure
+\i project_task.sql
+
+# Or use command line directly
+psql -U postgres -d postgres -f project_task.sql
+```
+
+### Project Configuration
+
+Configure your project in `src/dataset/agent-v1-c4/datasets.json`:
+
+```json
+{
+  "your_project_id": {
+    "path": "your_project_folder_name",
+    "files": [], //no need to set, disable in future
+    "functions": [], //no need to set, disable in future
+    "exclude_in_planning": "false", //no need to set to true, disable in future
+    "exclude_directory": [] //no need to set, disable in future
+  }
+}
+```
+
+### Running Analysis
+
+1. **Set Project ID**: Configure your project ID in `src/main.py`
+```python
+project_id = 'your_project_id'
+```
+
+2. **Execute Analysis**:
+```bash
+python src/main.py
+```
+
+3. **View Results**: 
+   - Detailed analysis records in database
+   - `output.xlsx` report file
+   - Mermaid business flow diagrams (if enabled)
 
 ## 🔧 Configuration
 
@@ -120,51 +176,79 @@ DATABASE_URL=postgresql://postgres:1234@127.0.0.1:5432/postgres
 
 # AI Model Configuration (Required)
 OPENAI_API_BASE="api.openai-proxy.org"  # LLM proxy platform
-OPENAI_API_KEY="your_api_key_here"      # API key
-CLAUDE_MODEL=claude-sonnet-4-20250514   # Recommended Claude model
-VUL_MODEL=claude-sonnet-4-20250514      # Vulnerability detection model
+OPENAI_API_KEY="sk-xxxxxx"  # API key
 
 # Scan Mode Configuration
-SCAN_MODE=COMMON_PROJECT_FINE_GRAINED   # Recommended mode
-SWITCH_BUSINESS_CODE=False              # Business flow analysis
-SWITCH_FILE_CODE=True                   # File-level analysis
-CROSS_CONTRACT_SCAN=True                # Cross-contract/file analysis
+SCAN_MODE=COMMON_PROJECT_FINE_GRAINED   # Recommended mode: Common project checklist fine-grained
+# Available modes: PURE_SCAN (Pure scanning)
+SCAN_MODE_AVA=False                     # Advanced scan mode features
+COMPLEXITY_ANALYSIS_ENABLED=True        # Enable complexity analysis
 
 # Performance Tuning
-MAX_THREADS_OF_SCAN=10                  # Scan threads
-MAX_THREADS_OF_CONFIRMATION=50          # Confirmation threads
-BUSINESS_FLOW_COUNT=8                   # Business flow iterations
+MAX_THREADS_OF_SCAN=10                  # Maximum threads for scanning phase
+MAX_THREADS_OF_CONFIRMATION=50          # Maximum threads for confirmation phase
+BUSINESS_FLOW_COUNT=4                   # Business flow repeat count (hallucination triggers)
+
+# Advanced Feature Configuration
+ENABLE_DIALOGUE_MODE=False              # Whether to enable dialogue mode
+IGNORE_FOLDERS=node_modules,build,dist,test,tests,.git  # Folders to ignore
+
+# Checklist Configuration
+CHECKLIST_PATH=src/knowledges/checklist.xlsx  # Path to checklist file
+CHECKLIST_SHEET=Sheet1                  # Checklist worksheet name
 ```
 
 > 📝 **Complete Configuration**: See `env.example` file for all configurable options and detailed descriptions
+
+### AI Model Configuration Details
+
+Based on actual configuration in `src/openai_api/model_config.json`:
+
+**WARNING**  must set the model name based on your llm hub!
+**WARNING**  must set the model name based on your llm hub!
+**WARNING**  like in openrouter, sonnet 4 need to set to anthropic/sonnet-4
+
+```json
+{
+  "openai_general": "gpt-4.1",
+  "code_assumptions_analysis": "claude-sonnet-4-20250514",
+  "vulnerability_detection": "claude-sonnet-4-20250514",
+  "initial_vulnerability_validation": "deepseek-reasoner",
+  "vulnerability_findings_json_extraction": "gpt-4o-mini",
+  "additional_context_determination": "deepseek-reasoner",
+  "comprehensive_vulnerability_analysis": "deepseek-reasoner",
+  "final_vulnerability_extraction": "gpt-4o-mini",
+  "structured_json_extraction": "gpt-4.1",
+  "embedding_model": "text-embedding-3-large"
+}
+```
 
 ### Recommended Configuration Schemes
 
 #### 🚀 Quick Start (Small projects < 50 files)
 ```bash
-SCAN_MODE=SPECIFIC_PROJECT
-SWITCH_BUSINESS_CODE=True
-SWITCH_FILE_CODE=False
-HUGE_PROJECT=False
+SCAN_MODE=PURE_SCAN
+COMPLEXITY_ANALYSIS_ENABLED=False
 MAX_THREADS_OF_SCAN=3
+BUSINESS_FLOW_COUNT=2
 ```
 
 #### 🏢 Enterprise (Large projects > 100 files)
 ```bash
 SCAN_MODE=COMMON_PROJECT_FINE_GRAINED
-SWITCH_BUSINESS_CODE=True
-SWITCH_FILE_CODE=False
-HUGE_PROJECT=True
+COMPLEXITY_ANALYSIS_ENABLED=True
 MAX_THREADS_OF_SCAN=8
-CROSS_CONTRACT_SCAN=True
+MAX_THREADS_OF_CONFIRMATION=30
+BUSINESS_FLOW_COUNT=4
 ```
 
 #### 💰 Cost Optimized
 ```bash
-VUL_MODEL=gpt-4-mini
-CONFIRMATION_MODEL=gpt-4-mini
-MAX_THREADS_OF_SCAN=3
+SCAN_MODE=PURE_SCAN
 BUSINESS_FLOW_COUNT=1
+MAX_THREADS_OF_SCAN=3
+MAX_THREADS_OF_CONFIRMATION=10
+COMPLEXITY_ANALYSIS_ENABLED=False
 ```
 
 ## 🎯 Use Cases

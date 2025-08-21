@@ -112,59 +112,87 @@ DATABASE_URL=postgresql://postgres:1234@127.0.0.1:5432/postgres
 
 # AI模型配置（必需）
 OPENAI_API_BASE="api.openai-proxy.org"  # LLM代理平台
-OPENAI_API_KEY="your_api_key_here"      # API密钥
-CLAUDE_MODEL=claude-sonnet-4-20250514   # 推荐Claude模型
-VUL_MODEL=claude-sonnet-4-20250514      # 漏洞检测模型
+OPENAI_API_KEY="sk-xxxxxx"  # API密钥
 
 # 扫描模式配置
-SCAN_MODE=COMMON_PROJECT_FINE_GRAINED   # 推荐模式
-SWITCH_BUSINESS_CODE=False              # 业务流分析
-SWITCH_FILE_CODE=True                   # 文件级分析
-CROSS_CONTRACT_SCAN=True                # 跨合约/文件分析
+SCAN_MODE=COMMON_PROJECT_FINE_GRAINED   # 推荐模式：通用项目CHECKLIST逐个提问
+# 可选模式：PURE_SCAN（纯扫描）
+SCAN_MODE_AVA=False                     # 扫描模式高级功能
+COMPLEXITY_ANALYSIS_ENABLED=True        # 启用复杂度分析
 
 # 性能调优
-MAX_THREADS_OF_SCAN=10                  # 扫描线程数
-MAX_THREADS_OF_CONFIRMATION=50          # 确认线程数
-BUSINESS_FLOW_COUNT=8                   # 业务流重复数
+MAX_THREADS_OF_SCAN=10                  # 扫描阶段最大线程数
+MAX_THREADS_OF_CONFIRMATION=50          # 确认阶段最大线程数
+BUSINESS_FLOW_COUNT=4                   # 业务流程重复数量（触发幻觉的数量）
+
+# 高级功能配置
+ENABLE_DIALOGUE_MODE=False              # 是否启用对话模式
+IGNORE_FOLDERS=node_modules,build,dist,test,tests,.git  # 忽略的文件夹
+
+# 检查清单配置
+CHECKLIST_PATH=src/knowledges/checklist.xlsx  # 检查清单文件路径
+CHECKLIST_SHEET=Sheet1                  # 检查清单工作表名称
 ```
 
 > 📝 **完整配置**: 查看 `env.example` 文件了解所有可配置选项和详细说明
 
-### 推荐配置方案
+### AI模型配置详情
 
-#### 🚀 快速开始配置（小项目 < 50个合约）
-```bash
-SCAN_MODE=SPECIFIC_PROJECT
-SWITCH_BUSINESS_CODE=True
-SWITCH_FILE_CODE=False
-HUGE_PROJECT=False
-MAX_THREADS_OF_SCAN=3
+基于 `src/openai_api/model_config.json` 的实际配置：
+
+**重要警告** 必须根据你的LLM平台设置正确的模型名称！
+**重要警告** 必须根据你的LLM平台设置正确的模型名称！
+**重要警告** 例如在openrouter中，sonnet 4需要设置为anthropic/sonnet-4
+
+```json
+{
+  "openai_general": "gpt-4.1",
+  "code_assumptions_analysis": "claude-sonnet-4-20250514",
+  "vulnerability_detection": "claude-sonnet-4-20250514",
+  "initial_vulnerability_validation": "deepseek-reasoner",
+  "vulnerability_findings_json_extraction": "gpt-4o-mini",
+  "additional_context_determination": "deepseek-reasoner",
+  "comprehensive_vulnerability_analysis": "deepseek-reasoner",
+  "final_vulnerability_extraction": "gpt-4o-mini",
+  "structured_json_extraction": "gpt-4.1",
+  "embedding_model": "text-embedding-3-large"
+}
 ```
 
-#### 🏢 企业级配置（大项目 > 100个合约）
+### 推荐配置方案
+
+#### 🚀 快速开始配置（小项目 < 50个文件）
+```bash
+SCAN_MODE=PURE_SCAN
+COMPLEXITY_ANALYSIS_ENABLED=False
+MAX_THREADS_OF_SCAN=3
+BUSINESS_FLOW_COUNT=2
+```
+
+#### 🏢 企业级配置（大项目 > 100个文件）
 ```bash
 SCAN_MODE=COMMON_PROJECT_FINE_GRAINED
-SWITCH_BUSINESS_CODE=True
-SWITCH_FILE_CODE=False
-HUGE_PROJECT=True
+COMPLEXITY_ANALYSIS_ENABLED=True
 MAX_THREADS_OF_SCAN=8
-CROSS_CONTRACT_SCAN=True
+MAX_THREADS_OF_CONFIRMATION=30
+BUSINESS_FLOW_COUNT=4
 ```
 
 #### 💰 成本优化配置
 ```bash
-VUL_MODEL=gpt-4-mini
-CONFIRMATION_MODEL=gpt-4-mini
-MAX_THREADS_OF_SCAN=3
+SCAN_MODE=PURE_SCAN
 BUSINESS_FLOW_COUNT=1
+MAX_THREADS_OF_SCAN=3
+MAX_THREADS_OF_CONFIRMATION=10
+COMPLEXITY_ANALYSIS_ENABLED=False
 ```
 
 ## 🚀 快速开始
 
 ### 环境要求
 - **Python 3.10+**
-- **PostgreSQL 13+**（可选，也可使用SQLite）
-- **AI API密钥**（OpenAI、Claude或其他兼容服务）
+- **PostgreSQL 13+**（必需，用于存储分析结果）
+- **AI API密钥**（支持OpenAI、Claude、DeepSeek等多种模型）
 
 ### 安装步骤
 
@@ -180,11 +208,32 @@ pip install -r requirements.txt
 cp env.example .env
 # 编辑 .env 文件，填入你的API密钥和数据库配置
 
-# 4. 运行分析
+# 4. 初始化数据库
+psql -U postgres -d postgres -f project_task.sql
+
+# 5. 配置项目数据集
+# 编辑 src/dataset/agent-v1-c4/datasets.json 添加你的项目配置
+
+# 6. 运行分析
 python src/main.py
 ```
 
 ## 📊 使用指南
+
+### 数据库初始化
+
+使用提供的SQL文件初始化PostgreSQL数据库：
+
+```bash
+# 连接到PostgreSQL数据库
+psql -U postgres -d postgres
+
+# 执行SQL文件创建表结构
+\i project_task.sql
+
+# 或者直接使用命令行
+psql -U postgres -d postgres -f project_task.sql
+```
 
 ### 项目配置
 
@@ -193,16 +242,18 @@ python src/main.py
 ```json
 {
   "your_project_id": {
-    "path": "/path/to/your/contracts",
-    "white_files": ["Contract1.sol", "Contract2.sol"],
-    "white_functions": ["criticalFunction1", "criticalFunction2"]
+    "path": "your_project_folder_name",
+    "files": [], //无需设置，未来版本将禁用
+    "functions": [], //无需设置，未来版本将禁用
+    "exclude_in_planning": "false", //无需设置为true，未来版本将禁用
+    "exclude_directory": [] //无需设置，未来版本将禁用
   }
 }
 ```
 
 ### 运行分析
 
-1. **修改项目ID**: 在 `src/main.py` 第237行设置你的项目ID
+1. **修改项目ID**: 在 `src/main.py` 中设置你的项目ID
 ```python
 project_id = 'your_project_id'
 ```
@@ -212,7 +263,10 @@ project_id = 'your_project_id'
 python src/main.py
 ```
 
-3. **查看结果**: 分析完成后会生成 `output.xlsx` 报告
+3. **查看结果**: 
+   - 数据库中的详细分析记录
+   - `output.xlsx` 报告文件
+   - Mermaid业务流程图（如果启用）
 
 ### 输出文件说明
 
