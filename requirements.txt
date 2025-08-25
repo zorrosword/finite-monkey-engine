@@ -26,6 +26,7 @@ urllib3==2.2.3
 
 # AI and ML dependencies
 adalflow==1.1.0
+mlflow==3.3.1
 annotated-types==0.7.0
 anyio==4.9.0
 asyncstdlib==3.13.1
