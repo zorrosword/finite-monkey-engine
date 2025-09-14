@@ -74,7 +74,7 @@ class AdvancedCallTreeBuilder:
                     return str(current_dir)
             
             # 检查是否包含多个代码文件（启发式判断）
-            code_extensions = ['.sol', '.rs', '.cpp', '.c', '.h', '.move']
+            code_extensions = ['.sol', '.rs', '.cpp', '.c', '.h', '.move','.cc']
             code_files = []
             
             try:
@@ -238,7 +238,7 @@ class AdvancedCallTreeBuilder:
             call_graph_found = False
             
             # 构建函数映射
-            for idx, func in enumerate(functions_to_check):
+            for idx, func in enumerate(tqdm(functions_to_check, desc="构建函数映射")):
                 func_name = func['name']
                 func_map[func_name] = {
                     'index': idx,
@@ -248,7 +248,7 @@ class AdvancedCallTreeBuilder:
                 relationships['downstream'][func_name] = set()
             
             # 使用语言分析器分析每个文件
-            for original_path in original_files_map.keys():
+            for original_path in tqdm(original_files_map.keys(), desc="分析文件调用关系"):
                 try:
                     language = self._detect_language_from_file_path(original_path)
                     self.analyzer.analyze_file(original_path, language)

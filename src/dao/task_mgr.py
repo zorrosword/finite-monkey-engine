@@ -25,15 +25,33 @@ class ProjectTaskMgr(object):
         return self._operate_in_session(self._query_task_by_project_id, id)
     def _query_task_by_project_id(self, session, id):
         return session.query(Project_Task).filter_by(project_id=id).all()
+    
+    def query_tasks_by_group(self, group_uuid):
+        """按group UUID查询任务"""
+        return self._operate_in_session(self._query_tasks_by_group, group_uuid)
+    def _query_tasks_by_group(self, session, group_uuid):
+        return session.query(Project_Task).filter_by(project_id=self.project_id, group=group_uuid).all()
+    
+    def query_tasks_with_results_by_group(self, group_uuid):
+        """查询同组中已有结果的任务"""
+        return self._operate_in_session(self._query_tasks_with_results_by_group, group_uuid)
+    def _query_tasks_with_results_by_group(self, session, group_uuid):
+        """查询同组中已有result且不为空的任务"""
+        return session.query(Project_Task).filter(
+            Project_Task.project_id == self.project_id,
+            Project_Task.group == group_uuid,
+            Project_Task.result.isnot(None),
+            Project_Task.result != ''
+        ).all()
     # update_score方法已删除，因为score字段不再存在
     # update_business_flow_context方法已删除，因为business_flow_context字段不再存在
     def save_task(self, task: Project_Task, **kwargs):
         """保存Project_Task实例到数据库"""
         self._operate_in_session(self._add_task, task, **kwargs)
     
-    def add_task(self, name, content, rule, rule_key='', result='', contract_code='', start_line='', end_line='', relative_file_path='', absolute_file_path='', recommendation='', business_flow_code='', scan_record='', short_result='', **kwargs):
+    def add_task(self, name, content, rule, rule_key='', result='', contract_code='', start_line='', end_line='', relative_file_path='', absolute_file_path='', recommendation='', business_flow_code='', scan_record='', short_result='', group='', **kwargs):
         """使用V3版本的参数创建任务"""
-        task = Project_Task(self.project_id, name, content, rule, rule_key, result, contract_code, start_line, end_line, relative_file_path, absolute_file_path, recommendation, business_flow_code, scan_record, short_result)
+        task = Project_Task(self.project_id, name, content, rule, rule_key, result, contract_code, start_line, end_line, relative_file_path, absolute_file_path, recommendation, business_flow_code, scan_record, short_result, group)
         self._operate_in_session(self._add_task, task, **kwargs)
 
     def _add_task(self, session, task, commit=True):

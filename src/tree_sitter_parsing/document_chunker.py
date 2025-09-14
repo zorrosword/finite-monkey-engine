@@ -152,7 +152,7 @@ class DocumentChunker:
         '.txt', '.md', '.rst', '.py', '.js', '.ts', '.html', '.xml',
         '.json', '.yaml', '.yml', '.css', '.sql', '.sh', '.bat',
         '.c', '.cpp', '.h', '.hpp', '.java', '.php', '.rb', '.go',
-        '.rs', '.scala', '.kt', '.swift', '.dart', '.r', '.m', '.sol', '.move'
+        '.rs', '.scala', '.kt', '.swift', '.dart', '.r', '.m', '.sol', '.move','.cc'
     }
     
     def __init__(

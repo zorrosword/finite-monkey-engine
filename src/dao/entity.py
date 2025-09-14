@@ -33,10 +33,11 @@ class Project_Task(Base):
     business_flow_code = Column(String)  # root func的内容加上所有downstream的内容
     scan_record = Column(String)  # 扫描记录
     short_result = Column(String)  # 简短结果，保存yes/no
+    group = Column(String, index=True)  # 任务组UUID，用于标识同一组的任务
 
-    fieldNames = ['id', 'uuid', 'project_id', 'name', 'content', 'rule', 'rule_key', 'result', 'contract_code', 'start_line', 'end_line', 'relative_file_path', 'absolute_file_path', 'recommendation', 'business_flow_code', 'scan_record', 'short_result']
+    fieldNames = ['id', 'uuid', 'project_id', 'name', 'content', 'rule', 'rule_key', 'result', 'contract_code', 'start_line', 'end_line', 'relative_file_path', 'absolute_file_path', 'recommendation', 'business_flow_code', 'scan_record', 'short_result', 'group']
 
-    def __init__(self, project_id, name, content, rule, rule_key='', result='', contract_code='', start_line='', end_line='', relative_file_path='', absolute_file_path='', recommendation='', business_flow_code='', scan_record='', short_result=''):
+    def __init__(self, project_id, name, content, rule, rule_key='', result='', contract_code='', start_line='', end_line='', relative_file_path='', absolute_file_path='', recommendation='', business_flow_code='', scan_record='', short_result='', group=''):
         self.uuid = str(uuid_module.uuid4())  # 生成UUID
         self.project_id = project_id
         self.name = name  # root_function的name（合约名+函数名用点连接）
@@ -53,6 +54,7 @@ class Project_Task(Base):
         self.business_flow_code = business_flow_code  # root func的内容加上所有downstream的内容
         self.scan_record = scan_record  # 扫描记录
         self.short_result = short_result  # 简短结果，保存yes/no
+        self.group = group  # 任务组UUID
 
 
 
@@ -74,7 +76,8 @@ class Project_Task(Base):
             'recommendation': self.recommendation,
             'business_flow_code': self.business_flow_code,
             'scan_record': self.scan_record,
-            'short_result': self.short_result
+            'short_result': self.short_result,
+            'group': self.group
         }
     
     def set_result(self, result):

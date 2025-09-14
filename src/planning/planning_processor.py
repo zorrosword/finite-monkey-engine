@@ -4,6 +4,7 @@ import csv
 import sys
 import os
 import os.path
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 from typing import List, Dict, Tuple, Optional
@@ -532,7 +533,8 @@ class PlanningProcessor:
                 end_line=str(root_function.get('end_line', '')),
                 relative_file_path=root_function.get('relative_file_path', ''),
                 absolute_file_path=root_function.get('absolute_file_path', ''),
-                business_flow_code=business_flow_code
+                business_flow_code=business_flow_code,
+                group=task.get('group', '')  # 任务组UUID
             )
             
             project_tasks.append(project_task)
@@ -666,6 +668,9 @@ class PlanningProcessor:
                     
                     # 为每个public函数创建实际迭代次数个任务
                     for iteration in range(actual_iteration_count):
+                        # 为每个iteration生成一个group UUID
+                        group_uuid = str(uuid.uuid4())
+                        
                         task_data = {
                             'task_id': task_id,
                             'iteration_index': iteration + 1,
@@ -675,13 +680,14 @@ class PlanningProcessor:
                             'rule_list': [],  # PURE_SCAN模式下无checklist
                             'downstream_content': downstream_content,
                             'max_depth': max_depth,
-                            'task_type': 'public_function_pure_scan'
+                            'task_type': 'public_function_pure_scan',
+                            'group': group_uuid  # 为每个iteration分配一个group UUID
                         }
                         
                         tasks.append(task_data)
                         task_id += 1
                         
-                        print(f"    ✅ 创建任务: PURE_SCAN - 迭代{iteration + 1}/{actual_iteration_count}")
+                        print(f"    ✅ 创建任务: PURE_SCAN - 迭代{iteration + 1}/{actual_iteration_count} (Group: {group_uuid[:8]}...)")
         
         else:
             # 非PURE_SCAN模式：使用checklist
@@ -719,6 +725,9 @@ class PlanningProcessor:
                     
                     # 为每个检查类型创建实际迭代次数个任务
                     for rule_key, rule_list in all_checklists.items():
+                        # 为每个rule_key, rule_list组合生成一个group UUID
+                        group_uuid = str(uuid.uuid4())
+                        
                         for iteration in range(actual_iteration_count):
                             task_data = {
                                 'task_id': task_id,
@@ -729,11 +738,14 @@ class PlanningProcessor:
                                 'rule_list': rule_list,
                                 'downstream_content': downstream_content,
                                 'max_depth': max_depth,
-                                'task_type': 'public_function_checklist_scan'
+                                'task_type': 'public_function_checklist_scan',
+                                'group': group_uuid  # 为每个rule_key, rule_list组合分配一个group UUID
                             }
                             
                             tasks.append(task_data)
                             task_id += 1
+                        
+                        print(f"    ✅ 创建任务组: {rule_key} - {actual_iteration_count}个迭代 (Group: {group_uuid[:8]}...)")
                         
         if os.getenv("SCAN_MODE_AVA", "False").lower() == "true":
             #==========新的检测模式AVA(Assumption Violation Analysis)==========
@@ -1230,6 +1242,9 @@ class PlanningProcessor:
                 
                 # 为每个assumption statement创建单独的任务
                 for assumption_statement in assumption_violation_checklist:
+                    # 为每个assumption statement分配一个group UUID
+                    group_uuid = str(uuid.uuid4())
+                    
                     for iteration in range(actual_iteration_count):
                         # 线程安全地获取task_id
                         with task_id_lock:
@@ -1245,7 +1260,8 @@ class PlanningProcessor:
                             'rule_list': assumption_statement,  # 每个任务只处理一个assumption
                             'downstream_content': downstream_content,
                             'max_depth': max_depth,
-                            'task_type': 'public_function_checklist_scan'
+                            'task_type': 'public_function_checklist_scan',
+                            'group': group_uuid  # 为每个assumption statement分配一个group UUID
                         }
                         
                         function_tasks.append(task_data)

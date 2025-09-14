@@ -248,8 +248,8 @@
         "exclude_in_planning":"false",
         "exclude_directory":[]
     },
-    "pebble":{
-        "path":"pebble",
+    "token0902":{
+        "path":"token0902",
         "files":[
         ],
         "functions":[],

@@ -68,12 +68,21 @@ class VulnerabilityScanner:
                         self.logger.warning(f"任务 {task.name} 的rule解析失败: {e}")
                         rule_list = []
             
+            # 🎯 新增：基于group查询同组已有结果并生成总结
+            group_summary = self._get_group_results_summary(task, task_manager)
+            
             # 手动组装prompt（使用任务的具体rule而不是索引）
             assembled_prompt = self._assemble_prompt_with_specific_rule(
                 business_flow_code, 
                 rule_list, 
                 rule_key
             )
+            
+            # 🎯 如果有同组结果总结，将其添加到prompt前面
+            if group_summary:
+                from prompt_factory.group_summary_prompt import GroupSummaryPrompt
+                enhanced_prefix = GroupSummaryPrompt.get_enhanced_reasoning_prompt_prefix()
+                assembled_prompt = enhanced_prefix + group_summary + "\n\n" + "=" * 80 + "\n\n" + assembled_prompt
             
             # 🎯 reasoning阶段核心漏洞检测统一使用vulnerability_detection配置(claude4sonnet)
             result = detect_vulnerabilities(assembled_prompt)
@@ -105,6 +114,39 @@ class VulnerabilityScanner:
         # 执行漏洞扫描
         self._execute_vulnerability_scan(task, task_manager, is_gpt4)
     
+    def _get_group_results_summary(self, task, task_manager) -> str:
+        """获取同组任务的结果总结"""
+        try:
+            # 获取任务的group UUID
+            group_uuid = getattr(task, 'group', None)
+            if not group_uuid or group_uuid.strip() == "":
+                return ""
+            
+            # 查询同组中已有结果的任务
+            tasks_with_results = task_manager.query_tasks_with_results_by_group(group_uuid)
+            if not tasks_with_results:
+                return ""
+            
+            # 排除当前任务自己
+            current_task_uuid = getattr(task, 'uuid', None)
+            if current_task_uuid:
+                tasks_with_results = [t for t in tasks_with_results if t.uuid != current_task_uuid]
+            
+            if not tasks_with_results:
+                return ""
+            
+            # 使用结果总结器生成总结
+            from .utils.group_result_summarizer import GroupResultSummarizer
+            summary = GroupResultSummarizer.summarize_group_results(tasks_with_results)
+            
+            if summary:
+                print(f"🔍 为任务 {task.name} 找到 {len(tasks_with_results)} 个同组已完成任务的结果总结")
+            
+            return summary or ""
+        except Exception as e:
+            self.logger.warning(f"获取同组结果总结失败: {e}")
+            return ""
+
     def _assemble_prompt_with_specific_rule(self, code: str, rule_list: list, rule_key: str) -> str:
         """使用具体的rule列表组装prompt"""
         

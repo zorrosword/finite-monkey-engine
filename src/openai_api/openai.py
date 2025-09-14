@@ -446,4 +446,58 @@ def perform_comprehensive_vulnerability_analysis(prompt):
         return ""
 
 
+def summarize_group_vulnerability_results(group_results_prompt: str) -> str:
+    """使用LLM总结同组任务的漏洞结果
+    
+    Args:
+        group_results_prompt: 包含同组结果的完整提示词
+        
+    Returns:
+        str: LLM生成的漏洞总结
+    """
+    try:
+        # 从model_config.json获取用于总结的模型配置
+        # 使用专门的group_results_summarization模型进行总结
+        model_key = "group_results_summarization"
+        
+        # 构建API请求
+        payload = {
+            "model": get_model_by_key(model_key),
+            "messages": [
+                {
+                    "role": "user", 
+                    "content": group_results_prompt
+                }
+            ],
+            "temperature": 0.3,  # 较低的温度确保总结的一致性
+            "max_tokens": 1000   # 限制总结长度
+        }
+        
+        print(f"🤖 使用模型 {get_model_by_key(model_key)} 总结同组漏洞结果...")
+        
+        response = requests.post(
+            get_api_url(),
+            json=payload,
+            headers=get_headers(),
+            proxies=get_proxies()
+        )
+        
+        response_data = response.json()
+        
+        if 'choices' in response_data and len(response_data['choices']) > 0:
+            summary = response_data['choices'][0]['message']['content']
+            print(f"✅ 同组结果总结完成，长度: {len(summary)} 字符")
+            return summary
+        else:
+            print("⚠️ 同组结果总结API响应格式异常")
+            return ""
+            
+    except requests.exceptions.RequestException as e:
+        print(f"❌ 同组结果总结API调用失败: {str(e)}")
+        return ""
+    except Exception as e:
+        print(f"❌ 同组结果总结处理失败: {str(e)}")
+        return ""
+
+
 
