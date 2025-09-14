@@ -1,7 +1,25 @@
--- 创建序列
-CREATE SEQUENCE IF NOT EXISTS project_task_id_seq;
+/*
+ Navicat Premium Dump SQL
 
--- 创建表
+ Source Server         : 127.0.0.1
+ Source Server Type    : PostgreSQL
+ Source Server Version : 170005 (170005)
+ Source Host           : localhost:5432
+ Source Catalog        : postgres
+ Source Schema         : public
+
+ Target Server Type    : PostgreSQL
+ Target Server Version : 170005 (170005)
+ File Encoding         : 65001
+
+ Date: 14/09/2025 18:29:31
+*/
+
+
+-- ----------------------------
+-- Table structure for project_task
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."project_task";
 CREATE TABLE "public"."project_task" (
   "id" int4 NOT NULL DEFAULT nextval('project_task_id_seq'::regclass),
   "uuid" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
@@ -21,15 +39,15 @@ CREATE TABLE "public"."project_task" (
   "created_at" timestamp(6) DEFAULT CURRENT_TIMESTAMP,
   "updated_at" timestamp(6) DEFAULT CURRENT_TIMESTAMP,
   "rule_key" varchar(100) COLLATE "pg_catalog"."default",
-  "short_result" varchar COLLATE "pg_catalog"."default"
-);
-
--- 设置序列的所有者（可选，但推荐）
-ALTER SEQUENCE project_task_id_seq OWNED BY "public"."project_task"."id";
-
--- 后续的索引和约束创建保持不变
+  "short_result" varchar COLLATE "pg_catalog"."default",
+  "group" varchar(36) COLLATE "pg_catalog"."default"
+)
+;
 ALTER TABLE "public"."project_task" OWNER TO "postgres";
 
+-- ----------------------------
+-- Indexes structure for table project_task
+-- ----------------------------
 CREATE INDEX "idx_project_task_name" ON "public"."project_task" USING btree (
   "name" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
 );
@@ -43,5 +61,12 @@ CREATE INDEX "idx_project_task_uuid" ON "public"."project_task" USING btree (
   "uuid" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST
 );
 
+-- ----------------------------
+-- Uniques structure for table project_task
+-- ----------------------------
 ALTER TABLE "public"."project_task" ADD CONSTRAINT "project_task_uuid_key" UNIQUE ("uuid");
+
+-- ----------------------------
+-- Primary Key structure for table project_task
+-- ----------------------------
 ALTER TABLE "public"."project_task" ADD CONSTRAINT "project_task_pkey" PRIMARY KEY ("id");
