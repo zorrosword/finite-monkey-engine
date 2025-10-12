@@ -32,13 +32,31 @@ class VulnerabilityScanner:
         return self._scan_standard_mode(tasks, task_manager, filter_func, is_gpt4)
 
     def _scan_standard_mode(self, tasks, task_manager, filter_func, is_gpt4):
-        """标准模式扫描"""
+        """标准模式扫描
+        
+        执行策略：
+        1. 按 group 分组任务
+        2. 同一个 group 内的任务串行执行（保证同组总结的顺序性）
+        3. 不同 group 之间并行执行（提升整体效率）
+        """
         max_threads = int(os.getenv("MAX_THREADS_OF_SCAN", 5))
         
-        def process_task(task):
-            self._process_single_task_standard(task, task_manager, filter_func, is_gpt4)
-            
-        ScanUtils.execute_parallel_scan(tasks, process_task, max_threads)
+        # 按 group 分组任务
+        group_dict = {}
+        for task in tasks:
+            group_uuid = getattr(task, 'group', '') or 'no_group'
+            if group_uuid not in group_dict:
+                group_dict[group_uuid] = []
+            group_dict[group_uuid].append(task)
+        
+        # 为每个 group 定义处理函数（串行处理 group 内的任务）
+        def process_group(group_tasks):
+            for task in group_tasks:
+                self._process_single_task_standard(task, task_manager, filter_func, is_gpt4)
+        
+        # 并行处理不同的 group
+        group_list = list(group_dict.values())
+        ScanUtils.execute_parallel_scan(group_list, process_group, max_threads)
         return tasks
 
     def _execute_vulnerability_scan(self, task, task_manager, is_gpt4: bool) -> str:
@@ -68,8 +86,11 @@ class VulnerabilityScanner:
                         self.logger.warning(f"任务 {task.name} 的rule解析失败: {e}")
                         rule_list = []
             
-            # 🎯 新增：基于group查询同组已有结果并生成总结
-            group_summary = self._get_group_results_summary(task, task_manager)
+            # 🎯 新增：基于group查询同组已有结果并生成总结（根据环境变量开关控制）
+            summary_in_reasoning = os.getenv("SUMMARY_IN_REASONING", "True").lower() == "true"
+            group_summary = ""
+            if summary_in_reasoning:
+                group_summary = self._get_group_results_summary(task, task_manager)
             
             # 手动组装prompt（使用任务的具体rule而不是索引）
             assembled_prompt = self._assemble_prompt_with_specific_rule(
@@ -78,8 +99,8 @@ class VulnerabilityScanner:
                 rule_key
             )
             
-            # 🎯 如果有同组结果总结，将其添加到prompt前面
-            if group_summary:
+            # 🎯 如果启用了同组总结且有总结内容，将其添加到prompt前面
+            if summary_in_reasoning and group_summary:
                 from prompt_factory.group_summary_prompt import GroupSummaryPrompt
                 enhanced_prefix = GroupSummaryPrompt.get_enhanced_reasoning_prompt_prefix()
                 assembled_prompt = enhanced_prefix + group_summary + "\n\n" + "=" * 80 + "\n\n" + assembled_prompt

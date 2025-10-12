@@ -459,10 +459,16 @@ def summarize_group_vulnerability_results(group_results_prompt: str) -> str:
         # 从model_config.json获取用于总结的模型配置
         # 使用专门的group_results_summarization模型进行总结
         model_key = "group_results_summarization"
-        
+        api_key = os.environ.get('OPENAI_API_KEY')
+        api_base = os.environ.get('OPENAI_API_BASE', '4.0.wokaai.com')
+
+        headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+        }
         # 构建API请求
         payload = {
-            "model": get_model_by_key(model_key),
+            "model": get_model(model_key),
             "messages": [
                 {
                     "role": "user", 
@@ -473,14 +479,12 @@ def summarize_group_vulnerability_results(group_results_prompt: str) -> str:
             "max_tokens": 1000   # 限制总结长度
         }
         
-        print(f"🤖 使用模型 {get_model_by_key(model_key)} 总结同组漏洞结果...")
+        print(f"🤖 使用模型 {get_model(model_key)} 总结同组漏洞结果...")
         
-        response = requests.post(
-            get_api_url(),
-            json=payload,
-            headers=get_headers(),
-            proxies=get_proxies()
-        )
+        response = requests.post(f'https://{api_base}/v1/chat/completions',
+                               headers=headers,
+                               json=payload)
+        response.raise_for_status()
         
         response_data = response.json()
         
