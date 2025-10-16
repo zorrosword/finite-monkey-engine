@@ -1,8 +1,8 @@
 {
   "openai_general": "gpt-4.1",
-  "code_assumptions_analysis": "claude-sonnet-4-20250514",
-  "vulnerability_detection": "gpt-5-mini",
-  "group_results_summarization": "gpt-5-mini",
+  "code_assumptions_analysis": "claude-sonnet-4-5",
+  "vulnerability_detection": "claude-sonnet-4-5",
+  "group_results_summarization": "claude-sonnet-4-5",
   "initial_vulnerability_validation": "deepseek-reasoner",
   "vulnerability_findings_json_extraction": "gpt-4o-mini",
   "additional_context_determination": "deepseek-reasoner",

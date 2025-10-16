@@ -10,6 +10,7 @@
 
 from typing import Dict, List
 import json
+import os
 
 # 复杂度分析相关导入
 try:
@@ -60,7 +61,7 @@ class ComplexityCalculator:
         Returns:
             Dict: 包含圈复杂度和认知复杂度的字典
         """
-        if not COMPLEXITY_ANALYSIS_ENABLED or not function_content:
+        if not function_content:
             return {'cyclomatic': 1, 'cognitive': 0, 'should_skip': False}
         
         try:
@@ -311,14 +312,22 @@ class ComplexityCalculator:
         - 函数内容长度 < 200 → 跳过扫描（短函数）
         - 其他函数 → 保留扫描（复杂函数）
         
+        环境变量控制：
+        - ENABLE_COMPLEXITY_FILTER=false: 禁用复杂度过滤，扫描所有函数
+        - ENABLE_COMPLEXITY_FILTER=true（默认）: 启用复杂度过滤，跳过简单函数
+        
         Args:
             public_functions_by_lang: 按语言分类的函数字典
             
         Returns:
             Dict: 过滤后的函数字典
         """
-        if not COMPLEXITY_ANALYSIS_ENABLED:
-            print("⚠️ 复杂度分析功能未启用，跳过过滤")
+        # 检查环境变量是否禁用复杂度过滤
+        enable_filter = os.getenv('ENABLE_COMPLEXITY_FILTER', 'true').lower() in ['true', '1', 'yes']
+        
+        if not enable_filter:
+            print("⚠️ 复杂度过滤功能已通过环境变量 ENABLE_COMPLEXITY_FILTER=false 禁用")
+            print("📋 将扫描所有函数，不进行复杂度过滤")
             return public_functions_by_lang
         
         filtered_functions = {

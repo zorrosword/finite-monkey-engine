@@ -951,7 +951,7 @@ class ResProcessor:
         
         try:
             # 对df进行漏洞归集处理
-            res_processor = ResProcessor(df, max_group_size=5, iteration_rounds=5, enable_chinese_translation=True)
+            res_processor = ResProcessor(df, max_group_size=5, iteration_rounds=15, enable_chinese_translation=True)
             processed_df = res_processor.process()
             
             # 确保所有必需的列都存在

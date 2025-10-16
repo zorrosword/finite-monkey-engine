@@ -167,7 +167,7 @@ if __name__ == '__main__':
     main_logger.info(f"   工作目录: {os.getcwd()}")
     main_logger.info(f"   环境变量已加载")
 
-    switch_production_or_test = 'direct_excel' # test / direct_excel
+    switch_production_or_test = 'test' # test / direct_excel
     main_logger.info(f"运行模式: {switch_production_or_test}")
 
     if switch_production_or_test == 'direct_excel':
@@ -216,7 +216,7 @@ if __name__ == '__main__':
         log_success(main_logger, "数据集加载完成", f"找到 {len(projects)} 个项目")
  
         # 设置项目参数
-        project_id = 'token0902'  # 使用存在的项目ID
+        project_id = 'vbsol3'  # 使用存在的项目ID
         project_path = ''
         main_logger.info(f"目标项目ID: {project_id}")
         project = Project(project_id, projects[project_id])

@@ -16,7 +16,7 @@ from prompt_factory.vul_prompt_common import VulPromptCommon
 import json
 from .business_flow_utils import BusinessFlowUtils
 from .config_utils import ConfigUtils
-from .complexity import complexity_calculator, COMPLEXITY_ANALYSIS_ENABLED
+from .complexity import complexity_calculator
 from .call_tree_utils import CallTreeUtils
 from .assumption_validation import AssumptionValidator
 
@@ -86,19 +86,21 @@ class PlanningProcessor:
             # 检查可见性
             visibility = func.get('visibility', '').lower()
             func_name = func.get('name', '')
+            relative_path = func.get('relative_file_path', '').lower()
             
             # 判断语言类型和public可见性
-            if func_name.endswith('.sol') or 'sol' in func.get('relative_file_path', '').lower():
+            # 注意：使用文件扩展名而不是路径中是否包含语言名称，避免误判（如 vbsol 项目被误判为 solidity）
+            if relative_path.endswith('.sol'):
                 if visibility in ['public', 'external']:
                     public_functions_by_lang['solidity'].append(func)
-            elif func_name.endswith('.rs') or 'rs' in func.get('relative_file_path', '').lower():
+            elif relative_path.endswith('.rs'):
                 if visibility == 'pub' or visibility == 'public':
                     public_functions_by_lang['rust'].append(func)
-            elif func_name.endswith('.cpp') or func_name.endswith('.c') or 'cpp' in func.get('relative_file_path', '').lower():
+            elif relative_path.endswith('.cpp') or relative_path.endswith('.c') or relative_path.endswith('.cc') or relative_path.endswith('.h'):
                 if visibility == 'public' or not visibility:  # C++默认public
                     if "exec" in func_name:
                         public_functions_by_lang['cpp'].append(func)
-            elif 'move' in func.get('relative_file_path', '').lower():
+            elif relative_path.endswith('.move'):
                 if visibility == 'public' or visibility == 'public(friend)':
                     public_functions_by_lang['move'].append(func)
         
@@ -191,8 +193,8 @@ class PlanningProcessor:
         
         # 🎯 基于复杂度过滤函数（基于fishcake项目分析优化）
         # 过滤策略：认知复杂度=0 且 圈复杂度≤2 的简单函数将被跳过
-        if COMPLEXITY_ANALYSIS_ENABLED:
-            public_functions_by_lang = complexity_calculator.filter_functions_by_complexity(public_functions_by_lang)
+        # 可通过环境变量 ENABLE_COMPLEXITY_FILTER=false 禁用此功能
+        public_functions_by_lang = complexity_calculator.filter_functions_by_complexity(public_functions_by_lang)
         
         tasks = []
         task_id = 0

@@ -205,6 +205,145 @@ class VulPromptCommon:
             "Confirm all division by zero underflow overflow and array bounds are handled",
         ]
 
+        # Category 1: Testing and Code Quality (Vulnerability #0)
+        solana_testing_quality_list = [
+            "Programs completely missing test suite with no unit, integration or mainnet fork tests",
+            "Missing negative test cases for unauthorized access attempts and error conditions",
+            "Missing edge case tests for boundary values, zero amounts, and maximum values",
+            "No access control verification tests to ensure only authorized users can execute functions",
+            "Tests not asserting state changes and protocol invariants after operations",
+            "Unimplemented test functions marked with placeholders like '-' or 'todo!'",
+            "Missing fuzz testing for financial calculations prone to precision or overflow errors",
+            "No integration tests simulating full user workflows and cross-contract interactions"
+        ]
+        
+        # Category 2: Account Validation and PDA Issues (Vulnerabilities #1, #2, #3, #9, #19, #32)
+        solana_account_validation_list = [
+            "PDA accounts missing seeds constraint allowing attacker to supply PDA belonging to different authority",
+            "PDA seeds missing authority/signer parameter enabling cross-authority data manipulation",
+            "PDA seeds missing governing state/context account enabling privilege escalation across contexts",
+            "Receipt PDAs derived without sale/event address allowing redemption across different sales",
+            "Token accounts validated only by owner and mint without enforcing deterministic canonical address",
+            "Non-deterministic vault addresses allowing phantom vault attacks to drain legitimate vaults",
+            "Missing Signer<'info> requirement for authority accounts allowing unauthorized operations",
+            "Unchecked accounts (UncheckedAccount) used without proper validation in instruction handlers",
+            "Account existence not checked before CPI creation attempts causing preemptive creation DoS",
+            "Missing init_if_needed causing failures when expected PDA already exists",
+            "Owner validation missing for accounts that should be owned by specific programs"
+        ]
+        
+        # Category 3: Arithmetic and Calculation Issues (Vulnerabilities #4, #6, #34, #35, #36)
+        solana_arithmetic_calculation_list = [
+            "Arithmetic operations using +, -, *, / instead of checked_add, checked_sub, checked_mul, checked_div",
+            "Division before multiplication causing precision loss in multi-step financial calculations",
+            "Multiple sequential divisions compounding precision loss in fee or conversion calculations",
+            "Fee calculations performed before final amount determination causing incorrect fee collection",
+            "Last buy adjusting price but fees already calculated on wrong amount",
+            "Interval-based pricing with partial final interval causing users to overpay beyond maximum",
+            "Price calculation not capping at advertised maximum when duration not evenly divisible",
+            "Fee formula discontinuities at phase boundaries creating abrupt jumps (e.g., 8.76% to 1%)",
+            "Account balance comparisons including rent-exempt reserve against values excluding rent",
+            "Invariant checks comparing account.lamports() directly without subtracting rent exemption",
+            "Converting between shares and amounts without proper precision scaling"
+        ]
+        
+        # Category 4: State Management Issues (Vulnerabilities #5, #10, #14, #15, #17, #33, #38)
+        solana_state_management_list = [
+            "State variables not updated after refunds causing stale values in subsequent calculations",
+            "Temporary state variables like last_total_shares_minted not decremented when reversing operations",
+            "State variable updates in update_settings function missing certain fields from input parameters",
+            "Critical fields like migration_token_allocation provided in params but never assigned",
+            "Price updates between withdrawal request and execution causing amount recalculation mismatches",
+            "Withdrawal amounts locked at request price but recalculated at execution with different price",
+            "Single failed operation in loop (e.g., closed pool) causing all subsequent operations to fail",
+            "One error blocking entire collection update instead of skipping failed items gracefully",
+            "State updates (balance -= amount) after external calls (transfer) enabling reentrancy attacks",
+            "Checks-Effects-Interactions pattern violated with effects happening after interactions",
+            "Input validation comparing self.field < self.other_field instead of input_param < self.field",
+            "Validation always checking current stored value instead of validating the new input parameter",
+            "Global state variables like claimed_supply not updated in refund/withdrawal functions",
+            "Tokens not returned to authority when users withdraw, leaving them permanently locked"
+        ]
+        
+        # Category 5: Token and Payment Handling (Vulnerabilities #7, #8, #13, #20, #21, #22, #23)
+        solana_token_payment_list = [
+            "Token account space hard-coded to 165 bytes failing for Token-2022 with extensions",
+            "Dynamic space calculation missing for Token-2022 requiring ExtensionType::try_calculate_account_len",
+            "Rent recipient accounts missing mut marker preventing account closure operations",
+            "Native SOL vs SPL token handling inconsistent with fees in SPL but payments in SOL",
+            "Fee collection using transfer_checked for SPL tokens when native_dst_asset flag indicates SOL payment",
+            "Token transfer amount using calculated value like calculate_cost(amount) instead of parameter amount_to_deposit",
+            "Base tokens not transferred from window to pair account when restaking expired withdrawals",
+            "LST tokens minted but corresponding base tokens remain locked in window account",
+            "Payment funds collected into Sale PDA or ATA with no withdraw_payments instruction",
+            "Organizers unable to retrieve collected SOL/SPL payments after sale ends",
+            "CPI transfer authority set to buyer.to_account_info() for sale's token account",
+            "Wrong authority used when sale PDA should be authority with signer seeds"
+        ]
+        
+        # Category 6: Fee and Economic Logic (Vulnerabilities #11, #12, #30)
+        solana_fee_economic_list = [
+            "Protocol fee and integrator fee parameters fully controlled by maker during order creation",
+            "Maker can set protocol_fee = 0 and integrator_fee = 0 to bypass all fees",
+            "Fee recipient accounts provided by user without validation against protocol fee wallet",
+            "No enforcement of minimum protocol fee allowing makers to bypass protocol revenue",
+            "Surplus fee condition bypassable by setting estimated_dst_amount to u64::MAX",
+            "Actual amount never exceeds user-inflated estimate preventing surplus fee trigger",
+            "Estimated amount parameters not validated for realism against oracle prices or min amounts",
+            "Oracle-based dynamic pricing without user max_payment parameter exposing to price volatility",
+            "Missing slippage protection allowing users to pay significantly more than expected"
+        ]
+        
+        # Category 7: Access Control and Authorization (Vulnerabilities #16, #24, #25, #31, #39)
+        solana_access_control_list = [
+            "Signature verification without expiry timestamp allowing indefinite signature reuse",
+            "DepositMetadata signatures missing nonce check enabling replay attacks",
+            "Signatures not bound to specific user pubkey allowing sharing between users",
+            "Admin claim_revenue function callable even when below min_threshold blocking user withdrawals",
+            "Admin front-running user withdrawal transactions by changing protocol state",
+            "Sale parameter updates (price, mint, etc.) allowed after sale start_time affecting pending transactions",
+            "Guardian can end_sale before official end_time preventing legitimate purchases",
+            "No end_time check in termination allowing premature sale ending",
+            "Sale creation with no restrictions, fees, or deposits enabling spam and ID exhaustion DoS",
+            "Global sale ID space exhaustible by attacker creating thousands of spam sales"
+        ]
+        
+        # Category 8: Input Validation and Parameter Issues (Vulnerabilities #17, #27, #30)
+        solana_input_validation_list = [
+            "Validation checking if self.capacity_amount < self.accumulated instead of capacity_amount (parameter) < self.accumulated",
+            "Always validating against current stored value instead of validating new input before assignment",
+            "Sale initialization accepting max_tokens_per_user > max_tokens_total creating impossible conditions",
+            "Sale accepting end_time < start_time or start_time in the past",
+            "Max_price_feed_age allowed to be 0 making all purchases impossible",
+            "Time validation missing minimum duration check (end_time - start_time >= MIN_DURATION)",
+            "Token price and amounts allowed to be zero causing division errors",
+            "Mint accounts not checked for initialization before using in operations",
+            "Array length consistency not validated when input has multiple parallel arrays"
+        ]
+        
+        # Category 9: Operational Continuity Issues (Vulnerabilities #18, #26, #29, #37, #40)
+        solana_operational_continuity_list = [
+            "Single withdrawal_enabled_flag checked in both request_withdrawal and withdraw (claim) operations",
+            "Disabling new requests inadvertently blocks claiming of already-approved withdrawals",
+            "Freeze state checks present (require!(!sale.is_frozen())) but no freeze_sale/unfreeze_sale instructions",
+            "Dead code creating false sense of security without actual pause mechanism",
+            "Account closure requiring amount == 0 allowing dust attack DoS by sending 1 token",
+            "Strict zero-balance check prevents legitimate closures when tiny amounts present",
+            "Proportional token distribution based on claimed_supply < sale_supply locking unclaimed difference",
+            "No recovery mechanism for tokens between sale_supply and claimed_supply",
+            "claim_tokens allowed without min_threshold check while withdraw_payment requires revenue < min_threshold",
+            "Inconsistent threshold enforcement allowing both claims and withdrawals in same state"
+        ]
+        
+        # Category 10: Space and Memory Management (Vulnerability #28)
+        solana_space_memory_list = [
+            "Account space calculation using size_of::<Data>() without adding 8-byte Anchor discriminator",
+            "PDA init with space = std::mem::size_of::<SaleData>() missing the required 8-byte prefix",
+            "Missing Data::LEN constant pattern where const LEN: usize = 8 + std::mem::size_of::<Self>()",
+            "Token-2022 space calculation not using ExtensionType::try_calculate_account_len for extensions",
+            "Hard-coded 165 bytes used instead of dynamic calculation based on mint's extension requirements"
+        ]
+
         # 组合后的检查列表 (3+3+3+2)
         permission_reentrancy_list = permission_control_list + reentrancy_list
         # module_call_fund_list = module_call_list + fund_management_list
@@ -219,6 +358,13 @@ class VulPromptCommon:
             # "permission_reentrancy": permission_reentrancy_list,
             "business_logic": business_logic_list,
             "fund_management": fund_management_list,
+            # "solana_testing_quality": solana_testing_quality_list,
+            "solana_account_validation": solana_account_validation_list,
+            "solana_arithmetic_calculation": solana_arithmetic_calculation_list,
+            "solana_state_management": solana_state_management_list,
+            "solana_token_payment": solana_token_payment_list,
+            "solana_fee_economic": solana_fee_economic_list,
+            "solana_access_control": solana_access_control_list,
             # "external_dependency_trade": external_dependency_trade_list,
             # "erc4626_security_1": erc4626_security_list_1,
             # "erc4626_security_2": erc4626_security_list_2,
