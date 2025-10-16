@@ -126,7 +126,6 @@ MAX_THREADS_OF_CONFIRMATION=50          # 确认阶段最大线程数
 BUSINESS_FLOW_COUNT=4                   # 业务流程重复数量（触发幻觉的数量）
 
 # 高级功能配置
-ENABLE_DIALOGUE_MODE=False              # 是否启用对话模式
 IGNORE_FOLDERS=node_modules,build,dist,test,tests,.git  # 忽略的文件夹
 
 # 检查清单配置

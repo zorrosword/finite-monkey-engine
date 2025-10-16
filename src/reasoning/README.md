@@ -101,16 +101,6 @@ scanner = VulnerabilityScanner(project_audit)
 results = scanner.do_scan(task_manager, is_gpt4=True)
 ```
 
-### Dialogue Mode Analysis
-```python
-import os
-
-# Enable dialogue mode
-os.environ["ENABLE_DIALOGUE_MODE"] = "true"
-
-# Scanner will automatically use dialogue mode
-results = scanner.do_scan(task_manager, filter_func=custom_filter)
-```
 
 ### Custom Filtering
 ```python
@@ -145,7 +135,6 @@ results = scanner.do_scan(
 
 The module supports various configuration through environment variables:
 
-- `ENABLE_DIALOGUE_MODE`: Enable/disable interactive dialogue mode
 - `MAX_CONCURRENT_SCANS`: Control parallel scanning threads
 - `DIALOGUE_HISTORY_LIMIT`: Set conversation history retention limits
 - `SCAN_TIMEOUT`: Configure timeout for individual scans

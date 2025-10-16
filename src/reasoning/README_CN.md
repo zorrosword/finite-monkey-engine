@@ -101,16 +101,6 @@ scanner = VulnerabilityScanner(project_audit)
 results = scanner.do_scan(task_manager, is_gpt4=True)
 ```
 
-### 对话模式分析
-```python
-import os
-
-# 启用对话模式
-os.environ["ENABLE_DIALOGUE_MODE"] = "true"
-
-# 扫描器将自动使用对话模式
-results = scanner.do_scan(task_manager, filter_func=custom_filter)
-```
 
 ### 自定义过滤
 ```python
@@ -145,7 +135,6 @@ results = scanner.do_scan(
 
 模块通过环境变量支持各种配置：
 
-- `ENABLE_DIALOGUE_MODE`：启用/禁用交互对话模式
 - `MAX_CONCURRENT_SCANS`：控制并行扫描线程数
 - `DIALOGUE_HISTORY_LIMIT`：设置对话历史保留限制
 - `SCAN_TIMEOUT`：配置单次扫描的超时时间

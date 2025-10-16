@@ -190,7 +190,6 @@ MAX_THREADS_OF_CONFIRMATION=50          # Maximum threads for confirmation phase
 BUSINESS_FLOW_COUNT=4                   # Business flow repeat count (hallucination triggers)
 
 # Advanced Feature Configuration
-ENABLE_DIALOGUE_MODE=False              # Whether to enable dialogue mode
 IGNORE_FOLDERS=node_modules,build,dist,test,tests,.git  # Folders to ignore
 
 # Checklist Configuration
