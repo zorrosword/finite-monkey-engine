@@ -172,6 +172,10 @@ class PlanningProcessor:
         - PURE_SCAN: 忽略checklist，为每个public函数创建 base_iteration_count 个任务
         - 其他模式: 为每个public函数 + 每个rule_key 创建 base_iteration_count 个任务
         
+        单文件模式 (SINGLE_FILE_MODE=true)：
+        - 以文件为单位创建任务，不获取downstream
+        - 每个文件作为一个business_flow_code
+        
         Args:
             max_depth: 最大深度限制
             
@@ -185,8 +189,15 @@ class PlanningProcessor:
         scan_mode = scan_config['scan_mode']
         base_iteration_count = scan_config['base_iteration_count']
         
+        # 检查是否启用单文件模式
+        single_file_mode = os.getenv('SINGLE_FILE_MODE', 'false').lower() == 'true'
+        
         print(f"📋 扫描模式: {scan_mode}")
         print(f"🔄 基础迭代次数: {base_iteration_count}")
+        
+        if single_file_mode:
+            print(f"📄 单文件模式: 已启用")
+            return self._create_single_file_tasks(scan_mode, base_iteration_count)
         
         # 获取所有public函数
         public_functions_by_lang = self.find_public_functions_by_language()
@@ -274,8 +285,8 @@ class PlanningProcessor:
                     # 使用call tree获取downstream内容
                     downstream_content = self.call_tree_utils.get_downstream_content_with_call_tree(func_name, max_depth)
 
-                    # 加上root func 的content
-                    downstream_content = public_func['content'] + '\n\n' + downstream_content
+                    # # 加上root func 的content
+                    # downstream_content = public_func['content'] + '\n\n' + downstream_content
                     
                     # 检查是否需要降低迭代次数
                     actual_iteration_count = base_iteration_count
@@ -327,6 +338,174 @@ class PlanningProcessor:
         
         return tasks
     
+    def _create_single_file_tasks(self, scan_mode: str, base_iteration_count: int) -> List[Dict]:
+        """单文件模式：为每个文件创建任务（扫描所有项目文件）
+        
+        Args:
+            scan_mode: 扫描模式
+            base_iteration_count: 基础迭代次数
+            
+        Returns:
+            List[Dict]: 任务列表
+        """
+        print("📄 单文件模式: 以文件为单位创建任务（扫描所有项目文件）")
+        
+        # 🎯 收集项目中的所有代码文件（不再过滤 public 函数）
+        file_set = set()
+        file_to_lang = {}
+        
+        # 从 functions_to_check 中获取所有文件路径
+        for func in self.functions_to_check:
+            file_path = func.get('absolute_file_path', '')
+            relative_path = func.get('relative_file_path', '')
+            
+            if file_path and relative_path:
+                # 跳过测试文件
+                if 'test' in relative_path.lower() or '.t.sol' in relative_path:
+                    continue
+                    
+                file_set.add(file_path)
+                
+                # 根据文件扩展名判断语言
+                if relative_path.endswith('.sol'):
+                    file_to_lang[file_path] = 'solidity'
+                elif relative_path.endswith('.rs'):
+                    file_to_lang[file_path] = 'rust'
+                elif relative_path.endswith('.move'):
+                    file_to_lang[file_path] = 'move'
+                elif relative_path.endswith(('.cpp', '.c', '.cc', '.h', '.hpp')):
+                    file_to_lang[file_path] = 'cpp'
+                elif relative_path.endswith('.go'):
+                    file_to_lang[file_path] = 'go'
+                else:
+                    file_to_lang[file_path] = 'unknown'
+        
+        print(f"📊 找到 {len(file_set)} 个项目文件")
+        
+        tasks = []
+        task_id = 0
+        
+        # 根据scan_mode决定是否使用checklist
+        if scan_mode == 'PURE_SCAN':
+            print("🎯 PURE_SCAN模式: 忽略所有checklist")
+            
+            for file_path in sorted(file_set):
+                lang = file_to_lang.get(file_path, 'unknown')
+                
+                # 读取整个文件内容
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        file_content = f.read()
+                except Exception as e:
+                    print(f"  ⚠️ 读取文件失败: {file_path} - {e}")
+                    continue
+                
+                # 获取相对路径作为显示名称
+                relative_path = os.path.relpath(file_path)
+                file_name = os.path.basename(file_path)
+                
+                print(f"  📄 处理文件: {relative_path}")
+                
+                # 为每个文件创建 base_iteration_count 个任务
+                for iteration in range(base_iteration_count):
+                    group_uuid = str(uuid.uuid4())
+                    
+                    # 创建一个虚拟的root_function对象（代表整个文件）
+                    file_function = {
+                        'name': file_name,
+                        'content': file_content,
+                        'start_line': 1,
+                        'end_line': file_content.count('\n') + 1,
+                        'relative_file_path': relative_path,
+                        'absolute_file_path': file_path,
+                        'visibility': 'file',
+                        'type': 'FileLevel'
+                    }
+                    
+                    task_data = {
+                        'task_id': task_id,
+                        'iteration_index': iteration + 1,
+                        'language': lang,
+                        'root_function': file_function,
+                        'rule_key': 'PURE_SCAN',
+                        'rule_list': [],
+                        'downstream_content': '',  # 单文件模式不使用downstream
+                        'max_depth': 0,
+                        'task_type': 'single_file_pure_scan',
+                        'group': group_uuid
+                    }
+                    
+                    tasks.append(task_data)
+                    task_id += 1
+                
+                print(f"    ✅ 创建 {base_iteration_count} 个任务")
+        
+        else:
+            # 标准模式：使用checklist
+            print(f"📄 标准模式: 使用checklist")
+            
+            # 获取所有检查规则
+            all_checklists = VulPromptCommon.vul_prompt_common_new()
+            
+            for file_path in sorted(file_set):
+                lang = file_to_lang.get(file_path, 'unknown')
+                
+                # 读取整个文件内容
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        file_content = f.read()
+                except Exception as e:
+                    print(f"  ⚠️ 读取文件失败: {file_path} - {e}")
+                    continue
+                
+                # 获取相对路径作为显示名称
+                relative_path = os.path.relpath(file_path)
+                file_name = os.path.basename(file_path)
+                
+                print(f"  📄 处理文件: {relative_path}")
+                
+                # 创建一个虚拟的root_function对象（代表整个文件）
+                file_function = {
+                    'name': file_name,
+                    'content': file_content,
+                    'start_line': 1,
+                    'end_line': file_content.count('\n') + 1,
+                    'relative_file_path': relative_path,
+                    'absolute_file_path': file_path,
+                    'visibility': 'file',
+                    'type': 'FileLevel'
+                }
+                
+                # 为每个检查类型创建任务
+                for rule_key, rule_list in all_checklists.items():
+                    group_uuid = str(uuid.uuid4())
+                    
+                    for iteration in range(base_iteration_count):
+                        task_data = {
+                            'task_id': task_id,
+                            'iteration_index': iteration + 1,
+                            'language': lang,
+                            'root_function': file_function,
+                            'rule_key': rule_key,
+                            'rule_list': rule_list,
+                            'downstream_content': '',  # 单文件模式不使用downstream
+                            'max_depth': 0,
+                            'task_type': 'single_file_checklist_scan',
+                            'group': group_uuid
+                        }
+                        
+                        tasks.append(task_data)
+                        task_id += 1
+                    
+                    print(f"    ✅ 创建任务组: {rule_key} - {base_iteration_count}个迭代")
+        
+        print(f"\n🎉 单文件模式任务创建完成！")
+        print(f"  总计: {len(tasks)} 个任务")
+        print(f"  文件数: {len(file_set)}")
+        print(f"  扫描模式: {scan_mode}")
+        print(f"  基础迭代次数: {base_iteration_count}")
+        
+        return tasks
     
         
 

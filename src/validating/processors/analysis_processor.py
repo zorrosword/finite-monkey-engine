@@ -817,6 +817,12 @@ class AnalysisProcessor:
         """获取上下游信息（复用planning中的实现）"""
         upstream_downstream = []
         
+        # 🔧 检查是否启用单文件模式
+        single_file_mode = os.getenv('SINGLE_FILE_MODE', 'false').lower() == 'true'
+        if single_file_mode:
+            print(f"    📄 单文件模式: 跳过获取额外上下文，直接使用 business_flow_code")
+            return upstream_downstream
+        
         # 获取project_audit实例
         project_audit = getattr(self, 'project_audit', None) or self.context_data.get('project_audit')
         if not project_audit:

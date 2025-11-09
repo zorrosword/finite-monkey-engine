@@ -361,14 +361,14 @@ class ComplexityCalculator:
                 
                 # 判断是否跳过 - 添加内容长度过滤
                 content_length = len(func_content)
-                should_skip_by_length = content_length < 200
+                should_skip_by_length = content_length < 50
                 
                 if complexity['should_skip'] or should_skip_by_length:
                     skip_reason = []
                     if complexity['should_skip']:
                         skip_reason.append(f"圈:{complexity['cyclomatic']}, 认知:{complexity['cognitive']}")
                     if should_skip_by_length:
-                        skip_reason.append(f"长度:{content_length}<200")
+                        skip_reason.append(f"长度:{content_length}<50")
                     
                     skipped_functions.append({
                         'name': func_name,

@@ -248,8 +248,8 @@
         "exclude_in_planning":"false",
         "exclude_directory":[]
     },
-    "vbsol4":{
-        "path":"vbsol",
+    "dca8":{
+        "path":"dca",
         "files":[
         ],
         "functions":[],
